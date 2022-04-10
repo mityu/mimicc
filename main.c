@@ -18,6 +18,7 @@ struct Token {
 
 struct Globals {
     Token* token;  // The token currently watches
+    char* source;  // The source code (input)
 } globals;
 
 
@@ -40,6 +41,18 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
+void errorAt(char *loc, char *fmt, ...) {
+    int pos = loc - globals.source;
+    va_list ap;
+    va_start(ap, fmt);
+
+    fprintf(stderr, "%s\n", globals.source);
+    fprintf(stderr, "%*s^ ", pos, " ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
+
 // Generate a new token, concatenate it to `current`, and return it.
 Token *newToken(TokenType type, Token *current, char *str) {
     Token *t = (Token*)calloc(1, sizeof(Token));
@@ -49,7 +62,8 @@ Token *newToken(TokenType type, Token *current, char *str) {
     return t;
 }
 
-Token *tokenize(char* p) {
+Token *tokenize() {
+    char *p = globals.source;
     Token head;
     head.next = NULL;
     Token *current = &head;
@@ -69,7 +83,7 @@ Token *tokenize(char* p) {
             continue;
         }
 
-        error("Cannot tokenize: %s", p);
+        errorAt(p, "Cannot tokenize");
     }
 
     newToken(TokenEOF, current, p);
@@ -94,7 +108,7 @@ void expectSign(char op) {
         globals.token = globals.token->next;
         return;
     }
-    error("'%c' is expected, but not.", op);
+    errorAt(globals.token->str, "'%c' is expected.", op);
 }
 
 // If the current token is the number token, consume the token and returns the
@@ -105,7 +119,7 @@ int expectNumber() {
         globals.token = globals.token->next;
         return val;
     }
-    error("Non number appears.");
+    errorAt(globals.token->str, "Non number appears.");
     return 0;
 }
 
@@ -119,7 +133,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    globals.token = tokenize(argv[1]);
+    globals.source = argv[1];
+    globals.token = tokenize();
 
     puts(".intel_syntax noprefix");
     puts(".globl main");
