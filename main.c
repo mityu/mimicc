@@ -47,7 +47,10 @@ void errorAt(char *loc, char *fmt, ...) {
     va_start(ap, fmt);
 
     fprintf(stderr, "%s\n", globals.source);
-    fprintf(stderr, "%*s^ ", pos, " ");
+    if (pos) {
+        fprintf(stderr, "%*s", pos, " ");
+    }
+    fprintf(stderr, "^ ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
