@@ -92,7 +92,7 @@ Token *tokenize() {
             ++p;
             continue;
         }
-        if (*p == '+' || *p == '-' || *p == '*' || *p == '/') {
+        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
             current = newToken(TokenReserved, current, p++);
             continue;
         }
