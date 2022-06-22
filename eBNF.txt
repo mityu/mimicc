@@ -1,43 +1,4 @@
-" BNF formatter
-function! s:format() abort
-  let curpos = getcurpos()
-  try
-    call cursor(1, 1)
-    let startline = search('\C^finish$', 'nW')
-  finally
-    call setpos('.', curpos)
-  endtry
-  if startline == 0
-    echohl Error
-    echomsg 'Failed to format: Could not find the end of format script'
-    echohl NONE
-    return
-  endif
-  let startline += 1
-  let lines =
-        \getline(startline, '$')
-        \->map({_, val -> s:isBnfLine(val) ? matchlist(val, '\v^\s*(\w+)\s*(.*)$')[1:2] : val})
-  let maxwidth = 0
-  for l in lines
-    if type(l) == v:t_list
-      let len = strlen(l[0])
-      if len > maxwidth
-        let maxwidth = len
-      endif
-    endif
-  endfor
-  eval lines->map({_, val -> type(val) == v:t_list ? val[0] .. repeat(' ', maxwidth - strlen(val[0]) + 1) .. val[1] : val})
-  call setline(startline, lines)
-endfunction
-
-function! s:isBnfLine(line) abort
-  return a:line !~# '^\s*\%(\_[#"]\|$\)'
-endfunction
-
-call s:format()
-
-delfunction s:format
-delfunction s:isBnfLine
+0;/\C\<Alith\>//^finish$/+1,$Alith =
 finish
 
 expr    = mul ("+" mul | "-" mul)*
