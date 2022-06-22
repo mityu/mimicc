@@ -162,6 +162,7 @@ Node *newNodeNum(int val) {
 
 Node *expr();
 Node *mul();
+Node *unary();
 Node *primary();
 
 Node *expr() {
@@ -178,15 +179,25 @@ Node *expr() {
 }
 
 Node *mul() {
-    Node *n = primary();
+    Node *n = unary();
     for (;;) {
         if (consumeToken('*')) {
-            n = newNode(NodeMul, n, primary());
+            n = newNode(NodeMul, n, unary());
         } else if (consumeToken('/')) {
-            n = newNode(NodeDiv, n, primary());
+            n = newNode(NodeDiv, n, unary());
         } else {
             return n;
         }
+    }
+}
+
+Node *unary() {
+    if (consumeToken('+')) {
+        return newNode(NodeAdd, newNodeNum(0), primary());
+    } else if (consumeToken('-')) {
+        return newNode(NodeSub, newNodeNum(0), primary());
+    } else {
+        return primary();
     }
 }
 
