@@ -199,6 +199,32 @@ Node *primary() {
     return newNodeNum(expectNumber());
 }
 
+void genCode(Node *n) {
+    if (n->kind == NodeNum) {
+        printf("  push %d\n", n->val);
+        return;
+    }
+
+    genCode(n->lhs);
+    genCode(n->rhs);
+
+    puts("  pop rdi");
+    puts("  pop rax");
+
+    if (n->kind == NodeAdd) {
+        puts("  add rax, rdi");
+    } else if (n->kind == NodeSub) {
+        puts("  sub rax, rdi");
+    } else if (n->kind == NodeMul) {
+        puts("  imul rax, rdi");
+    } else if (n->kind == NodeDiv) {
+        puts("  cqo");
+        puts("  idiv rdi");
+    }
+
+    puts("  push rax");
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Invalid arguments\n");
@@ -207,21 +233,16 @@ int main(int argc, char *argv[]) {
 
     globals.source = argv[1];
     globals.token = tokenize();
+    Node *n = expr();
 
     puts(".intel_syntax noprefix");
     puts(".globl main");
     puts("main:");
 
-    printf("  mov rax, %d\n", expectNumber());
-    while (!atEOF()) {
-        if (consumeToken('+')) {
-            printf("  add rax, %d\n", expectNumber());
-            continue;
-        }
-        expectSign('-');
-        printf("  sub rax, %d\n", expectNumber());
-    }
+    genCode(n);
 
+    puts("  pop rax");
     puts("  ret");
+
     return 0;
 }
