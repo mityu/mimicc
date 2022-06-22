@@ -16,6 +16,22 @@ struct Token {
     char *str;  // The token string
 };
 
+typedef enum {
+    NodeAdd, // +
+    NodeSub, // -
+    NodeMul, // *
+    NodeDiv, // /
+    NodeNum, // Integer
+} NodeKind;
+
+typedef struct Node Node;
+struct Node {
+    NodeKind kind;
+    Node *lhs;
+    Node *rhs;
+    int val; // Used when kind is NodeNum.
+};
+
 struct Globals {
     Token* token;  // The token currently watches
     char* source;  // The source code (input)
@@ -128,6 +144,59 @@ int expectNumber() {
 
 int atEOF() {
     return globals.token->type == TokenEOF;
+}
+
+Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *n = calloc(1, sizeof(Node));
+    n->kind = kind;
+    n->lhs =  lhs;
+    n->rhs =  rhs;
+    return n;
+}
+
+Node *newNodeNum(int val) {
+    Node *n = newNode(NodeNum, NULL, NULL);
+    n->val = val;
+    return n;
+}
+
+Node *expr();
+Node *mul();
+Node *primary();
+
+Node *expr() {
+    Node *n = mul();
+    for (;;) {
+        if (consumeToken('+')) {
+            n = newNode(NodeAdd, n, mul());
+        } else if (consumeToken('-')) {
+            n = newNode(NodeSub, n, mul());
+        } else {
+            return n;
+        }
+    }
+}
+
+Node *mul() {
+    Node *n = primary();
+    for (;;) {
+        if (consumeToken('*')) {
+            n = newNode(NodeMul, n, primary());
+        } else if (consumeToken('/')) {
+            n = newNode(NodeDiv, n, primary());
+        } else {
+            return n;
+        }
+    }
+}
+
+Node *primary() {
+    if (consumeToken('(')) {
+        Node *n = expr();
+        expectSign(')');
+        return n;
+    }
+    return newNodeNum(expectNumber());
 }
 
 int main(int argc, char *argv[]) {
