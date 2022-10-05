@@ -149,10 +149,9 @@ static Node *newNodeNum(int val) {
     return n;
 }
 
-// TODO: Argument should be `int offset` instead of `char charIdx`
-static Node *newNodeLVar(char charIdx) {
+static Node *newNodeLVar(int offset) {
     Node *n = newNode(NodeLVar, NULL, NULL);
-    n->offset = (int)charIdx * 8; // 8bytes for one variable (temporally).
+    n->offset = offset;
     return n;
 }
 
@@ -231,7 +230,8 @@ static Node *primary() {
 
     Token *t = consumeIdent();
     if (t) {
-        return newNodeLVar(t->str[0] - 'a' + 1);
+        // Use 8bytes per one variable (temporally).
+        return newNodeLVar((int)(t->str[0] - 'a' + 1) * 8);
     }
     return newNodeNum(expectNumber());
 }
