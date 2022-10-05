@@ -23,6 +23,15 @@ static int isDigit(char c) {
     return 0 <= c && c <= 9;
 }
 
+static int isAlnum(char c) {
+    if (('a' <= c && c <= 'z') ||
+            ('A' <= c && c <= 'Z') ||
+            ('0' <= c && c <= '9') ||
+            c == '_')
+        return 1;
+    return 0;
+}
+
 static int hasPrefix(char *s1, char *s2) {
     return memcmp(s1, s2, strlen(s2)) == 0;
 }
@@ -91,8 +100,11 @@ Token *tokenize() {
             current->len = p - q;
             continue;
         }
-        if ('a' <= *p && *p <= 'z') {
-            current = newToken(TokenIdent, current, p++, 1);
+        if ('a' <= *p && *p <= 'z' || *p == '_') {
+            char *q = p;
+            while (isAlnum(*p))
+                ++p;
+            current = newToken(TokenIdent, current, q, p - q);
             continue;
         }
 
@@ -173,6 +185,16 @@ static Node *newNodeLVar(int offset) {
     Node *n = newNode(NodeLVar, NULL, NULL);
     n->offset = offset;
     return n;
+}
+
+// Find local variable by name. Return LVar* when variable found. When not,
+// returns NULL.
+static LVar *findLVar(char *name, int len) {
+    for (LVar *v = globals.locals; v != NULL; v = v->next) {
+        if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+            return v;
+    }
+    return NULL;
 }
 
 void program() {
@@ -280,8 +302,20 @@ static Node *primary() {
 
     Token *t = consumeIdent();
     if (t) {
-        // Use 8bytes per one variable (temporally).
-        return newNodeLVar((int)(t->str[0] - 'a' + 1) * 8);
+        LVar *lvar = findLVar(t->str, t->len);
+        if (!lvar) {
+            int lastoffset = 0;
+            if (globals.locals)
+                lastoffset = globals.locals->offset;
+
+            lvar = (LVar*)calloc(1, sizeof(LVar));
+            lvar->name = t->str;
+            lvar->len = t->len;
+            lvar->offset = lastoffset + 8;  // Use 8bytes per one variable.
+            lvar->next = globals.locals;
+            globals.locals = lvar;
+        }
+        return newNodeLVar(lvar->offset);
     }
     return newNodeNum(expectNumber());
 }

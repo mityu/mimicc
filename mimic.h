@@ -39,9 +39,18 @@ struct Node {
     int offset; // Used when type is TokenLVar. Offset from base pointer.
 };
 
+typedef struct LVar LVar;
+struct LVar {
+    LVar *next;
+    char *name;
+    int len; // Length of name.
+    int offset;  // Offset from rbp.
+};
+
 typedef struct Globals Globals;
 struct Globals {
     Node *code[100]; // List of expressions.
+    LVar *locals;  // List of local variables.
     Token* token;  // The token currently watches
     char* source;  // The source code (input)
 };

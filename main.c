@@ -5,14 +5,20 @@ Globals globals;
 
 
 int main(int argc, char *argv[]) {
+    int lvar_count = 0;
+
     if (argc != 2) {
         fprintf(stderr, "Invalid arguments\n");
         return 1;
     }
 
     globals.source = argv[1];
+    globals.locals = NULL;
     globals.token = tokenize();
     program();
+
+    for (LVar *v = globals.locals; v != NULL; v = v->next)
+        ++lvar_count;
 
     puts(".intel_syntax noprefix");
     puts(".globl main");
@@ -21,7 +27,9 @@ int main(int argc, char *argv[]) {
     // Generate prologue.
     puts("  push rbp");
     puts("  mov rbp, rsp");
-    puts("  sub rsp, 208");  // 26 * 8 = 208; reserve memory for variables.
+    if (lvar_count) {
+        printf("  sub rsp, %d\n", lvar_count * 8);  // Reserve memories for local variables.
+    }
 
     for (int i = 0; globals.code[i] != NULL; i++) {
         genCode(globals.code[i]);

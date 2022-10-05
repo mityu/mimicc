@@ -63,5 +63,13 @@ assert 13 'a = 3; t = 10; a + t;'
 assert 30 'a = 3; t = 10; a * t;'
 assert 1 'a = 3; t = 10; a < t;'
 assert 0 'a = 3; t = 10; a > t;'
+assert 10 'foo = 10; foo;'
+assert 10 'foo = 10; bar = 20; foo;'
+assert 20 'foo = 10; bar = 20; bar;'
+assert 10 'foo = 2; bar = 5; foo * bar;'
+assert 5 'foo = 2; foo = 5; foo;'
+assert 5 'foo = 5; bar = foo; bar;'
+assert 1 'foo = 5; bar = (foo * foo == 25); bar;'
+assert 1 'bar = (foo = 5) == 5; bar;'
 
 echo OK
