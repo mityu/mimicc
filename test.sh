@@ -70,6 +70,6 @@ assert 10 'foo = 2; bar = 5; foo * bar;'
 assert 5 'foo = 2; foo = 5; foo;'
 assert 5 'foo = 5; bar = foo; bar;'
 assert 1 'foo = 5; bar = (foo * foo == 25); bar;'
-assert 1 'bar = (foo = 5) == 5; bar;'
+assert 1 'bar = ((foo = 5) == 5); bar;'
 
 echo OK
