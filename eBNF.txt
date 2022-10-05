@@ -1,11 +1,13 @@
-0;/\C\<Alith\>//^finish$/+1,$Alith =
+0;/\C\<Alith\>//^finish$/+1,$Alith \%(=.*\)\@<!=
 finish
 
-program = stmt*
-stmt    = expr ";"
-expr    = assign
-assign  = add ("=" assign)?
-add     = mul ("+" mul | "-" mul)*
-mul     = unary ("*" unary | "/" unary)*
-unary   = ("+" | "-")? primary
-primary = num | ident | "(" expr ")"
+program    = stmt*
+stmt       = expr ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add (">" add | "<" add | ">=" add | "<=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | ident | "(" expr ")"

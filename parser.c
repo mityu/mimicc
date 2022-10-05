@@ -7,6 +7,8 @@
 static Node *stmt();
 static Node *expr();
 static Node *assign();
+static Node *equality();
+static Node *relational();
 static Node *add();
 static Node *mul();
 static Node *unary();
@@ -19,6 +21,10 @@ static int isSpace(char c) {
 static int isDigit(char c) {
     c = c - '0';
     return 0 <= c && c <= 9;
+}
+
+static int hasPrefix(char *s1, char *s2) {
+    return memcmp(s1, s2, strlen(s2)) == 0;
 }
 
 
@@ -67,7 +73,14 @@ Token *tokenize() {
             ++p;
             continue;
         }
-        if (strchr("+-*/()=;", *p)) {
+
+        if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
+                hasPrefix(p, ">=") || hasPrefix(p, "<=")) {
+            current = newToken(TokenReserved, current, p, 2);
+            p += 2;
+            continue;
+        }
+        if (strchr("+-*/()=;<>", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -95,6 +108,7 @@ Token *tokenize() {
 // TRUE.
 static int consumeToken(char *op) {
     if (globals.token->type == TokenReserved &&
+            strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
         globals.token = globals.token->next;
         return 1;
@@ -117,6 +131,7 @@ static Token *consumeIdent() {
 // reports an error.
 static void expectSign(char *op) {
     if (globals.token->type == TokenReserved &&
+            strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
         globals.token = globals.token->next;
         return;
@@ -183,11 +198,41 @@ static Node *expr() {
 }
 
 static Node *assign() {
-    Node *n = add();
+    Node *n = equality();
     if (consumeToken("=")) {
         n = newNode(NodeAssign, n, assign());
     }
     return n;
+}
+
+static Node *equality() {
+    Node *n = relational();
+    for (;;) {
+        if (consumeToken("==")) {
+            n = newNode(NodeEq, n, relational());
+        } else if (consumeToken("!=")) {
+            n = newNode(NodeNeq, n, relational());
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *relational() {
+    Node *n = add();
+    for (;;) {
+        if (consumeToken("<")) {
+            n = newNode(NodeLT, n, add());
+        } else if (consumeToken(">")) {
+            n = newNode(NodeLT, add(), n);
+        } else if (consumeToken("<=")) {
+            n = newNode(NodeLE, n, add());
+        } else if (consumeToken(">=")) {
+            n = newNode(NodeLE, add(), n);
+        } else {
+            return n;
+        }
+    }
 }
 
 static Node *add() {

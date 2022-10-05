@@ -40,6 +40,7 @@ void genCode(Node *n) {
         puts("  pop rax");
         puts("  mov rax, [rax]");
         puts("  push rax");
+
         return;
     } else if (n->kind == NodeAssign) {
         genCodeLVal(n->lhs);
@@ -64,6 +65,7 @@ void genCode(Node *n) {
         puts("  pop rax");
         puts("  mov [rax], rdi");
         puts("  push rdi");
+        return;
     }
 
     genCode(n->lhs);
@@ -81,6 +83,22 @@ void genCode(Node *n) {
     } else if (n->kind == NodeDiv) {
         puts("  cqo");
         puts("  idiv rdi");
+    } else if (n->kind == NodeEq) {
+        puts("  cmp rax, rdi");
+        puts("  sete al");
+        puts("  movzb rax, al");
+    } else if (n->kind == NodeNeq) {
+        puts("  cmp rax, rdi");
+        puts("  setne al");
+        puts("  movzb rax, al");
+    } else if (n->kind == NodeLT) {
+        puts("  cmp rax, rdi");
+        puts("  setl al");
+        puts("  movzb rax, al");
+    } else if (n->kind == NodeLE) {
+        puts("  cmp rax, rdi");
+        puts("  setle al");
+        puts("  movzb rax, al");
     }
 
     puts("  push rax");

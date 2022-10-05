@@ -21,6 +21,10 @@ typedef enum {
     NodeSub, // -
     NodeMul, // *
     NodeDiv, // /
+    NodeEq, // ==
+    NodeNeq, // !=
+    NodeLT, // <
+    NodeLE, // <=
     NodeNum, // Integer
     NodeLVar, // Left hand side value (variable)
     NodeAssign,
