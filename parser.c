@@ -3,6 +3,14 @@
 #include <stdarg.h>
 #include "mimic.h"
 
+Node *stmt();
+Node *expr();
+Node *assign();
+Node *add();
+Node *mul();
+Node *unary();
+Node *primary();
+
 int isSpace(char c) {
     return c == ' ' || c == '\n' || c == '\t';
 }
@@ -57,13 +65,18 @@ Token *tokenize() {
             ++p;
             continue;
         }
-        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
+        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')' || *p == '=' || *p == ';') {
             current = newToken(TokenReserved, current, p++);
             continue;
         }
         if (isDigit(*p)) {
             current = newToken(TokenNumber, current, p);
             current->val = strtol(p, &p, 10);
+            continue;
+        }
+        if ('a' <= *p && *p <= 'z') {
+            current = newToken(TokenIdent, current, p++);
+            // TODO: set token length
             continue;
         }
 
@@ -125,7 +138,44 @@ Node *newNodeNum(int val) {
     return n;
 }
 
+// TODO: Argument should be `int offset` instead of `char charIdx`
+Node *newNodeLVar(char charIdx) {
+    Node *n = newNode(NodeLVar, NULL, NULL);
+    n->offset = (int)charIdx * 8; // 8bytes for one variable (temporally).
+    return n;
+}
+
+void program() {
+    int i = 0;
+    while (!atEOF()) {
+        globals.code[i++] = stmt();
+        if (i >= 100) { // TODO: Remove magic number
+            error("Too many expressions. Hanged.");
+        }
+    }
+    globals.code[i] = NULL;
+}
+
+Node *stmt() {
+    Node *n = expr();
+    expectSign(';');
+    return n;
+}
+
 Node *expr() {
+    Node *n = assign();
+    return n;
+}
+
+Node *assign() {
+    Node *n = add();
+    if (consumeToken('=')) {
+        n = newNode(NodeAssign, n, assign());
+    }
+    return n;
+}
+
+Node *add() {
     Node *n = mul();
     for (;;) {
         if (consumeToken('+')) {
@@ -165,6 +215,13 @@ Node *primary() {
     if (consumeToken('(')) {
         Node *n = expr();
         expectSign(')');
+        return n;
+    }
+
+    // TODO: Add consumeIdent()?
+    if (globals.token->type == TokenIdent) {
+        Node *n = newNodeLVar(globals.token->str[0] - 'a' + 1);
+        globals.token = globals.token->next;
         return n;
     }
     return newNodeNum(expectNumber());

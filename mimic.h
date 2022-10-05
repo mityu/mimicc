@@ -2,6 +2,7 @@
 #define HEADER_MIMIC_H
 typedef enum {
     TokenReserved,
+    TokenIdent,
     TokenNumber,
     TokenEOF,
 } TokenType;
@@ -20,6 +21,8 @@ typedef enum {
     NodeMul, // *
     NodeDiv, // /
     NodeNum, // Integer
+    NodeLVar, // Left hand side value (variable)
+    NodeAssign,
 } NodeKind;
 
 typedef struct Node Node;
@@ -28,19 +31,19 @@ struct Node {
     Node *lhs;
     Node *rhs;
     int val; // Used when kind is NodeNum.
+    int offset; // Used when type is TokenLVar. Offset from base pointer.
 };
 
 typedef struct Globals Globals;
 struct Globals {
+    Node *code[100]; // List of expressions.
     Token* token;  // The token currently watches
     char* source;  // The source code (input)
 };
 extern Globals globals;
 
 void genCode(Node *n);
+void error(char *fmt, ...);
 Token *tokenize();
-Node *expr();
-Node *mul();
-Node *unary();
-Node *primary();
+void program();
 #endif // HEADER_MIMIC_H
