@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include "mimic.h"
 
 static Node *stmt();
@@ -46,10 +47,11 @@ static void errorAt(char *loc, char *fmt, ...) {
 }
 
 // Generate a new token, concatenate it to `current`, and return it.
-static Token *newToken(TokenType type, Token *current, char *str) {
+static Token *newToken(TokenType type, Token *current, char *str, int len) {
     Token *t = (Token*)calloc(1, sizeof(Token));
     t->type = type;
     t->str = str;
+    t->len = len;
     current->next = t;
     return t;
 }
@@ -65,33 +67,35 @@ Token *tokenize() {
             ++p;
             continue;
         }
-        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')' || *p == '=' || *p == ';') {
-            current = newToken(TokenReserved, current, p++);
+        if (strchr("+-*/()=;", *p)) {
+            current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
         if (isDigit(*p)) {
-            current = newToken(TokenNumber, current, p);
+            current = newToken(TokenNumber, current, p, 0);
+            char *q = p;
             current->val = strtol(p, &p, 10);
+            current->len = p - q;
             continue;
         }
         if ('a' <= *p && *p <= 'z') {
-            current = newToken(TokenIdent, current, p++);
-            // TODO: set token length
+            current = newToken(TokenIdent, current, p++, 1);
             continue;
         }
 
         errorAt(p, "Cannot tokenize");
     }
 
-    newToken(TokenEOF, current, p);
+    newToken(TokenEOF, current, p, 0);
 
     return head.next;
 }
 
 // If the current token is the expected token, consume the token and returns
 // TRUE.
-static int consumeToken(char op) {
-    if (globals.token->type == TokenReserved && *globals.token->str == op) {
+static int consumeToken(char *op) {
+    if (globals.token->type == TokenReserved &&
+            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
         globals.token = globals.token->next;
         return 1;
     }
@@ -111,12 +115,13 @@ static Token *consumeIdent() {
 
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
-static void expectSign(char op) {
-    if (globals.token->type == TokenReserved && *globals.token->str == op) {
+static void expectSign(char *op) {
+    if (globals.token->type == TokenReserved &&
+            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
         globals.token = globals.token->next;
         return;
     }
-    errorAt(globals.token->str, "'%c' is expected.", op);
+    errorAt(globals.token->str, "'%s' is expected.", op);
 }
 
 // If the current token is the number token, consume the token and returns the
@@ -168,7 +173,7 @@ void program() {
 
 static Node *stmt() {
     Node *n = expr();
-    expectSign(';');
+    expectSign(";");
     return n;
 }
 
@@ -179,7 +184,7 @@ static Node *expr() {
 
 static Node *assign() {
     Node *n = add();
-    if (consumeToken('=')) {
+    if (consumeToken("=")) {
         n = newNode(NodeAssign, n, assign());
     }
     return n;
@@ -188,9 +193,9 @@ static Node *assign() {
 static Node *add() {
     Node *n = mul();
     for (;;) {
-        if (consumeToken('+')) {
+        if (consumeToken("+")) {
             n = newNode(NodeAdd, n, mul());
-        } else if (consumeToken('-')) {
+        } else if (consumeToken("-")) {
             n = newNode(NodeSub, n, mul());
         } else {
             return n;
@@ -201,9 +206,9 @@ static Node *add() {
 static Node *mul() {
     Node *n = unary();
     for (;;) {
-        if (consumeToken('*')) {
+        if (consumeToken("*")) {
             n = newNode(NodeMul, n, unary());
-        } else if (consumeToken('/')) {
+        } else if (consumeToken("/")) {
             n = newNode(NodeDiv, n, unary());
         } else {
             return n;
@@ -212,9 +217,9 @@ static Node *mul() {
 }
 
 static Node *unary() {
-    if (consumeToken('+')) {
+    if (consumeToken("+")) {
         return newNode(NodeAdd, newNodeNum(0), primary());
-    } else if (consumeToken('-')) {
+    } else if (consumeToken("-")) {
         return newNode(NodeSub, newNodeNum(0), primary());
     } else {
         return primary();
@@ -222,9 +227,9 @@ static Node *unary() {
 }
 
 static Node *primary() {
-    if (consumeToken('(')) {
+    if (consumeToken("(")) {
         Node *n = expr();
-        expectSign(')');
+        expectSign(")");
         return n;
     }
 

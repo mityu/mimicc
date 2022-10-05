@@ -12,7 +12,8 @@ struct Token {
     TokenType type;
     Token *next;
     int val;    // The number when type == TokenNumber.
-    char *str;  // The token string
+    char *str;  // The token string.
+    int len;    // The token length.
 };
 
 typedef enum {
