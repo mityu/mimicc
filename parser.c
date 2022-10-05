@@ -98,6 +98,17 @@ int consumeToken(char op) {
     return 0;
 }
 
+// If the type of the current token is TokenIdent, consume the token and
+// returns the pointer to token structure.  If not, returns NULL instead.
+Token *consumeIdent() {
+    if (globals.token->type == TokenIdent) {
+        Token *t = globals.token;
+        globals.token = globals.token->next;
+        return t;
+    }
+    return NULL;
+}
+
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
 void expectSign(char op) {
@@ -218,11 +229,9 @@ Node *primary() {
         return n;
     }
 
-    // TODO: Add consumeIdent()?
-    if (globals.token->type == TokenIdent) {
-        Node *n = newNodeLVar(globals.token->str[0] - 'a' + 1);
-        globals.token = globals.token->next;
-        return n;
+    Token *t = consumeIdent();
+    if (t) {
+        return newNodeLVar(t->str[0] - 'a' + 1);
     }
     return newNodeNum(expectNumber());
 }
