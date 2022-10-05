@@ -61,5 +61,7 @@ assert 10 'a = b = 10; a;'
 assert 10 'a = b = 10; b;'
 assert 13 'a = 3; t = 10; a + t;'
 assert 30 'a = 3; t = 10; a * t;'
+assert 1 'a = 3; t = 10; a < t;'
+assert 0 'a = 3; t = 10; a > t;'
 
 echo OK
