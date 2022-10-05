@@ -3,19 +3,19 @@
 #include <stdarg.h>
 #include "mimic.h"
 
-Node *stmt();
-Node *expr();
-Node *assign();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
+static Node *stmt();
+static Node *expr();
+static Node *assign();
+static Node *add();
+static Node *mul();
+static Node *unary();
+static Node *primary();
 
-int isSpace(char c) {
+static int isSpace(char c) {
     return c == ' ' || c == '\n' || c == '\t';
 }
 
-int isDigit(char c) {
+static int isDigit(char c) {
     c = c - '0';
     return 0 <= c && c <= 9;
 }
@@ -30,7 +30,7 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-void errorAt(char *loc, char *fmt, ...) {
+static void errorAt(char *loc, char *fmt, ...) {
     int pos = loc - globals.source;
     va_list ap;
     va_start(ap, fmt);
@@ -46,7 +46,7 @@ void errorAt(char *loc, char *fmt, ...) {
 }
 
 // Generate a new token, concatenate it to `current`, and return it.
-Token *newToken(TokenType type, Token *current, char *str) {
+static Token *newToken(TokenType type, Token *current, char *str) {
     Token *t = (Token*)calloc(1, sizeof(Token));
     t->type = type;
     t->str = str;
@@ -90,7 +90,7 @@ Token *tokenize() {
 
 // If the current token is the expected token, consume the token and returns
 // TRUE.
-int consumeToken(char op) {
+static int consumeToken(char op) {
     if (globals.token->type == TokenReserved && *globals.token->str == op) {
         globals.token = globals.token->next;
         return 1;
@@ -100,7 +100,7 @@ int consumeToken(char op) {
 
 // If the type of the current token is TokenIdent, consume the token and
 // returns the pointer to token structure.  If not, returns NULL instead.
-Token *consumeIdent() {
+static Token *consumeIdent() {
     if (globals.token->type == TokenIdent) {
         Token *t = globals.token;
         globals.token = globals.token->next;
@@ -111,7 +111,7 @@ Token *consumeIdent() {
 
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
-void expectSign(char op) {
+static void expectSign(char op) {
     if (globals.token->type == TokenReserved && *globals.token->str == op) {
         globals.token = globals.token->next;
         return;
@@ -121,7 +121,7 @@ void expectSign(char op) {
 
 // If the current token is the number token, consume the token and returns the
 // value. Otherwise reports an error.
-int expectNumber() {
+static int expectNumber() {
     if (globals.token->type == TokenNumber) {
         int val = globals.token->val;
         globals.token = globals.token->next;
@@ -131,11 +131,11 @@ int expectNumber() {
     return 0;
 }
 
-int atEOF() {
+static int atEOF() {
     return globals.token->type == TokenEOF;
 }
 
-Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
+static Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
     n->lhs =  lhs;
@@ -143,14 +143,14 @@ Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
     return n;
 }
 
-Node *newNodeNum(int val) {
+static Node *newNodeNum(int val) {
     Node *n = newNode(NodeNum, NULL, NULL);
     n->val = val;
     return n;
 }
 
 // TODO: Argument should be `int offset` instead of `char charIdx`
-Node *newNodeLVar(char charIdx) {
+static Node *newNodeLVar(char charIdx) {
     Node *n = newNode(NodeLVar, NULL, NULL);
     n->offset = (int)charIdx * 8; // 8bytes for one variable (temporally).
     return n;
@@ -167,18 +167,18 @@ void program() {
     globals.code[i] = NULL;
 }
 
-Node *stmt() {
+static Node *stmt() {
     Node *n = expr();
     expectSign(';');
     return n;
 }
 
-Node *expr() {
+static Node *expr() {
     Node *n = assign();
     return n;
 }
 
-Node *assign() {
+static Node *assign() {
     Node *n = add();
     if (consumeToken('=')) {
         n = newNode(NodeAssign, n, assign());
@@ -186,7 +186,7 @@ Node *assign() {
     return n;
 }
 
-Node *add() {
+static Node *add() {
     Node *n = mul();
     for (;;) {
         if (consumeToken('+')) {
@@ -199,7 +199,7 @@ Node *add() {
     }
 }
 
-Node *mul() {
+static Node *mul() {
     Node *n = unary();
     for (;;) {
         if (consumeToken('*')) {
@@ -212,7 +212,7 @@ Node *mul() {
     }
 }
 
-Node *unary() {
+static Node *unary() {
     if (consumeToken('+')) {
         return newNode(NodeAdd, newNodeNum(0), primary());
     } else if (consumeToken('-')) {
@@ -222,7 +222,7 @@ Node *unary() {
     }
 }
 
-Node *primary() {
+static Node *primary() {
     if (consumeToken('(')) {
         Node *n = expr();
         expectSign(')');
