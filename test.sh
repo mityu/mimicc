@@ -17,16 +17,13 @@ assert() {
   fi
 }
 
-assert 0 'return 0;'
 assert 42 'return 42;'
 assert 4 'return 5-3+2;'
 assert 6 'return 5+3-2;'
-assert 4 'return  5 - 3 + 2 ;'
 assert 6 'return  5 + 3 - 2 ;'
 assert 3 'return 6 / 2;'
 assert 3 'return 7 / 2;'
 assert 8 'return 10-4/2;'
-assert 18 'return 4*3+3*2;'
 assert 18 'return  4 * 3 + 3 * 2;'
 assert 11 'return 5+3*2;'
 assert 10 'return 15/3*2;'
@@ -84,5 +81,6 @@ assert 10 'for (;1;) return 10;'
 assert 10 'for (;;1) return 10;'
 assert 10 'while (1) return 10;'
 assert 10 'while (0) return 3; return 10;'
+assert 50 'a = 0; while (a < 1) while (a < 2) a = a+1; return 50;'
 
 echo OK
