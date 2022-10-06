@@ -144,6 +144,24 @@ void genCode(Node *n) {
         }
         printf(".Lend%d:\n", n->blockID);
         return;
+    } else if (n->kind == NodeFor) {
+        if (n->initializer) {
+            genCode(n->initializer);
+        }
+        printf(".Lbegin%d:\n", n->blockID);
+        if (n->condition) {
+            genCode(n->condition);
+        }
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf("  je .Lend%d\n", n->blockID);
+        genCode(n->body);
+        if (n->iterator) {
+            genCode(n->iterator);
+        }
+        printf("  jmp .Lbegin%d\n", n->blockID);
+        printf(".Lend%d:\n", n->blockID);
+        return;
     }
 
     genCode(n->lhs);

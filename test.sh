@@ -77,5 +77,10 @@ assert 10 'if (0) return 42; return 10;'
 assert 10 'if (1) if (0) return 42; return 10;'
 assert 42 'if (1) if (1) return 42; return 10;'
 assert 20 'if (0) return 10; else return 20; return 30;'
+assert 6 'a = 0; for (i = 0; i < 3; i = i + 1) a = a + i + 1; return a;'
+assert 10 'for (;;) return 10;'
+assert 10 'for (1;;) return 10;'
+assert 10 'for (;1;) return 10;'
+assert 10 'for (;;1) return 10;'
 
 echo OK

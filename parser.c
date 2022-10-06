@@ -62,6 +62,10 @@ static void errorAt(char *loc, char *fmt, ...) {
     exit(1);
 }
 
+static int isToken(char *p, char *op) {
+    return hasPrefix(p, op) && !isAlnum(p[strlen(op)]);
+}
+
 // Generate a new token, concatenate it to `current`, and return the new one.
 static Token *newToken(TokenType type, Token *current, char *str, int len) {
     Token *t = (Token*)calloc(1, sizeof(Token));
@@ -84,16 +88,22 @@ Token *tokenize() {
             continue;
         }
 
-        if (hasPrefix(p, "if") && !isAlnum(p[2])) {
+        if (isToken(p, "if")) {
             current = newToken(TokenIf, current, p, 2);
             p += 2;
             continue;
         }
 
-        if (hasPrefix(p, "else") && !isAlnum(p[4])) {
+        if (isToken(p, "else")) {
             // TODO: Check else if
             current = newToken(TokenElse, current, p, 4);
             p += 4;
+            continue;
+        }
+
+        if (isToken(p, "for")) {
+            current = newToken(TokenFor, current, p, 3);
+            p += 3;
             continue;
         }
 
@@ -216,6 +226,15 @@ static Node *newNodeLVar(int offset) {
     return n;
 }
 
+static Node *newNodeFor() {
+    Node *n = newNode(NodeFor, NULL, NULL);
+    n->initializer = NULL;
+    n->condition = NULL;
+    n->iterator = NULL;
+    n->blockID = globals.blockCount++;
+    return n;
+}
+
 // Find local variable by name. Return LVar* when variable found. When not,
 // returns NULL.
 static LVar *findLVar(char *name, int len) {
@@ -265,6 +284,23 @@ static Node *stmt() {
             }
         }
 
+        return n;
+    } else if (consumeCertainTokenType(TokenFor)) {
+        Node *n = newNodeFor();
+        expectSign("(");
+        if (!consumeReserved(";")) {
+            n->initializer = expr();
+            expectSign(";");
+        }
+        if (!consumeReserved(";")) {
+            n->condition = expr();
+            expectSign(";");
+        }
+        if (!consumeReserved(")")) {
+            n->iterator = expr();
+            expectSign(")");
+        }
+        n->body = stmt();
         return n;
     } else {
         Node *n = expr();
