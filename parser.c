@@ -33,7 +33,7 @@ static int isAlnum(char c) {
 }
 
 static int hasPrefix(char *s1, char *s2) {
-    return memcmp(s1, s2, strlen(s2)) == 0;
+    return strncmp(s1, s2, strlen(s2)) == 0;
 }
 
 
@@ -83,6 +83,11 @@ Token *tokenize() {
             continue;
         }
 
+        if (hasPrefix(p, "return") && !isAlnum(p[6])) {
+            current = newToken(TokenReturn, current, p, 6);
+            p += 6;
+            continue;
+        }
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")) {
             current = newToken(TokenReserved, current, p, 2);
@@ -137,6 +142,16 @@ static Token *consumeIdent() {
         return t;
     }
     return NULL;
+}
+
+// If the type of the current token is TokenReturn, consume the token and
+// returns TRUE.
+static int consumeReturn() {
+    if (globals.token->type == TokenReturn) {
+        globals.token = globals.token->next;
+        return 1;
+    }
+    return 0;
 }
 
 // If the current token is the expected sign, consume the token. Otherwise
@@ -209,9 +224,16 @@ void program() {
 }
 
 static Node *stmt() {
-    Node *n = expr();
-    expectSign(";");
-    return n;
+    if (consumeReturn()) {
+        Node *n = expr();
+        expectSign(";");
+        n = newNode(NodeReturn, n, NULL);
+        return n;
+    } else {
+        Node *n = expr();
+        expectSign(";");
+        return n;
+    }
 }
 
 static Node *expr() {

@@ -66,6 +66,13 @@ void genCode(Node *n) {
         puts("  mov [rax], rdi");
         puts("  push rdi");
         return;
+    } else if (n->kind == NodeReturn) {
+        genCode(n->lhs);
+        puts("  pop rax");
+        puts("  mov rsp, rbp");
+        puts("  pop rbp");
+        puts("  ret");
+        return;
     }
 
     genCode(n->lhs);

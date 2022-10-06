@@ -4,6 +4,7 @@ typedef enum {
     TokenReserved,
     TokenIdent,
     TokenNumber,
+    TokenReturn,
     TokenEOF,
 } TokenType;
 
@@ -27,7 +28,8 @@ typedef enum {
     NodeLE, // <=
     NodeNum, // Integer
     NodeLVar, // Left hand side value (variable)
-    NodeAssign,
+    NodeAssign, // {lhs} = {rhs};
+    NodeReturn, // return {expr};
 } NodeKind;
 
 typedef struct Node Node;
