@@ -284,7 +284,9 @@ static Node *stmt() {
         return n;
     } else if (consumeCertainTokenType(TokenIf)) {
         Node *n = newNode(NodeIf, NULL, NULL);
-        Node *lastElseblock = NULL;
+        Node elseblock;
+        Node *lastElse = &elseblock;
+        elseblock.next = NULL;
         n->blockID = globals.blockCount++;
 
         expectSign("(");
@@ -294,15 +296,11 @@ static Node *stmt() {
 
         if (consumeCertainTokenType(TokenElse)) {
             Node *e = newNode(NodeElse, NULL, NULL);
-            e->elseblock = NULL;
             e->body = stmt();
-            if (n->elseblock == NULL) {
-                n->elseblock = e;
-            } else {
-                lastElseblock->elseblock = e;
-                lastElseblock = e;
-            }
+            lastElse->next = e;
+            lastElse = lastElse->next;
         }
+        n->elseblock = elseblock.next;
 
         return n;
     } else if (consumeCertainTokenType(TokenFor)) {
