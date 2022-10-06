@@ -62,18 +62,6 @@ static void errorAt(char *loc, char *fmt, ...) {
     exit(1);
 }
 
-// If `p` has the control syntax tokenifier `token` at the head, skip `token`,
-// creates new token, and returns TRUE.  Otherwise just returns FALSE.
-// static int tokenizeIdentToken(char *p, char *token, TokenType type, Token *current) {
-//     size_t tlen = strlen(token);
-//     if (hasPrefix(p, token) && !isAlnum(token[tlen])) {
-//         current = newToken(type, current, p, tlen);
-//         p += tlen;
-//         return 1;
-//     }
-//     return 0;
-// }
-
 // Generate a new token, concatenate it to `current`, and return the new one.
 static Token *newToken(TokenType type, Token *current, char *str, int len) {
     Token *t = (Token*)calloc(1, sizeof(Token));
