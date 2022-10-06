@@ -41,6 +41,7 @@ struct Node {
     Node *rhs;
     int val; // Used when kind is NodeNum.
     int offset; // Used when type is TokenLVar. Offset from base pointer.
+    int blockID; // Unique ID for jump labels. Valid only when the node is control syntax.
 };
 
 typedef struct LVar LVar;
@@ -55,6 +56,7 @@ typedef struct Globals Globals;
 struct Globals {
     Node *code[100]; // List of expressions.
     LVar *locals;  // List of local variables.
+    int blockCount; // The number of blocks appeared in program.
     Token* token;  // The token currently watches
     char* source;  // The source code (input)
 };

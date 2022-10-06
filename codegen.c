@@ -95,12 +95,12 @@ void genCode(Node *n) {
         puts("  ret");
         return;
     } else if (n->kind == NodeIf) {
-        genCode(n->lhs);
+        genCode(n->lhs);  // Compile condition.
         puts("  pop rax");
         puts("  cmp rax, 0");
-        puts("  je .Lend");
-        genCode(n->rhs);
-        puts(".Lend:");
+        printf("  je .Lend%d\n", n->blockID);
+        genCode(n->rhs); // Compile body.
+        printf(".Lend%d:\n", n->blockID);
         return;
     }
 

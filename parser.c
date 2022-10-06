@@ -261,11 +261,14 @@ static Node *stmt() {
     } else if (consumeIf()) {
         Node *cond;
         Node *body;
+        Node *n;
         expectSign("(");
         cond = expr();
         expectSign(")");
         body = stmt();
-        return newNode(NodeIf, cond, body);
+        n = newNode(NodeIf, cond, body);
+        n->blockID = globals.blockCount++;
+        return n;
     } else {
         Node *n = expr();
         expectSign(";");
