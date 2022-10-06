@@ -4,6 +4,7 @@
 #include <string.h>
 #include "mimic.h"
 
+static Token *newToken(TokenType type, Token *current, char *str, int len);
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -61,7 +62,19 @@ static void errorAt(char *loc, char *fmt, ...) {
     exit(1);
 }
 
-// Generate a new token, concatenate it to `current`, and return it.
+// If `p` has the control syntax tokenifier `token` at the head, skip `token`,
+// creates new token, and returns TRUE.  Otherwise just returns FALSE.
+// static int tokenizeIdentToken(char *p, char *token, TokenType type, Token *current) {
+//     size_t tlen = strlen(token);
+//     if (hasPrefix(p, token) && !isAlnum(token[tlen])) {
+//         current = newToken(type, current, p, tlen);
+//         p += tlen;
+//         return 1;
+//     }
+//     return 0;
+// }
+
+// Generate a new token, concatenate it to `current`, and return the new one.
 static Token *newToken(TokenType type, Token *current, char *str, int len) {
     Token *t = (Token*)calloc(1, sizeof(Token));
     t->type = type;
@@ -80,6 +93,12 @@ Token *tokenize() {
     while (*p) {
         if (isSpace(*p)) {
             ++p;
+            continue;
+        }
+
+        if (hasPrefix(p, "if") && !isAlnum(p[2])) {
+            current = newToken(TokenIf, current, p, 2);
+            p += 2;
             continue;
         }
 
@@ -148,6 +167,16 @@ static Token *consumeIdent() {
 // returns TRUE.
 static int consumeReturn() {
     if (globals.token->type == TokenReturn) {
+        globals.token = globals.token->next;
+        return 1;
+    }
+    return 0;
+}
+
+// If the type of the current token is TokenIf, consume the token and
+// Ifs TRUE.
+static int consumeIf() {
+    if (globals.token->type == TokenIf) {
         globals.token = globals.token->next;
         return 1;
     }
@@ -229,6 +258,14 @@ static Node *stmt() {
         expectSign(";");
         n = newNode(NodeReturn, n, NULL);
         return n;
+    } else if (consumeIf()) {
+        Node *cond;
+        Node *body;
+        expectSign("(");
+        cond = expr();
+        expectSign(")");
+        body = stmt();
+        return newNode(NodeIf, cond, body);
     } else {
         Node *n = expr();
         expectSign(";");

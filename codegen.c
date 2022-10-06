@@ -11,6 +11,27 @@
 //
 // In addition, rsp points to the top of the stack, "push" and "pop" works as
 // stack operator.
+//
+// Equivalents for some control statements:
+//  - if statement
+//      if (A)
+//        B
+//
+//      if (A == 0)
+//         goto Lend;
+//         B
+//      Lend:
+//
+//  - if-else statement
+//      if (A) B else C
+//
+//      if (A == 0)
+//          goto Lelse;
+//          B
+//          goto Lend;
+//      Lelse:
+//          C
+//      Lend:
 
 static void genCodeLVal(Node *n) {
     if (n->kind != NodeLVar) {
@@ -72,6 +93,14 @@ void genCode(Node *n) {
         puts("  mov rsp, rbp");
         puts("  pop rbp");
         puts("  ret");
+        return;
+    } else if (n->kind == NodeIf) {
+        genCode(n->lhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        puts("  je .Lend");
+        genCode(n->rhs);
+        puts(".Lend:");
         return;
     }
 

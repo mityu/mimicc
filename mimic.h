@@ -4,6 +4,7 @@ typedef enum {
     TokenReserved,
     TokenIdent,
     TokenNumber,
+    TokenIf,
     TokenReturn,
     TokenEOF,
 } TokenType;
@@ -29,6 +30,7 @@ typedef enum {
     NodeNum, // Integer
     NodeLVar, // Left hand side value (variable)
     NodeAssign, // {lhs} = {rhs};
+    NodeIf,
     NodeReturn, // return {expr};
 } NodeKind;
 

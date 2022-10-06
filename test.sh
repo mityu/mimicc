@@ -72,5 +72,7 @@ assert 5 'foo = 5; bar = foo; return bar;'
 assert 1 'foo = 5; bar = (foo * foo == 25); return bar;'
 assert 1 'bar = ((foo = 5) == 5); return bar;'
 assert 42 'return 42; return 10;'
+assert 42 'if (1) return 42; return 10;'
+assert 10 'if (0) return 42; return 10;'
 
 echo OK
