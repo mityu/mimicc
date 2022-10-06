@@ -17,20 +17,57 @@
 //      if (A)
 //        B
 //
-//      if (A == 0)
-//         goto Lend;
-//         B
+//          if (A == 0)
+//             goto Lend;
+//             B
 //      Lend:
 //
 //  - if-else statement
 //      if (A) B else C
 //
-//      if (A == 0)
-//          goto Lelse;
-//          B
-//          goto Lend;
+//          if (A == 0)
+//              goto Lelse;
+//              B
+//              goto Lend;
 //      Lelse:
 //          C
+//      Lend:
+//
+//  - if-elseiflse statement
+//      if (A)
+//          B
+//      else if (C)
+//          D
+//
+//          if (A == 0)
+//              goto Lelse;
+//              B
+//              goto Lend;
+//      Lelse:
+//          if (C == 0)
+//              goto Lend;
+//              D
+//      Lend:
+//
+//  - if-elseif-else statement
+//      if (A)
+//          B
+//      else if (C)
+//          D
+//      else
+//          E
+//
+//          if (A == 0)
+//              goto Lelse1;
+//              B
+//              goto Lend;
+//      Lelse1:
+//          if (C == 0)
+//              goto Lelse2;
+//              D
+//              goto Lend;
+//      Lelse2:
+//          E
 //      Lend:
 
 static void genCodeLVal(Node *n) {
@@ -96,11 +133,22 @@ void genCode(Node *n) {
         return;
     } else if (n->kind == NodeIf) {
         genCode(n->condition);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf("  je .Lend%d\n", n->blockID);
-        genCode(n->body);
-        printf(".Lend%d:\n", n->blockID);
+        if (n->elseblock) {
+            puts("  pop rax");
+            puts("  cmp rax, 0");
+            printf("  je .Lelse%d_0\n", n->blockID);
+            genCode(n->body);
+            printf("  jmp .Lend%d\n", n->blockID);
+            printf(".Lelse%d_0:\n", n->blockID);
+            genCode(n->elseblock->body);
+            printf(".Lend%d:\n", n->blockID);
+        } else {
+            puts("  pop rax");
+            puts("  cmp rax, 0");
+            printf("  je .Lend%d\n", n->blockID);
+            genCode(n->body);
+            printf(".Lend%d:\n", n->blockID);
+        }
         return;
     }
 

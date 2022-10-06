@@ -90,6 +90,13 @@ Token *tokenize() {
             continue;
         }
 
+        if (hasPrefix(p, "else") && !isAlnum(p[4])) {
+            // TODO: Check else if
+            current = newToken(TokenElse, current, p, 4);
+            p += 4;
+            continue;
+        }
+
         if (hasPrefix(p, "return") && !isAlnum(p[6])) {
             current = newToken(TokenReturn, current, p, 6);
             p += 6;
@@ -162,9 +169,19 @@ static int consumeReturn() {
 }
 
 // If the type of the current token is TokenIf, consume the token and
-// Ifs TRUE.
+// returns TRUE.
 static int consumeIf() {
     if (globals.token->type == TokenIf) {
+        globals.token = globals.token->next;
+        return 1;
+    }
+    return 0;
+}
+
+// If the type of current token is TokenElse, consume the token and returns
+// TRUE.
+static int consumeElse() {
+    if (globals.token->type == TokenElse) {
         globals.token = globals.token->next;
         return 1;
     }
@@ -247,13 +264,27 @@ static Node *stmt() {
         n = newNode(NodeReturn, n, NULL);
         return n;
     } else if (consumeIf()) {
-        Node *n;
-        n = newNode(NodeIf, NULL, NULL);
+        Node *n = newNode(NodeIf, NULL, NULL);
+        Node *lastElseblock = NULL;
+        n->blockID = globals.blockCount++;
+
         expectSign("(");
         n->condition = expr();
         expectSign(")");
         n->body = stmt();
-        n->blockID = globals.blockCount++;
+
+        if (consumeElse()) {
+            Node *e = newNode(NodeElse, NULL, NULL);
+            e->elseblock = NULL;
+            e->body = stmt();
+            if (n->elseblock == NULL) {
+                n->elseblock = e;
+            } else {
+                lastElseblock->elseblock = e;
+                lastElseblock = e;
+            }
+        }
+
         return n;
     } else {
         Node *n = expr();

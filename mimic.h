@@ -5,6 +5,7 @@ typedef enum {
     TokenIdent,
     TokenNumber,
     TokenIf,
+    TokenElse,
     TokenReturn,
     TokenEOF,
 } TokenType;
@@ -31,6 +32,7 @@ typedef enum {
     NodeLVar, // Left hand side value (variable)
     NodeAssign, // {lhs} = {rhs};
     NodeIf,
+    NodeElse,
     NodeReturn, // return {expr};
 } NodeKind;
 
@@ -40,7 +42,8 @@ struct Node {
     Node *lhs;
     Node *rhs;
     Node *condition; // Used by if/for/while/switch(?) statements.
-    Node *body;  // Used by if/for/while/switch statemtns.
+    Node *body;  // Used by if/for/while/switch statements.
+    Node *elseblock; // Used by if statement. Holds "else if" and "else" blocks.
     int val; // Used when kind is NodeNum.
     int offset; // Used when type is TokenLVar. Offset from base pointer.
     int blockID; // Unique ID for jump labels. Valid only when the node is control syntax.

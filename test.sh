@@ -76,5 +76,6 @@ assert 42 'if (1) return 42; return 10;'
 assert 10 'if (0) return 42; return 10;'
 assert 10 'if (1) if (0) return 42; return 10;'
 assert 42 'if (1) if (1) return 42; return 10;'
+assert 20 'if (0) return 10; else return 20; return 30;'
 
 echo OK
