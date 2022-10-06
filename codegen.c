@@ -133,22 +133,16 @@ void genCode(Node *n) {
         return;
     } else if (n->kind == NodeIf) {
         genCode(n->condition);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf("  je .Lelse%d_0\n", n->blockID);
+        genCode(n->body);
+        printf("  jmp .Lend%d\n", n->blockID);
+        printf(".Lelse%d_0:\n", n->blockID);
         if (n->elseblock) {
-            puts("  pop rax");
-            puts("  cmp rax, 0");
-            printf("  je .Lelse%d_0\n", n->blockID);
-            genCode(n->body);
-            printf("  jmp .Lend%d\n", n->blockID);
-            printf(".Lelse%d_0:\n", n->blockID);
             genCode(n->elseblock->body);
-            printf(".Lend%d:\n", n->blockID);
-        } else {
-            puts("  pop rax");
-            puts("  cmp rax, 0");
-            printf("  je .Lend%d\n", n->blockID);
-            genCode(n->body);
-            printf(".Lend%d:\n", n->blockID);
         }
+        printf(".Lend%d:\n", n->blockID);
         return;
     }
 
