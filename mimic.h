@@ -39,6 +39,8 @@ struct Node {
     NodeKind kind;
     Node *lhs;
     Node *rhs;
+    Node *condition; // Used by if/for/while/switch(?) statements.
+    Node *body;  // Used by if/for/while/switch statemtns.
     int val; // Used when kind is NodeNum.
     int offset; // Used when type is TokenLVar. Offset from base pointer.
     int blockID; // Unique ID for jump labels. Valid only when the node is control syntax.

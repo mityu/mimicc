@@ -259,14 +259,12 @@ static Node *stmt() {
         n = newNode(NodeReturn, n, NULL);
         return n;
     } else if (consumeIf()) {
-        Node *cond;
-        Node *body;
         Node *n;
+        n = newNode(NodeIf, NULL, NULL);
         expectSign("(");
-        cond = expr();
+        n->condition = expr();
         expectSign(")");
-        body = stmt();
-        n = newNode(NodeIf, cond, body);
+        n->body = stmt();
         n->blockID = globals.blockCount++;
         return n;
     } else {
