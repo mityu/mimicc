@@ -22,21 +22,22 @@ struct Token {
 };
 
 typedef enum {
-    NodeAdd, // +
-    NodeSub, // -
-    NodeMul, // *
-    NodeDiv, // /
-    NodeEq, // ==
-    NodeNeq, // !=
-    NodeLT, // <
-    NodeLE, // <=
-    NodeNum, // Integer
-    NodeLVar, // Left hand side value (variable)
+    NodeAdd,    // +
+    NodeSub,    // -
+    NodeMul,    // *
+    NodeDiv,    // /
+    NodeEq,     // ==
+    NodeNeq,    // !=
+    NodeLT,     // <
+    NodeLE,     // <=
+    NodeNum,    // Integer
+    NodeLVar,   // Left hand side value (variable)
     NodeAssign, // {lhs} = {rhs};
     NodeIf,
     NodeElse,
     NodeFor,
     NodeWhile,
+    NodeBlock,  // { ... }
     NodeReturn, // return {expr};
 } NodeKind;
 
@@ -45,31 +46,34 @@ struct Node {
     NodeKind kind;
     Node *lhs;
     Node *rhs;
-    Node *condition; // Used by if/for/while/switch(?) statements.
-    Node *body;  // Used by if/for/while/switch statements.
-    Node *elseblock; // Used by if statement. Holds "else if" and "else" blocks.
+    Node *condition;   // Used by if/for/while/switch(?) statements.
+    Node *body;        // Used by if/for/while/switch statements.
+    Node *elseblock;   // Used by if statement. Holds "else if" and "else" blocks.
     Node *initializer; // Used by for statement.
-    Node *iterator; // Used by for statement.
-    int val; // Used when kind is NodeNum.
-    int offset; // Used when type is TokenLVar. Offset from base pointer.
-    int blockID; // Unique ID for jump labels. Valid only when the node is control syntax.
+    Node *iterator;    // Used by for statement.
+    Node *next;        // Next statement in the same block. NULL if next
+                       // statement doesn't exist.
+    int val;           // Used when kind is NodeNum.
+    int offset;        // Used when type is TokenLVar. Offset from base pointer.
+    int blockID;       // Unique ID for jump labels. Valid only when the node
+                       // is control syntax.
 };
 
 typedef struct LVar LVar;
 struct LVar {
     LVar *next;
     char *name;
-    int len; // Length of name.
+    int len;     // Length of name.
     int offset;  // Offset from rbp.
 };
 
 typedef struct Globals Globals;
 struct Globals {
     Node *code[100]; // List of expressions.
-    LVar *locals;  // List of local variables.
-    int blockCount; // The number of blocks appeared in program.
-    Token* token;  // The token currently watches
-    char* source;  // The source code (input)
+    LVar *locals;    // List of local variables.
+    int blockCount;  // The number of blocks appeared in program.
+    Token* token;    // The token currently watches
+    char* source;    // The source code (input)
 };
 extern Globals globals;
 

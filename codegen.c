@@ -85,7 +85,15 @@ static void genCodeLVal(Node *n) {
 }
 
 void genCode(Node *n) {
-    if (n->kind == NodeNum) {
+    if (n->kind == NodeBlock) {
+        for (Node *c = n->body; c; c = c->next) {
+            genCode(c);
+            // Statement lefts a value on the top of the stack, and it should
+            // be thrown away.
+            puts("  pop rax");
+        }
+        return;
+    } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
         return;
     } else if (n->kind == NodeLVar) {

@@ -124,7 +124,7 @@ Token *tokenize() {
             p += 2;
             continue;
         }
-        if (strchr("+-*/()=;<>", *p)) {
+        if (strchr("+-*/()=;<>{}", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -215,8 +215,10 @@ static int atEOF() {
 static Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
-    n->lhs =  lhs;
-    n->rhs =  rhs;
+    n->lhs  = lhs;
+    n->rhs  = rhs;
+    n->body = NULL;
+    n->next = NULL;
     return n;
 }
 
@@ -263,7 +265,18 @@ void program() {
 }
 
 static Node *stmt() {
-    if (consumeCertainTokenType(TokenReturn)) {
+    if (consumeReserved("{")) {
+        Node *n = newNode(NodeBlock, NULL, NULL);
+        Node body;
+        Node *last = &body;
+        body.next = NULL;
+        while (!consumeReserved("}")) {
+            last->next = stmt();
+            last = last->next;
+        }
+        n->body = body.next;
+        return n;
+    } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectSign(";");
         n = newNode(NodeReturn, n, NULL);

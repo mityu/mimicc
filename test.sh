@@ -82,5 +82,8 @@ assert 10 'for (;;1) return 10;'
 assert 10 'while (1) return 10;'
 assert 10 'while (0) return 3; return 10;'
 assert 50 'a = 0; while (a < 1) while (a < 2) a = a+1; return 50;'
+assert 50 '{a = 1; b = 2; return 50;}'
+assert 50 '{{a = 1; b = 2;} return 50;}'
+assert 89 'a=1; b=1; for (i=0; i<9; i=i+1) {tmp=a;a=a+b;b=tmp;} return a;'
 
 echo OK
