@@ -82,5 +82,7 @@ assert 10 'for (;;) return 10;'
 assert 10 'for (1;;) return 10;'
 assert 10 'for (;1;) return 10;'
 assert 10 'for (;;1) return 10;'
+assert 10 'while (1) return 10;'
+assert 10 'while (0) return 3; return 10;'
 
 echo OK

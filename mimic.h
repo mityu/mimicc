@@ -7,6 +7,7 @@ typedef enum {
     TokenIf,
     TokenElse,
     TokenFor,
+    TokenWhile,
     TokenReturn,
     TokenEOF,
 } TokenType;
@@ -35,6 +36,7 @@ typedef enum {
     NodeIf,
     NodeElse,
     NodeFor,
+    NodeWhile,
     NodeReturn, // return {expr};
 } NodeKind;
 

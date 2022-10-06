@@ -107,6 +107,12 @@ Token *tokenize() {
             continue;
         }
 
+        if (isToken(p, "while")) {
+            current = newToken(TokenWhile, current, p, 5);
+            p += 5;
+            continue;
+        }
+
         if (hasPrefix(p, "return") && !isAlnum(p[6])) {
             current = newToken(TokenReturn, current, p, 6);
             p += 6;
@@ -300,6 +306,13 @@ static Node *stmt() {
             n->iterator = expr();
             expectSign(")");
         }
+        n->body = stmt();
+        return n;
+    } else if (consumeCertainTokenType(TokenWhile)) {
+        Node *n = newNodeFor();
+        expectSign("(");
+        n->condition = expr();
+        expectSign(")");
         n->body = stmt();
         return n;
     } else {
