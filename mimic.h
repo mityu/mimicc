@@ -69,7 +69,7 @@ struct LVar {
 
 typedef struct Globals Globals;
 struct Globals {
-    Node *code[100]; // List of expressions.
+    Node *code; // List of expressions.
     LVar *locals;    // List of local variables.
     int blockCount;  // The number of blocks appeared in program.
     Token* token;    // The token currently watches

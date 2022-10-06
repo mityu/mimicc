@@ -254,14 +254,15 @@ static LVar *findLVar(char *name, int len) {
 }
 
 void program() {
-    int i = 0;
+    Node body;
+    Node *last = &body;
+    body.next = NULL;
+    globals.code = newNode(NodeBlock, NULL, NULL);
     while (!atEOF()) {
-        globals.code[i++] = stmt();
-        if (i >= 100) { // TODO: Remove magic number
-            error("Too many expressions. Hanged.");
-        }
+        last->next = stmt();
+        last = last->next;
     }
-    globals.code[i] = NULL;
+    globals.code->body = body.next;
 }
 
 static Node *stmt() {

@@ -32,12 +32,7 @@ int main(int argc, char *argv[]) {
         printf("  sub rsp, %d\n", lvar_count * 8);  // Reserve memories for local variables.
     }
 
-    for (int i = 0; globals.code[i] != NULL; i++) {
-        genCode(globals.code[i]);
-
-        // Remove a "value" on the top of the stack. It's no longer useless.
-        puts("  pop rax");
-    }
+    genCode(globals.code);
 
     // Generate epilogue.
     puts("  mov rsp, rbp");
