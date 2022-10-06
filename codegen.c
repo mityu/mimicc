@@ -140,15 +140,32 @@ void genCode(Node *n) {
         puts("  ret");
         return;
     } else if (n->kind == NodeIf) {
+        int elseblockCount = 0;
         genCode(n->condition);
         puts("  pop rax");
         puts("  cmp rax, 0");
-        printf("  je .Lelse%d_0\n", n->blockID);
-        genCode(n->body);
-        printf("  jmp .Lend%d\n", n->blockID);
-        printf(".Lelse%d_0:\n", n->blockID);
         if (n->elseblock) {
-            genCode(n->elseblock->body);
+            printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+        } else {
+            printf("  je .Lend%d\n", n->blockID);
+        }
+        genCode(n->body);
+        if (n->elseblock) {
+            printf("  jmp .Lend%d\n", n->blockID);
+        }
+        if (n->elseblock) {
+            for (Node *e = n->elseblock; e; e = e->next) {
+                printf(".Lelse%d_%d:\n", n->blockID, elseblockCount);
+                ++elseblockCount;
+                if (e->kind == NodeElseif) {
+                    genCode(e->condition);
+                    puts("  pop rax");
+                    puts("  cmp rax, 0");
+                    printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+                }
+                genCode(e->body);
+                printf("  jmp .Lend%d\n", n->blockID);
+            }
         }
         printf(".Lend%d:\n", n->blockID);
         return;

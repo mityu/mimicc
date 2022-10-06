@@ -5,6 +5,7 @@ typedef enum {
     TokenIdent,
     TokenNumber,
     TokenIf,
+    TokenElseif,
     TokenElse,
     TokenFor,
     TokenWhile,
@@ -34,6 +35,7 @@ typedef enum {
     NodeLVar,   // Left hand side value (variable)
     NodeAssign, // {lhs} = {rhs};
     NodeIf,
+    NodeElseif,
     NodeElse,
     NodeFor,
     NodeWhile,

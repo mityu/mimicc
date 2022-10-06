@@ -85,5 +85,8 @@ assert 50 'a = 0; while (a < 1) while (a < 2) a = a+1; return 50;'
 assert 50 '{a = 1; b = 2; return 50;}'
 assert 50 '{{a = 1; b = 2;} return 50;}'
 assert 89 'a=1; b=1; for (i=0; i<9; i=i+1) {tmp=a;a=a+b;b=tmp;} return a;'
+assert 10 'if (0) {return 1;} else if (1) {return 10;} else {return 2;}'
+assert 10 'if (0) {return 1;} else if (0) {return 2;} else if (1) {return 10;} else {return 3;}'
+assert 10 'if (0) {return 1;} else if (0) {return 2;} else {return 10;}'
 
 echo OK

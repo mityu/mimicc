@@ -95,9 +95,17 @@ Token *tokenize() {
         }
 
         if (isToken(p, "else")) {
-            // TODO: Check else if
-            current = newToken(TokenElse, current, p, 4);
-            p += 4;
+            char *q = p + 5;
+            while (*q && isSpace(*q))
+                ++q;
+            if (isToken(q, "if")) {
+                q += 2;
+                current = newToken(TokenElseif, current, p, q - p);
+                p = q;
+            } else {
+                current = newToken(TokenElse, current, p, 4);
+                p += 4;
+            }
             continue;
         }
 
@@ -293,6 +301,16 @@ static Node *stmt() {
         n->condition = expr();
         expectSign(")");
         n->body = stmt();
+
+        while (consumeCertainTokenType(TokenElseif)) {
+            Node *e = newNode(NodeElseif, NULL, NULL);
+            expectSign("(");
+            e->condition = expr();
+            expectSign(")");
+            e->body = stmt();
+            lastElse->next = e;
+            lastElse = lastElse->next;
+        }
 
         if (consumeCertainTokenType(TokenElse)) {
             Node *e = newNode(NodeElse, NULL, NULL);
