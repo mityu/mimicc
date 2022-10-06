@@ -137,7 +137,7 @@ Token *tokenize() {
 
 // If the current token is the expected token, consume the token and returns
 // TRUE.
-static int consumeToken(char *op) {
+static int consumeReserved(char *op) {
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
@@ -158,30 +158,10 @@ static Token *consumeIdent() {
     return NULL;
 }
 
-// If the type of the current token is TokenReturn, consume the token and
-// returns TRUE.
-static int consumeReturn() {
-    if (globals.token->type == TokenReturn) {
-        globals.token = globals.token->next;
-        return 1;
-    }
-    return 0;
-}
-
-// If the type of the current token is TokenIf, consume the token and
-// returns TRUE.
-static int consumeIf() {
-    if (globals.token->type == TokenIf) {
-        globals.token = globals.token->next;
-        return 1;
-    }
-    return 0;
-}
-
-// If the type of current token is TokenElse, consume the token and returns
+// If the type of the current token is `type`, consume the token and returns
 // TRUE.
-static int consumeElse() {
-    if (globals.token->type == TokenElse) {
+static int consumeCertainTokenType(TokenType type) {
+    if (globals.token->type == type) {
         globals.token = globals.token->next;
         return 1;
     }
@@ -258,12 +238,12 @@ void program() {
 }
 
 static Node *stmt() {
-    if (consumeReturn()) {
+    if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectSign(";");
         n = newNode(NodeReturn, n, NULL);
         return n;
-    } else if (consumeIf()) {
+    } else if (consumeCertainTokenType(TokenIf)) {
         Node *n = newNode(NodeIf, NULL, NULL);
         Node *lastElseblock = NULL;
         n->blockID = globals.blockCount++;
@@ -273,7 +253,7 @@ static Node *stmt() {
         expectSign(")");
         n->body = stmt();
 
-        if (consumeElse()) {
+        if (consumeCertainTokenType(TokenElse)) {
             Node *e = newNode(NodeElse, NULL, NULL);
             e->elseblock = NULL;
             e->body = stmt();
@@ -300,7 +280,7 @@ static Node *expr() {
 
 static Node *assign() {
     Node *n = equality();
-    if (consumeToken("=")) {
+    if (consumeReserved("=")) {
         n = newNode(NodeAssign, n, assign());
     }
     return n;
@@ -309,9 +289,9 @@ static Node *assign() {
 static Node *equality() {
     Node *n = relational();
     for (;;) {
-        if (consumeToken("==")) {
+        if (consumeReserved("==")) {
             n = newNode(NodeEq, n, relational());
-        } else if (consumeToken("!=")) {
+        } else if (consumeReserved("!=")) {
             n = newNode(NodeNeq, n, relational());
         } else {
             return n;
@@ -322,13 +302,13 @@ static Node *equality() {
 static Node *relational() {
     Node *n = add();
     for (;;) {
-        if (consumeToken("<")) {
+        if (consumeReserved("<")) {
             n = newNode(NodeLT, n, add());
-        } else if (consumeToken(">")) {
+        } else if (consumeReserved(">")) {
             n = newNode(NodeLT, add(), n);
-        } else if (consumeToken("<=")) {
+        } else if (consumeReserved("<=")) {
             n = newNode(NodeLE, n, add());
-        } else if (consumeToken(">=")) {
+        } else if (consumeReserved(">=")) {
             n = newNode(NodeLE, add(), n);
         } else {
             return n;
@@ -339,9 +319,9 @@ static Node *relational() {
 static Node *add() {
     Node *n = mul();
     for (;;) {
-        if (consumeToken("+")) {
+        if (consumeReserved("+")) {
             n = newNode(NodeAdd, n, mul());
-        } else if (consumeToken("-")) {
+        } else if (consumeReserved("-")) {
             n = newNode(NodeSub, n, mul());
         } else {
             return n;
@@ -352,9 +332,9 @@ static Node *add() {
 static Node *mul() {
     Node *n = unary();
     for (;;) {
-        if (consumeToken("*")) {
+        if (consumeReserved("*")) {
             n = newNode(NodeMul, n, unary());
-        } else if (consumeToken("/")) {
+        } else if (consumeReserved("/")) {
             n = newNode(NodeDiv, n, unary());
         } else {
             return n;
@@ -363,9 +343,9 @@ static Node *mul() {
 }
 
 static Node *unary() {
-    if (consumeToken("+")) {
+    if (consumeReserved("+")) {
         return newNode(NodeAdd, newNodeNum(0), primary());
-    } else if (consumeToken("-")) {
+    } else if (consumeReserved("-")) {
         return newNode(NodeSub, newNodeNum(0), primary());
     } else {
         return primary();
@@ -373,7 +353,7 @@ static Node *unary() {
 }
 
 static Node *primary() {
-    if (consumeToken("(")) {
+    if (consumeReserved("(")) {
         Node *n = expr();
         expectSign(")");
         return n;
