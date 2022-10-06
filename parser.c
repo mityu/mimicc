@@ -220,30 +220,37 @@ static int atEOF() {
     return globals.token->type == TokenEOF;
 }
 
-static Node *newNode(NodeKind kind, Node *lhs, Node *rhs) {
+static Node *newNode(NodeKind kind) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
-    n->lhs  = lhs;
-    n->rhs  = rhs;
+    n->lhs  = NULL;
+    n->rhs  = NULL;
     n->body = NULL;
     n->next = NULL;
     return n;
 }
 
+static Node *newNodeBinary(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *n = newNode(kind);
+    n->lhs = lhs;
+    n->rhs = rhs;
+    return n;
+}
+
 static Node *newNodeNum(int val) {
-    Node *n = newNode(NodeNum, NULL, NULL);
+    Node *n = newNode(NodeNum);
     n->val = val;
     return n;
 }
 
 static Node *newNodeLVar(int offset) {
-    Node *n = newNode(NodeLVar, NULL, NULL);
+    Node *n = newNode(NodeLVar);
     n->offset = offset;
     return n;
 }
 
 static Node *newNodeFor() {
-    Node *n = newNode(NodeFor, NULL, NULL);
+    Node *n = newNode(NodeFor);
     n->initializer = NULL;
     n->condition = NULL;
     n->iterator = NULL;
@@ -265,7 +272,7 @@ void program() {
     Node body;
     Node *last = &body;
     body.next = NULL;
-    globals.code = newNode(NodeBlock, NULL, NULL);
+    globals.code = newNode(NodeBlock);
     while (!atEOF()) {
         last->next = stmt();
         last = last->next;
@@ -275,7 +282,7 @@ void program() {
 
 static Node *stmt() {
     if (consumeReserved("{")) {
-        Node *n = newNode(NodeBlock, NULL, NULL);
+        Node *n = newNode(NodeBlock);
         Node body;
         Node *last = &body;
         body.next = NULL;
@@ -288,10 +295,10 @@ static Node *stmt() {
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectSign(";");
-        n = newNode(NodeReturn, n, NULL);
+        n = newNodeBinary(NodeReturn, n, NULL);
         return n;
     } else if (consumeCertainTokenType(TokenIf)) {
-        Node *n = newNode(NodeIf, NULL, NULL);
+        Node *n = newNode(NodeIf);
         Node elseblock;
         Node *lastElse = &elseblock;
         elseblock.next = NULL;
@@ -303,7 +310,7 @@ static Node *stmt() {
         n->body = stmt();
 
         while (consumeCertainTokenType(TokenElseif)) {
-            Node *e = newNode(NodeElseif, NULL, NULL);
+            Node *e = newNode(NodeElseif);
             expectSign("(");
             e->condition = expr();
             expectSign(")");
@@ -313,7 +320,7 @@ static Node *stmt() {
         }
 
         if (consumeCertainTokenType(TokenElse)) {
-            Node *e = newNode(NodeElse, NULL, NULL);
+            Node *e = newNode(NodeElse);
             e->body = stmt();
             lastElse->next = e;
             lastElse = lastElse->next;
@@ -360,7 +367,7 @@ static Node *expr() {
 static Node *assign() {
     Node *n = equality();
     if (consumeReserved("=")) {
-        n = newNode(NodeAssign, n, assign());
+        n = newNodeBinary(NodeAssign, n, assign());
     }
     return n;
 }
@@ -369,9 +376,9 @@ static Node *equality() {
     Node *n = relational();
     for (;;) {
         if (consumeReserved("==")) {
-            n = newNode(NodeEq, n, relational());
+            n = newNodeBinary(NodeEq, n, relational());
         } else if (consumeReserved("!=")) {
-            n = newNode(NodeNeq, n, relational());
+            n = newNodeBinary(NodeNeq, n, relational());
         } else {
             return n;
         }
@@ -382,13 +389,13 @@ static Node *relational() {
     Node *n = add();
     for (;;) {
         if (consumeReserved("<")) {
-            n = newNode(NodeLT, n, add());
+            n = newNodeBinary(NodeLT, n, add());
         } else if (consumeReserved(">")) {
-            n = newNode(NodeLT, add(), n);
+            n = newNodeBinary(NodeLT, add(), n);
         } else if (consumeReserved("<=")) {
-            n = newNode(NodeLE, n, add());
+            n = newNodeBinary(NodeLE, n, add());
         } else if (consumeReserved(">=")) {
-            n = newNode(NodeLE, add(), n);
+            n = newNodeBinary(NodeLE, add(), n);
         } else {
             return n;
         }
@@ -399,9 +406,9 @@ static Node *add() {
     Node *n = mul();
     for (;;) {
         if (consumeReserved("+")) {
-            n = newNode(NodeAdd, n, mul());
+            n = newNodeBinary(NodeAdd, n, mul());
         } else if (consumeReserved("-")) {
-            n = newNode(NodeSub, n, mul());
+            n = newNodeBinary(NodeSub, n, mul());
         } else {
             return n;
         }
@@ -412,9 +419,9 @@ static Node *mul() {
     Node *n = unary();
     for (;;) {
         if (consumeReserved("*")) {
-            n = newNode(NodeMul, n, unary());
+            n = newNodeBinary(NodeMul, n, unary());
         } else if (consumeReserved("/")) {
-            n = newNode(NodeDiv, n, unary());
+            n = newNodeBinary(NodeDiv, n, unary());
         } else {
             return n;
         }
@@ -423,9 +430,9 @@ static Node *mul() {
 
 static Node *unary() {
     if (consumeReserved("+")) {
-        return newNode(NodeAdd, newNodeNum(0), primary());
+        return newNodeBinary(NodeAdd, newNodeNum(0), primary());
     } else if (consumeReserved("-")) {
-        return newNode(NodeSub, newNodeNum(0), primary());
+        return newNodeBinary(NodeSub, newNodeNum(0), primary());
     } else {
         return primary();
     }
