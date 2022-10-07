@@ -133,7 +133,7 @@ Token *tokenize() {
             p += 2;
             continue;
         }
-        if (strchr("+-*/()=;<>{},", *p)) {
+        if (strchr("+-*/()=;<>{},&", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -533,6 +533,10 @@ static Node *unary() {
         return newNodeBinary(NodeAdd, newNodeNum(0), primary());
     } else if (consumeReserved("-")) {
         return newNodeBinary(NodeSub, newNodeNum(0), primary());
+    } else if (consumeReserved("&")) {
+        return newNodeBinary(NodeAddress, NULL, unary());
+    } else if (consumeReserved("*")) {
+        return newNodeBinary(NodeDeref, NULL, unary());
     } else {
         return primary();
     }

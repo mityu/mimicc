@@ -102,6 +102,7 @@
 //                         .    (Local variables or tmp values exprs left)
 //                         .
 
+static void genCodeDeref(Node *n);
 
 static void printn(const char* str) {
     for (; *str; ++str)
@@ -118,17 +119,27 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 };
 
 static void genCodeLVal(Node *n) {
-    if (n->kind != NodeLVar) {
+    if (n->kind == NodeDeref) {
+        genCodeDeref(n);
+        return;
+    } else if (n->kind != NodeLVar) {
         error("Lhs of assignment is not a variable.");
     }
 
-    // Make sure the value of the top of the stack is the memory adress to lhs
+    // Make sure the value on the top of the stack is the memory adress to lhs
     // variable.  Calculate it on rax from the rbp(base pointer) and offset,
     // then store it on the top of the stack.  Calculate it on rax, not on rbp,
     // because rbp must NOT be changed until exiting from a function.
     puts("  mov rax, rbp");
     printf("  sub rax, %d\n", n->offset);
     puts("  push rax");
+}
+
+static void genCodeDeref(Node *n) {
+    genCodeLVal(n->rhs);
+    puts("  mov rax, [rsp]");
+    puts("  mov rax, [rax]");
+    puts("  mov [rsp], rax");
 }
 
 static void genCodeAssign(Node *n) {
@@ -255,7 +266,7 @@ static void genCodeFunction(Node *n) {
     // Push arguments onto stacks from registers.
     printf("  sub rsp, %d\n", regargs * 8);
     for (int i = 0; i < regargs; ++i) {
-        printf("  mov -%d[rbp], %s\n", (i + 1) * 8, argRegs[i]);
+        printf("  mov %d[rbp], %s\n", -((i + 1) * 8), argRegs[i]);
     }
 
     genCode(n->body);
@@ -266,7 +277,13 @@ static void genCodeFunction(Node *n) {
 }
 
 void genCode(Node *n) {
-    if (n->kind == NodeBlock) {
+    if (n->kind == NodeAddress) {
+        genCodeLVal(n->rhs);
+        return;
+    } else if (n->kind == NodeDeref) {
+        genCodeDeref(n);
+        return;
+    } else if (n->kind == NodeBlock) {
         for (Node *c = n->body; c; c = c->next) {
             if (n->localVarCount)
                 printf("  sub rsp, %d\n", n->localVarCount * 8);

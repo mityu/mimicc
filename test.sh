@@ -117,5 +117,6 @@ assert 23 'f(a, b) { n1 = a; n2 = b; return n1*3 + n2*2; } main() { return f(5, 
 assert 38 'f(a, b, c, d, e, f, g, h) { a = 2; b = 3; return a * g + b * h; } main() { return f(1, 2, 3, 4, 5, 6, 7, 8); }'
 assert 10 'main() {n=5; {n=10;} return n;}'
 assert 10 'main() {n=10; {a=5;} return n;}'
+assert 10 'main() {n=20; p=&n; *p=10; return n;}'
 
 echo OK
