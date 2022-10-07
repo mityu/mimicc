@@ -66,13 +66,13 @@ struct Node {
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
     LVar *localVars;   // List of variables local to block. (func, block, for, ...)
-                       // Stored in reversed appearing order.
     int localVarCount; // The number of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Function *func;    // Function info.
     Node *outerBlock;  // One step outer block.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
+                       // Variable adress is calculated as "RBP - offset."
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax.
 };
@@ -88,7 +88,8 @@ struct LVar {
     LVar *next;
     char *name;
     int len;     // Length of name.
-    int offset;  // Offset from rbp.
+    int offset;  // Offset from rbp.  Variable adress is calculated as
+                 // "RBP - offset."
 };
 
 struct Function {

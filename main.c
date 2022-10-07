@@ -18,13 +18,6 @@ int main(int argc, char *argv[]) {
     globals.token = tokenize();
     program();
 
-    // for (LVar *v = globals.locals; v != NULL; v = v->next)
-    //     ++lvar_count;
-
-
-    // if (lvar_count) {
-    //     printf("  sub rsp, %d\n", lvar_count * 8);  // Reserve memories for local variables.
-    // }
 
     puts(".intel_syntax noprefix");
     genCode(globals.code);
