@@ -32,6 +32,7 @@ typedef enum {
     NodeSub,     // -
     NodeMul,     // *
     NodeDiv,     // /
+    NodeDivRem,  // %
     NodeEq,      // ==
     NodeNeq,     // !=
     NodeLT,      // <

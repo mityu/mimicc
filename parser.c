@@ -138,7 +138,7 @@ Token *tokenize() {
             p += 2;
             continue;
         }
-        if (strchr("+-*/()=;<>{},&", *p)) {
+        if (strchr("+-*/%()=;<>{},&", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -551,6 +551,8 @@ static Node *mul() {
             n = newNodeBinary(NodeMul, n, unary());
         } else if (consumeReserved("/")) {
             n = newNodeBinary(NodeDiv, n, unary());
+        } else if (consumeReserved("%")) {
+            n = newNodeBinary(NodeDivRem, n, unary());
         } else {
             return n;
         }

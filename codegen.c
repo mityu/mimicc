@@ -343,6 +343,11 @@ void genCode(Node *n) {
     } else if (n->kind == NodeDiv) {
         puts("  cqo");
         puts("  idiv rdi");
+    } else if (n->kind == NodeDivRem) {
+        puts("  cqo");
+        puts("  idiv rdi");
+        puts("  push rdx");
+        return;
     } else if (n->kind == NodeEq) {
         puts("  cmp rax, rdi");
         puts("  sete al");
