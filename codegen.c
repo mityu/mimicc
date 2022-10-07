@@ -131,6 +131,111 @@ static void genCodeLVal(Node *n) {
     puts("  push rax");
 }
 
+static void genCodeAssign(Node *n) {
+        genCodeLVal(n->lhs);
+        genCode(n->rhs);
+
+        // Stack before assign:
+        // |                     |
+        // |       ......        |
+        // +---------------------+
+        // |  Lhs memory adress  | --> Load to rax.
+        // +---------------------+
+        // |     Rhs value       | --> Load to rdi.
+        // +---------------------+
+        //
+        // Stack after assign:
+        // |                     |
+        // |       ......        |
+        // +---------------------+
+        // |     Rhs value       | <-- Restore from rdi.
+        // +---------------------+
+        puts("  pop rdi");
+        puts("  pop rax");
+        puts("  mov [rax], rdi");
+        puts("  push rdi");
+}
+
+static void genCodeReturn(Node *n) {
+        genCode(n->lhs);
+        puts("  pop rax");
+        puts("  mov rsp, rbp");
+        puts("  pop rbp");
+        puts("  ret");
+}
+
+static void genCodeIf(Node *n) {
+        int elseblockCount = 0;
+        genCode(n->condition);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        if (n->elseblock) {
+            printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+        } else {
+            printf("  je .Lend%d\n", n->blockID);
+        }
+        genCode(n->body);
+        if (n->elseblock) {
+            printf("  jmp .Lend%d\n", n->blockID);
+        }
+        if (n->elseblock) {
+            for (Node *e = n->elseblock; e; e = e->next) {
+                printf(".Lelse%d_%d:\n", n->blockID, elseblockCount);
+                ++elseblockCount;
+                if (e->kind == NodeElseif) {
+                    genCode(e->condition);
+                    puts("  pop rax");
+                    puts("  cmp rax, 0");
+                    printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+                }
+                genCode(e->body);
+                printf("  jmp .Lend%d\n", n->blockID);
+            }
+        }
+        printf(".Lend%d:\n", n->blockID);
+}
+
+static void genCodeFor(Node *n) {
+        if (n->initializer) {
+            genCode(n->initializer);
+        }
+        printf(".Lbegin%d:\n", n->blockID);
+        if (n->condition) {
+            genCode(n->condition);
+        }
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf("  je .Lend%d\n", n->blockID);
+        genCode(n->body);
+        if (n->iterator) {
+            genCode(n->iterator);
+        }
+        printf("  jmp .Lbegin%d\n", n->blockID);
+        printf(".Lend%d:\n", n->blockID);
+}
+
+static void genCodeFCall(Node *n) {
+        int regargs = n->fcall->argsCount;
+        if (regargs > REG_ARGS_MAX_COUNT)
+            regargs = REG_ARGS_MAX_COUNT;
+        for (Node *c = n->fcall->args; c; c = c->next)
+            genCode(c);
+        for (int i = 0; i < regargs; ++i)
+            printf("  pop %s\n", argRegs[i]);
+
+        printf("  call ");
+        for (int i = 0; i < n->fcall->len; ++i) {
+            putchar(n->fcall->name[i]);
+        }
+        putchar('\n');
+
+        // Adjust RSP value when we used stack to pass arguments.
+        if ((n->fcall->argsCount - regargs) > 0)
+            printf("  add rsp, %d\n", (n->fcall->argsCount - regargs) * 8);
+
+        puts("  push rax");
+}
+
 static void genCodeFunction(Node *n) {
     int regargs = n->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
@@ -183,104 +288,19 @@ void genCode(Node *n) {
 
         return;
     } else if (n->kind == NodeAssign) {
-        genCodeLVal(n->lhs);
-        genCode(n->rhs);
-
-        // Stack before assign:
-        // |                     |
-        // |       ......        |
-        // +---------------------+
-        // |  Lhs memory adress  | --> Load to rax.
-        // +---------------------+
-        // |     Rhs value       | --> Load to rdi.
-        // +---------------------+
-        //
-        // Stack after assign:
-        // |                     |
-        // |       ......        |
-        // +---------------------+
-        // |     Rhs value       | <-- Restore from rdi.
-        // +---------------------+
-        puts("  pop rdi");
-        puts("  pop rax");
-        puts("  mov [rax], rdi");
-        puts("  push rdi");
+        genCodeAssign(n);
         return;
     } else if (n->kind == NodeReturn) {
-        genCode(n->lhs);
-        puts("  pop rax");
-        puts("  mov rsp, rbp");
-        puts("  pop rbp");
-        puts("  ret");
+        genCodeReturn(n);
         return;
     } else if (n->kind == NodeIf) {
-        int elseblockCount = 0;
-        genCode(n->condition);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        if (n->elseblock) {
-            printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
-        } else {
-            printf("  je .Lend%d\n", n->blockID);
-        }
-        genCode(n->body);
-        if (n->elseblock) {
-            printf("  jmp .Lend%d\n", n->blockID);
-        }
-        if (n->elseblock) {
-            for (Node *e = n->elseblock; e; e = e->next) {
-                printf(".Lelse%d_%d:\n", n->blockID, elseblockCount);
-                ++elseblockCount;
-                if (e->kind == NodeElseif) {
-                    genCode(e->condition);
-                    puts("  pop rax");
-                    puts("  cmp rax, 0");
-                    printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
-                }
-                genCode(e->body);
-                printf("  jmp .Lend%d\n", n->blockID);
-            }
-        }
-        printf(".Lend%d:\n", n->blockID);
+        genCodeIf(n);
         return;
     } else if (n->kind == NodeFor) {
-        if (n->initializer) {
-            genCode(n->initializer);
-        }
-        printf(".Lbegin%d:\n", n->blockID);
-        if (n->condition) {
-            genCode(n->condition);
-        }
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf("  je .Lend%d\n", n->blockID);
-        genCode(n->body);
-        if (n->iterator) {
-            genCode(n->iterator);
-        }
-        printf("  jmp .Lbegin%d\n", n->blockID);
-        printf(".Lend%d:\n", n->blockID);
+        genCodeFor(n);
         return;
     } else if (n->kind == NodeFCall) {
-        int regargs = n->fcall->argsCount;
-        if (regargs > REG_ARGS_MAX_COUNT)
-            regargs = REG_ARGS_MAX_COUNT;
-        for (Node *c = n->fcall->args; c; c = c->next)
-            genCode(c);
-        for (int i = 0; i < regargs; ++i)
-            printf("  pop %s\n", argRegs[i]);
-
-        printf("  call ");
-        for (int i = 0; i < n->fcall->len; ++i) {
-            putchar(n->fcall->name[i]);
-        }
-        putchar('\n');
-
-        // Adjust RSP value when we used stack to pass arguments.
-        if ((n->fcall->argsCount - regargs) > 0)
-            printf("  add rsp, %d\n", (n->fcall->argsCount - regargs) * 8);
-
-        puts("  push rax");
+        genCodeFCall(n);
         return;
     } else if (n->kind == NodeFunction) {
         genCodeFunction(n);
