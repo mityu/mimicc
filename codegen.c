@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "mimic.h"
 
 // "push" and "pop" operator implicitly uses rsp as memory adress.
@@ -186,6 +187,14 @@ void genCode(Node *n) {
         }
         printf("  jmp .Lbegin%d\n", n->blockID);
         printf(".Lend%d:\n", n->blockID);
+        return;
+    } else if (n->kind == NodeFCall) {
+        printf("  call ");
+        for (int i = 0; i < n->fcall->len; ++i) {
+            putchar(n->fcall->name[i]);
+        }
+        putchar('\n');
+        puts("  push rax");
         return;
     }
 

@@ -34,6 +34,7 @@ typedef enum {
     NodeNum,    // Integer
     NodeLVar,   // Left hand side value (variable)
     NodeAssign, // {lhs} = {rhs};
+    NodeFCall,   // Function calls,
     NodeIf,
     NodeElseif,
     NodeElse,
@@ -42,6 +43,12 @@ typedef enum {
     NodeBlock,  // { ... }
     NodeReturn, // return {expr};
 } NodeKind;
+
+typedef struct FCall FCall;
+struct FCall {
+    char *name; // Function name
+    int len;  // Function name length
+};
 
 typedef struct Node Node;
 struct Node {
@@ -55,6 +62,7 @@ struct Node {
     Node *iterator;    // Used by for statement.
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
+    FCall *fcall;      // Called function information used when kind is NodeFCall.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
     int blockID;       // Unique ID for jump labels. Valid only when the node

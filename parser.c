@@ -258,6 +258,12 @@ static Node *newNodeFor() {
     return n;
 }
 
+static Node *newNodeFCall() {
+    Node *n = newNode(NodeFCall);
+    n->fcall = (FCall*)calloc(1, sizeof(FCall));
+    return n;
+}
+
 // Find local variable by name. Return LVar* when variable found. When not,
 // returns NULL.
 static LVar *findLVar(char *name, int len) {
@@ -446,7 +452,13 @@ static Node *primary() {
     }
 
     Token *t = consumeIdent();
-    if (t) {
+    if (consumeReserved("(")) {  // Function call.
+        Node *n = newNodeFCall();
+        n->fcall->name = t->str;
+        n->fcall->len = t->len;
+        expectSign(")");
+        return n;
+    } else if (t) {  // Variable.
         LVar *lvar = findLVar(t->str, t->len);
         if (!lvar) {
             int lastoffset = 0;
