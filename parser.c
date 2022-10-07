@@ -402,7 +402,7 @@ static Node *function() {
         globals.currentBlock = n->outerBlock;
         return n;
     } else {
-        errorAt(t->str, "An identifier expected.");
+        errorAt(globals.token->str, "An identifier expected.");
     }
     return NULL;
 }
