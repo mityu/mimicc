@@ -2,6 +2,8 @@
 #include <string.h>
 #include "mimic.h"
 
+#define REG_ARGS_MAX_COUNT  (6)
+
 // "push" and "pop" operator implicitly uses rsp as memory adress.
 // Therefore, `push rax` is equal to:
 //    sub rsp, 8
@@ -189,11 +191,27 @@ void genCode(Node *n) {
         printf(".Lend%d:\n", n->blockID);
         return;
     } else if (n->kind == NodeFCall) {
+        static const char *regs[REG_ARGS_MAX_COUNT] = {
+            "rdi", "rsi", "rdx", "rcx", "r8", "r9"
+        };
+        int regargs = n->fcall->argsCount;
+        if (regargs > REG_ARGS_MAX_COUNT)
+            regargs = REG_ARGS_MAX_COUNT;
+        for (Node *c = n->fcall->args; c; c = c->next)
+            genCode(c);
+        for (int i = 0; i < regargs; ++i)
+            printf("  pop %s\n", regs[i]);
+
         printf("  call ");
         for (int i = 0; i < n->fcall->len; ++i) {
             putchar(n->fcall->name[i]);
         }
         putchar('\n');
+
+        // Adjust RSP value when we used stack to pass arguments.
+        if ((n->fcall->argsCount - regargs) > 0)
+            printf("  add rsp, %d\n", (n->fcall->argsCount - regargs) * 8);
+
         puts("  push rax");
         return;
     }

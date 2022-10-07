@@ -132,7 +132,7 @@ Token *tokenize() {
             p += 2;
             continue;
         }
-        if (strchr("+-*/()=;<>{}", *p)) {
+        if (strchr("+-*/()=;<>{},", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -456,6 +456,18 @@ static Node *primary() {
         Node *n = newNodeFCall();
         n->fcall->name = t->str;
         n->fcall->len = t->len;
+        if (consumeReserved(")")) {
+            return n;
+        }
+        Node *arg;
+        for (;;) {
+            arg = expr();
+            arg->next = n->fcall->args;
+            n->fcall->args = arg;
+            ++n->fcall->argsCount;
+            if (!consumeReserved(","))
+                break;
+        }
         expectSign(")");
         return n;
     } else if (t) {  // Variable.

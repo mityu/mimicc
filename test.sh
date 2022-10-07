@@ -109,5 +109,8 @@ assert 10 'if (0) {return 1;} else if (1) {return 10;} else {return 2;}'
 assert 10 'if (0) {return 1;} else if (0) {return 2;} else if (1) {return 10;} else {return 3;}'
 assert 10 'if (0) {return 1;} else if (0) {return 2;} else {return 10;}'
 assert_fcall 42 'return f();' 'int f() {return 42;}'
+assert_fcall 1 'return f(1, 2);' 'int f(int a, int b) {return a == 1 && b == 2;}'
+assert_fcall 8 'return f(1, 2, 3, 4, 5, 6, 7, 8);' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
+assert_fcall 42 'return f(1, 2, 3, 4, 5, 6, f(1, 2, 3, 4, 5, 6, 7, 8), 42);' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
 
 echo OK

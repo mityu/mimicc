@@ -45,11 +45,6 @@ typedef enum {
 } NodeKind;
 
 typedef struct FCall FCall;
-struct FCall {
-    char *name; // Function name
-    int len;  // Function name length
-};
-
 typedef struct Node Node;
 struct Node {
     NodeKind kind;
@@ -67,6 +62,13 @@ struct Node {
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax.
+};
+
+struct FCall {
+    char *name; // Function name.
+    int len;  // Function name length.
+    int argsCount; // The number of arguments.
+    Node *args; // Function arguments in reversed order.
 };
 
 typedef struct LVar LVar;
