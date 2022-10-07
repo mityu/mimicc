@@ -546,7 +546,7 @@ static Node *primary() {
     }
 
     Token *t = consumeIdent();
-    if (consumeReserved("(")) {  // Function call.
+    if (t && consumeReserved("(")) {  // Function call.
         Node *n = newNodeFCall();
         n->fcall->name = t->str;
         n->fcall->len = t->len;
