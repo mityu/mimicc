@@ -3,4 +3,5 @@ mimic
 *~
 tmp*
 a.out
+devtools/main.c
 !.gitignore

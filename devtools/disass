@@ -1,0 +1,3 @@
+#!/bin/bash
+
+gcc -S main.c -o $(tty) -masm=intel -O0
