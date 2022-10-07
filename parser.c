@@ -5,6 +5,7 @@
 #include "mimic.h"
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
+static int atEOF();
 static Node *function();
 static Node *stmt();
 static Node *expr();
@@ -61,6 +62,10 @@ static void errorAt(char *loc, char *fmt, ...) {
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
+}
+
+static void errorUnexpectedEOF() {
+    errorAt(globals.token->str, "Unexpected EOF");
 }
 
 static int isToken(char *p, char *op) {
@@ -163,6 +168,10 @@ Token *tokenize() {
 // If the current token is the expected token, consume the token and returns
 // TRUE.
 static int consumeReserved(char *op) {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return 0;
+    }
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
@@ -175,6 +184,10 @@ static int consumeReserved(char *op) {
 // If the type of the current token is TokenIdent, consume the token and
 // returns the pointer to token structure.  If not, returns NULL instead.
 static Token *consumeIdent() {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return NULL;
+    }
     if (globals.token->type == TokenIdent) {
         Token *t = globals.token;
         globals.token = globals.token->next;
@@ -186,6 +199,10 @@ static Token *consumeIdent() {
 // If the type of the current token is `type`, consume the token and returns
 // TRUE.
 static int consumeCertainTokenType(TokenType type) {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return 0;
+    }
     if (globals.token->type == type) {
         globals.token = globals.token->next;
         return 1;
@@ -196,6 +213,10 @@ static int consumeCertainTokenType(TokenType type) {
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
 static void expectSign(char *op) {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return;
+    }
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
@@ -208,6 +229,10 @@ static void expectSign(char *op) {
 // If the current token is the number token, consume the token and returns the
 // value. Otherwise reports an error.
 static int expectNumber() {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return 0;
+    }
     if (globals.token->type == TokenNumber) {
         int val = globals.token->val;
         globals.token = globals.token->next;
@@ -218,6 +243,10 @@ static int expectNumber() {
 }
 
 static int assureSign(char *op) {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return 0;
+    }
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
