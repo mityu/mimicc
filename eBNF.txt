@@ -1,7 +1,8 @@
 0;/\C\<Alith\>//^finish$/+1,$Alith \%(=.*\)\@<!=
 finish
 
-program    = stmt*
+program    = function*
+function   = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
 stmt       = expr ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |

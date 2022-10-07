@@ -2,8 +2,6 @@
 #include <string.h>
 #include "mimic.h"
 
-#define REG_ARGS_MAX_COUNT  (6)
-
 // "push" and "pop" operator implicitly uses rsp as memory adress.
 // Therefore, `push rax` is equal to:
 //    sub rsp, 8
@@ -72,6 +70,52 @@
 //      Lelse2:
 //          E
 //      Lend:
+//
+//  Stack state at the head of function:
+//  (When function has 8 arguments)
+//
+//   |                                            |
+//   |                                            |
+//   +--------------------------------------------+
+//   |               8th argument                 |
+//   +--------------------------------------------+
+//   |               7th argument                 |
+//   +--------------------------------------------+
+//   |    Return adress of previous function      |
+//   +--------------------------------------------+
+//   |            Saved RBP value                 | <-- RBP
+//   +--------------------------------------------+
+//   |               1st argument                 |
+//   +--------------------------------------------+
+//   |               2nd argument                 |
+//   +--------------------------------------------+
+//   |                                            |
+//                         .
+//                         .
+//                         .
+//   |                                            |
+//   +--------------------------------------------+
+//   |               6th argument                 |
+//   +--------------------------------------------+
+//   |                                            |
+//                         .
+//                         .    (Local variables or tmp values exprs left)
+//                         .
+
+
+static void printn(const char* str) {
+    for (; *str; ++str)
+        putchar(*str);
+}
+
+static void printlen(const char* str, int len) {
+    for (int i = 0; i < len; ++i)
+        putchar(str[i]);
+}
+
+static const char *argRegs[REG_ARGS_MAX_COUNT] = {
+    "rdi", "rsi", "rdx", "rcx", "r8", "r9"
+};
 
 static void genCodeLVal(Node *n) {
     if (n->kind != NodeLVar) {
@@ -85,6 +129,33 @@ static void genCodeLVal(Node *n) {
     puts("  mov rax, rbp");
     printf("  sub rax, %d\n", n->offset);
     puts("  push rax");
+}
+
+static void genCodeFunction(Node *n) {
+    int regargs = n->func->argsCount;
+    if (regargs > REG_ARGS_MAX_COUNT)
+        regargs = REG_ARGS_MAX_COUNT;
+
+    printn(".globl ");
+    printlen(n->func->name, n->func->len);
+    putchar('\n');
+    printlen(n->func->name, n->func->len);
+    puts(":");
+
+    // Prologue.
+    puts("  push rbp");
+    puts("  mov rbp, rsp");
+
+    // Push arguments onto stacks from registers.
+    for (int i = 0; i < regargs; ++i) {
+        printf("  push %s\n", argRegs[i]);
+    }
+
+    genCode(n->body);
+
+    // Epilogue
+    puts("  mov rsp, rbp");
+    puts("  pop rbp");
 }
 
 void genCode(Node *n) {
@@ -191,16 +262,13 @@ void genCode(Node *n) {
         printf(".Lend%d:\n", n->blockID);
         return;
     } else if (n->kind == NodeFCall) {
-        static const char *regs[REG_ARGS_MAX_COUNT] = {
-            "rdi", "rsi", "rdx", "rcx", "r8", "r9"
-        };
         int regargs = n->fcall->argsCount;
         if (regargs > REG_ARGS_MAX_COUNT)
             regargs = REG_ARGS_MAX_COUNT;
         for (Node *c = n->fcall->args; c; c = c->next)
             genCode(c);
         for (int i = 0; i < regargs; ++i)
-            printf("  pop %s\n", regs[i]);
+            printf("  pop %s\n", argRegs[i]);
 
         printf("  call ");
         for (int i = 0; i < n->fcall->len; ++i) {
@@ -213,6 +281,9 @@ void genCode(Node *n) {
             printf("  add rsp, %d\n", (n->fcall->argsCount - regargs) * 8);
 
         puts("  push rax");
+        return;
+    } else if (n->kind == NodeFunction) {
+        genCodeFunction(n);
         return;
     }
 

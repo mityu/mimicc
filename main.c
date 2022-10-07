@@ -18,27 +18,16 @@ int main(int argc, char *argv[]) {
     globals.token = tokenize();
     program();
 
-    for (LVar *v = globals.locals; v != NULL; v = v->next)
-        ++lvar_count;
+    // for (LVar *v = globals.locals; v != NULL; v = v->next)
+    //     ++lvar_count;
+
+
+    // if (lvar_count) {
+    //     printf("  sub rsp, %d\n", lvar_count * 8);  // Reserve memories for local variables.
+    // }
 
     puts(".intel_syntax noprefix");
-    puts(".globl main");
-    puts("main:");
-
-    // Generate prologue.
-    puts("  push rbp");
-    puts("  mov rbp, rsp");
-    if (lvar_count) {
-        printf("  sub rsp, %d\n", lvar_count * 8);  // Reserve memories for local variables.
-    }
-
     genCode(globals.code);
-
-    // Generate epilogue.
-    puts("  mov rsp, rbp");
-    puts("  pop rbp");
-
-    puts("  ret");
 
     return 0;
 }

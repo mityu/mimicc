@@ -5,6 +5,7 @@
 #include "mimic.h"
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
+static Node *function();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -216,8 +217,27 @@ static int expectNumber() {
     return 0;
 }
 
+static int assureSign(char *op) {
+    if (globals.token->type == TokenReserved &&
+            strlen(op) == (size_t)globals.token->len &&
+            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
+        return 1;
+    }
+    errorAt(globals.token->str, "'%s' is expected.", op);
+    return 0;
+}
+
 static int atEOF() {
     return globals.token->type == TokenEOF;
+}
+
+static LVar *newLVar(Token *t, int offset) {
+    LVar *v = (LVar *)calloc(1, sizeof(LVar));
+    v->next = NULL;
+    v->name = t->str;
+    v->len = t->len;
+    v->offset = offset;
+    return v;
 }
 
 static Node *newNode(NodeKind kind) {
@@ -264,6 +284,12 @@ static Node *newNodeFCall() {
     return n;
 }
 
+static Node *newNodeFunction() {
+    Node *n = newNode(NodeFunction);
+    n->func = (Function *)calloc(1, sizeof(Function));
+    return n;
+}
+
 // Find local variable by name. Return LVar* when variable found. When not,
 // returns NULL.
 static LVar *findLVar(char *name, int len) {
@@ -280,10 +306,59 @@ void program() {
     body.next = NULL;
     globals.code = newNode(NodeBlock);
     while (!atEOF()) {
-        last->next = stmt();
+        last->next = function();
         last = last->next;
     }
     globals.code->body = body.next;
+}
+
+static Node *function() {
+    Token *t = consumeIdent();
+    if (t) {
+        Node *n = newNodeFunction();
+        int argsCount = 0;
+        LVar argHead;
+        LVar *args = &argHead;
+
+        argHead.next = NULL;
+        n->func->name = t->str;
+        n->func->len = t->len;
+
+        expectSign("(");
+        if (!consumeReserved(")")) {
+            // When argument exists.
+            for (;;) {
+                int offset = 0;
+                Token *argToken = consumeIdent();
+                if (!argToken) {
+                    errorAt(globals.token->str + globals.token->len,
+                            "An identifier expected.");
+                }
+                argsCount++;
+                // Arguments are all copied onto stack at the head of function.
+                if (argsCount > REG_ARGS_MAX_COUNT) {
+                    offset = -((argsCount - REG_ARGS_MAX_COUNT + 1) * 8);
+                } else {
+                    offset = argsCount * 8;
+                }
+                args->next = newLVar(argToken, offset);
+                args = args->next;
+                if (!consumeReserved(","))
+                    break;
+            }
+            expectSign(")");
+        }
+        n->func->args = argHead.next;
+        n->func->argsCount = argsCount;
+
+        // Handle function body
+        assureSign("{");
+        n->body = stmt();
+        return n;
+    } else {
+        errorAt(t->str, "An identifier expected.");
+    }
+    return NULL;
 }
 
 static Node *stmt() {
@@ -471,6 +546,7 @@ static Node *primary() {
         expectSign(")");
         return n;
     } else if (t) {  // Variable.
+        // TODO: Check function argument counts.
         LVar *lvar = findLVar(t->str, t->len);
         if (!lvar) {
             int lastoffset = 0;

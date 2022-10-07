@@ -1,5 +1,10 @@
 #ifndef HEADER_MIMIC_H
 #define HEADER_MIMIC_H
+
+
+#define REG_ARGS_MAX_COUNT  (6)
+
+
 typedef enum {
     TokenReserved,
     TokenIdent,
@@ -42,8 +47,11 @@ typedef enum {
     NodeWhile,
     NodeBlock,  // { ... }
     NodeReturn, // return {expr};
+    NodeFunction,
 } NodeKind;
 
+typedef struct Function Function;
+typedef struct LVar LVar;
 typedef struct FCall FCall;
 typedef struct Node Node;
 struct Node {
@@ -51,13 +59,15 @@ struct Node {
     Node *lhs;
     Node *rhs;
     Node *condition;   // Used by if/for/while/switch(?) statements.
-    Node *body;        // Used by if/for/while/switch statements.
+    Node *body;        // Used by if/for/while/switch statements, block and functions.
     Node *elseblock;   // Used by if statement. Holds "else if" and "else" blocks.
     Node *initializer; // Used by for statement.
     Node *iterator;    // Used by for statement.
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
+    LVar *locals;      // List of variables local to block. (func, block, for, ...)
     FCall *fcall;      // Called function information used when kind is NodeFCall.
+    Function *func;    // Function info.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
     int blockID;       // Unique ID for jump labels. Valid only when the node
@@ -71,12 +81,18 @@ struct FCall {
     Node *args; // Function arguments in reversed order.
 };
 
-typedef struct LVar LVar;
 struct LVar {
     LVar *next;
     char *name;
     int len;     // Length of name.
     int offset;  // Offset from rbp.
+};
+
+struct Function {
+    char *name;
+    int len;
+    int argsCount;
+    LVar *args;        // Function arguments.
 };
 
 typedef struct Globals Globals;
