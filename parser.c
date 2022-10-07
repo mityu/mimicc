@@ -247,6 +247,7 @@ static Node *newNode(NodeKind kind) {
     n->rhs  = NULL;
     n->body = NULL;
     n->next = NULL;
+    n->outerBlock = globals.currentBlock;
     return n;
 }
 
@@ -293,7 +294,17 @@ static Node *newNodeFunction() {
 // Find local variable by name. Return LVar* when variable found. When not,
 // returns NULL.
 static LVar *findLVar(char *name, int len) {
-    for (LVar *v = globals.locals; v != NULL; v = v->next) {
+    Node *block = globals.currentBlock;
+    for (;;) {
+        for (LVar *v = block->localVars; v; v = v->next) {
+            if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+                return v;
+        }
+        block = block->outerBlock;
+        if (!block)
+            break;
+    }
+    for (LVar *v = globals.currentFunction->args; v; v = v->next) {
         if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
             return v;
     }
@@ -320,6 +331,9 @@ static Node *function() {
         LVar argHead;
         LVar *args = &argHead;
 
+        // Dive into the new block.
+        globals.currentBlock = n;
+        globals.currentFunction = n->func;
         argHead.next = NULL;
         n->func->name = t->str;
         n->func->len = t->len;
@@ -354,6 +368,9 @@ static Node *function() {
         // Handle function body
         assureSign("{");
         n->body = stmt();
+
+        // Escape from this block to the outer one.
+        globals.currentBlock = n->outerBlock;
         return n;
     } else {
         errorAt(t->str, "An identifier expected.");
@@ -367,11 +384,13 @@ static Node *stmt() {
         Node body;
         Node *last = &body;
         body.next = NULL;
+        globals.currentBlock = n;  // Dive into the new block.
         while (!consumeReserved("}")) {
             last->next = stmt();
             last = last->next;
         }
         n->body = body.next;
+        globals.currentBlock = n->outerBlock;  // Escape from this block to the outer one.
         return n;
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
@@ -546,19 +565,27 @@ static Node *primary() {
         expectSign(")");
         return n;
     } else if (t) {  // Variable.
-        // TODO: Check function argument counts.
         LVar *lvar = findLVar(t->str, t->len);
         if (!lvar) {
-            int lastoffset = 0;
-            if (globals.locals)
-                lastoffset = globals.locals->offset;
+            int varCount = 0;
 
-            lvar = (LVar*)calloc(1, sizeof(LVar));
-            lvar->name = t->str;
-            lvar->len = t->len;
-            lvar->offset = lastoffset + 8;  // Use 8bytes per one variable.
-            lvar->next = globals.locals;
-            globals.locals = lvar;
+            globals.currentBlock->localVarCount++;
+
+
+            if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
+                varCount =
+                    globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
+            }
+            for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
+                varCount += block->localVarCount;
+            }
+            lvar = newLVar(t, varCount * 8);
+
+            if (globals.currentBlock->localVars) {
+                globals.currentBlock->localVars->next = lvar;
+            } else {
+                globals.currentBlock->localVars = lvar;
+            }
         }
         return newNodeLVar(lvar->offset);
     }

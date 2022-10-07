@@ -241,6 +241,7 @@ static void genCodeFunction(Node *n) {
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
+    putchar('\n');
     printn(".globl ");
     printlen(n->func->name, n->func->len);
     putchar('\n');
@@ -252,8 +253,9 @@ static void genCodeFunction(Node *n) {
     puts("  mov rbp, rsp");
 
     // Push arguments onto stacks from registers.
+    printf("  sub rsp, %d\n", regargs * 8);
     for (int i = 0; i < regargs; ++i) {
-        printf("  push %s\n", argRegs[i]);
+        printf("  mov -%d[rbp], %s\n", (i + 1) * 8, argRegs[i]);
     }
 
     genCode(n->body);
@@ -266,6 +268,8 @@ static void genCodeFunction(Node *n) {
 void genCode(Node *n) {
     if (n->kind == NodeBlock) {
         for (Node *c = n->body; c; c = c->next) {
+            if (n->localVarCount)
+                printf("  sub rsp, %d\n", n->localVarCount * 8);
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
             // be thrown away.

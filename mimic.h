@@ -65,9 +65,12 @@ struct Node {
     Node *iterator;    // Used by for statement.
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
-    LVar *locals;      // List of variables local to block. (func, block, for, ...)
+    LVar *localVars;   // List of variables local to block. (func, block, for, ...)
+                       // Stored in reversed appearing order.
+    int localVarCount; // The number of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Function *func;    // Function info.
+    Node *outerBlock;  // One step outer block.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
     int blockID;       // Unique ID for jump labels. Valid only when the node
@@ -97,8 +100,9 @@ struct Function {
 
 typedef struct Globals Globals;
 struct Globals {
-    Node *code; // List of expressions.
-    LVar *locals;    // List of local variables.
+    Node *code; // List of statements.
+    Node *currentBlock; // Current block.
+    Function *currentFunction; // Currently parsing function.
     int blockCount;  // The number of blocks appeared in program.
     Token* token;    // The token currently watches
     char* source;    // The source code (input)
