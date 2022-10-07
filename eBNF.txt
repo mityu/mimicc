@@ -3,10 +3,10 @@ finish
 
 program    = stmt*
 stmt       = expr ";" |
-				"{" stmt* "}" |
+                "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
-				"for" "(" expr? ";" expr? ";" expr? ") stmt |
-				"while" "(" expr ")" stmt |
+                "for" "(" expr? ";" expr? ";" expr? ") stmt |
+                "while" "(" expr ")" stmt |
                 "return" expr ";"
 expr       = assign
 assign     = equality ("=" assign)?
