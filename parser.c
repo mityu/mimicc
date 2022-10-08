@@ -6,6 +6,7 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
+static TypeInfo *parseType();
 static Node *function();
 static Node *stmt();
 static Node *expr();
@@ -64,8 +65,12 @@ static void errorAt(char *loc, char *fmt, ...) {
     exit(1);
 }
 
-static void errorIdentExpected(char *at) {
-    errorAt(at, "An identifier is expected");
+static void errorIdentExpected() {
+    errorAt(globals.token->str, "An identifier is expected");
+}
+
+static void errorTypeExpected() {
+    errorAt(globals.token->str, "An type is expected");
 }
 
 static void errorUnexpectedEOF() {
@@ -100,6 +105,7 @@ Token *tokenize() {
 
         if (isToken(p, "int")) {
             current = newToken(TokenTypeName, current, p, 3);
+            current->varType = TypeInt;
             p += 3;
             continue;
         }
@@ -285,11 +291,12 @@ static int atEOF() {
     return globals.token->type == TokenEOF;
 }
 
-static LVar *newLVar(Token *t, int offset) {
+static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
     LVar *v = (LVar *)calloc(1, sizeof(LVar));
     v->next = NULL;
     v->name = t->str;
     v->len = t->len;
+    v->type = typeInfo;
     v->offset = offset;
     return v;
 }
@@ -365,6 +372,29 @@ static LVar *findLVar(char *name, int len) {
     return NULL;
 }
 
+static TypeInfo *newTypeInfo(TypeKind kind) {
+    TypeInfo *t = (TypeInfo *)calloc(1, sizeof(TypeInfo));
+    t->type = kind;
+    return t;
+}
+
+// Parse declared type and return type information.  Return NULL if type
+// doesn't appear.
+static TypeInfo *parseType() {
+    TypeInfo *typeInfo = NULL;
+    Token *type = consumeTypeName();
+    if (!type) {
+        return NULL;
+    }
+    typeInfo = newTypeInfo(type->varType);
+    while (consumeReserved("*")) {
+        TypeInfo *t = newTypeInfo(TypePointer);
+        t->ptrTo = typeInfo;
+        typeInfo = t;
+    }
+    return typeInfo;
+}
+
 void program() {
     Node body;
     Node *last = &body;
@@ -378,12 +408,12 @@ void program() {
 }
 
 static Node *function() {
-    Token *type = NULL;
+    TypeInfo *type = NULL;
     Token *ident = NULL;
 
-    type = consumeTypeName();
+    type = parseType();
     if (!type) {
-        errorAt(globals.token->str, "An type is required.");
+        errorTypeExpected();
         return NULL;
     }
 
@@ -406,19 +436,18 @@ static Node *function() {
             // When argument exists.
             for (;;) {
                 int offset = 0;
-                Token *typeToken = NULL;
+                TypeInfo *typeInfo = NULL;
                 Token *argToken = NULL;
 
-                typeToken = consumeTypeName();
-                if (!typeToken) {
-                    errorAt(globals.token->str + globals.token->len,
-                            "An type is expected");
+                typeInfo = parseType();
+                if (!typeInfo) {
+                    errorTypeExpected();
                     return NULL;
                 }
 
                 argToken = consumeIdent();
                 if (!argToken) {
-                    errorIdentExpected(globals.token->str + globals.token->len);
+                    errorIdentExpected();
                     return NULL;
                 }
                 argsCount++;
@@ -428,7 +457,7 @@ static Node *function() {
                 } else {
                     offset = argsCount * 8;
                 }
-                args->next = newLVar(argToken, offset);
+                args->next = newLVar(argToken, typeInfo, offset);
                 args = args->next;
                 if (!consumeReserved(","))
                     break;
@@ -446,20 +475,20 @@ static Node *function() {
         globals.currentBlock = n->outerBlock;
         return n;
     } else {
-        errorIdentExpected(globals.token->str);
+        errorIdentExpected();
     }
     return NULL;
 }
 
 static Node *stmt() {
-    Token *typeToken = consumeTypeName();
-    if (typeToken) {
+    TypeInfo *typeInfo = parseType();
+    if (typeInfo) {
         Token *ident = consumeIdent();
         LVar *lvar = NULL;
         int varCount = 0;
 
         if (!ident) {
-            errorIdentExpected(globals.token->str);
+            errorIdentExpected();
             return NULL;
         }
         expectSign(";");
@@ -479,7 +508,7 @@ static Node *stmt() {
         for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
             varCount += block->localVarCount;
         }
-        lvar = newLVar(ident, varCount * 8);
+        lvar = newLVar(ident, typeInfo, varCount * 8);
 
         // Register variable.
         if (globals.currentBlock->localVars) {

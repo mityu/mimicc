@@ -118,6 +118,7 @@ assert 23 'int f(int a, int b) { int n1; int n2; n1 = a; n2 = b; return n1*3 + n
 assert 38 'int f(int a, int b, int c, int d, int e, int f, int g, int h) { int n; int m; n = 2; m = 3; return n * g + m * h; } int main() { return f(1, 2, 3, 4, 5, 6, 7, 8); }'
 assert 10 'int main() {int n; n=5; {n=10;} return n;}'
 assert 10 'int main() {int n; n=10; {int a; a=5;} return n;}'
-assert 10 'int main() {int n; int p; n=20; p=&n; *p=10; return n;}'
+assert 10 'int main() {int n; int* p; n=20; p=&n; *p=10; return n;}'
+assert 10 'int main() {int n; int* p; int **pp; n=20; p=&n; pp=&p; **pp=10; return n;}'
 
 echo OK

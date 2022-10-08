@@ -6,6 +6,17 @@
 
 
 typedef enum {
+    TypeInt,
+    TypePointer,
+} TypeKind;
+
+typedef struct TypeInfo TypeInfo;
+struct TypeInfo {
+    TypeKind type;
+    TypeInfo *ptrTo; // Valid when type is Pointer.
+};
+
+typedef enum {
     TokenReserved,
     TokenTypeName,
     TokenIdent,
@@ -23,9 +34,10 @@ typedef struct Token Token;
 struct Token {
     TokenType type;
     Token *next;
-    int val;    // The number when type == TokenNumber.
-    char *str;  // The token string.
-    int len;    // The token length.
+    int val;          // The number when type == TokenNumber.
+    TypeKind varType; // Variable type when type is TokenTypeName.
+    char *str;        // The token string.
+    int len;          // The token length.
 };
 
 typedef enum {
@@ -91,11 +103,12 @@ struct FCall {
 };
 
 struct LVar {
-    LVar *next;
-    char *name;
-    int len;     // Length of name.
-    int offset;  // Offset from rbp.  Variable adress is calculated as
-                 // "RBP - offset."
+    LVar     *next;
+    char     *name;
+    int      len;     // Length of   name.
+    TypeInfo *type;   // Type of variable.
+    int      offset;  // Offset from rbp.  Variable adress is calculated as
+                      // "RBP - offset."
 };
 
 struct Function {
