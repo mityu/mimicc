@@ -64,6 +64,10 @@ static void errorAt(char *loc, char *fmt, ...) {
     exit(1);
 }
 
+static void errorIdentExpected(char *at) {
+    errorAt(at, "An identifier is expected");
+}
+
 static void errorUnexpectedEOF() {
     errorAt(globals.token->str, "Unexpected EOF");
 }
@@ -91,6 +95,12 @@ Token *tokenize() {
     while (*p) {
         if (isSpace(*p)) {
             ++p;
+            continue;
+        }
+
+        if (isToken(p, "int")) {
+            current = newToken(TokenTypeName, current, p, 3);
+            p += 3;
             continue;
         }
 
@@ -179,6 +189,21 @@ static int consumeReserved(char *op) {
         return 1;
     }
     return 0;
+}
+
+// If the current token is TokenTypeName, consume the token and return the
+// pointer to the token structure. Return NULL otherwise.
+static Token *consumeTypeName() {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return NULL;
+    }
+    if (globals.token->type == TokenTypeName) {
+        Token *t = globals.token;
+        globals.token = globals.token->next;
+        return t;
+    }
+    return NULL;
 }
 
 // If the type of the current token is TokenIdent, consume the token and
@@ -353,8 +378,17 @@ void program() {
 }
 
 static Node *function() {
-    Token *t = consumeIdent();
-    if (t) {
+    Token *type = NULL;
+    Token *ident = NULL;
+
+    type = consumeTypeName();
+    if (!type) {
+        errorAt(globals.token->str, "An type is required.");
+        return NULL;
+    }
+
+    ident = consumeIdent();
+    if (ident) {
         Node *n = newNodeFunction();
         int argsCount = 0;
         LVar argHead;
@@ -364,18 +398,28 @@ static Node *function() {
         globals.currentBlock = n;
         globals.currentFunction = n->func;
         argHead.next = NULL;
-        n->func->name = t->str;
-        n->func->len = t->len;
+        n->func->name = ident->str;
+        n->func->len = ident->len;
 
         expectSign("(");
         if (!consumeReserved(")")) {
             // When argument exists.
             for (;;) {
                 int offset = 0;
-                Token *argToken = consumeIdent();
-                if (!argToken) {
+                Token *typeToken = NULL;
+                Token *argToken = NULL;
+
+                typeToken = consumeTypeName();
+                if (!typeToken) {
                     errorAt(globals.token->str + globals.token->len,
-                            "An identifier expected.");
+                            "An type is expected");
+                    return NULL;
+                }
+
+                argToken = consumeIdent();
+                if (!argToken) {
+                    errorIdentExpected(globals.token->str + globals.token->len);
+                    return NULL;
                 }
                 argsCount++;
                 // Arguments are all copied onto stack at the head of function.
@@ -402,13 +446,51 @@ static Node *function() {
         globals.currentBlock = n->outerBlock;
         return n;
     } else {
-        errorAt(globals.token->str, "An identifier expected.");
+        errorIdentExpected(globals.token->str);
     }
     return NULL;
 }
 
 static Node *stmt() {
-    if (consumeReserved("{")) {
+    Token *typeToken = consumeTypeName();
+    if (typeToken) {
+        Token *ident = consumeIdent();
+        LVar *lvar = NULL;
+        int varCount = 0;
+
+        if (!ident) {
+            errorIdentExpected(globals.token->str);
+            return NULL;
+        }
+        expectSign(";");
+
+        lvar = findLVar(ident->str, ident->len);
+        if (lvar) {
+            errorAt(ident->str, "Redefinition of variable");
+            return NULL;
+        }
+        globals.currentBlock->localVarCount++;
+
+
+        if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
+            varCount =
+                globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
+        }
+        for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
+            varCount += block->localVarCount;
+        }
+        lvar = newLVar(ident, varCount * 8);
+
+        // Register variable.
+        if (globals.currentBlock->localVars) {
+            lvar->next = globals.currentBlock->localVars;
+            globals.currentBlock->localVars = lvar;
+        } else {
+            globals.currentBlock->localVars = lvar;
+        }
+
+        return newNodeLVar(lvar->offset);
+    } else if (consumeReserved("{")) {
         Node *n = newNode(NodeBlock);
         Node body;
         Node *last = &body;
@@ -574,17 +656,19 @@ static Node *unary() {
 }
 
 static Node *primary() {
+    Token *ident = NULL;
+    Token *type = NULL;
     if (consumeReserved("(")) {
         Node *n = expr();
         expectSign(")");
         return n;
     }
 
-    Token *t = consumeIdent();
-    if (t && consumeReserved("(")) {  // Function call.
+    ident = consumeIdent();
+    if (ident && consumeReserved("(")) { // Function call.
         Node *n = newNodeFCall();
-        n->fcall->name = t->str;
-        n->fcall->len = t->len;
+        n->fcall->name = ident->str;
+        n->fcall->len = ident->len;
         if (consumeReserved(")")) {
             return n;
         }
@@ -599,30 +683,14 @@ static Node *primary() {
         }
         expectSign(")");
         return n;
-    } else if (t) {  // Variable.
-        LVar *lvar = findLVar(t->str, t->len);
+    } else if (ident) { // Use of variables.
+        LVar *lvar = findLVar(ident->str, ident->len);
         if (!lvar) {
-            int varCount = 0;
-
-            globals.currentBlock->localVarCount++;
-
-
-            if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
-                varCount =
-                    globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
-            }
-            for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-                varCount += block->localVarCount;
-            }
-            lvar = newLVar(t, varCount * 8);
-
-            if (globals.currentBlock->localVars) {
-                globals.currentBlock->localVars->next = lvar;
-            } else {
-                globals.currentBlock->localVars = lvar;
-            }
+            errorAt(ident->str, "Undefined variable");
+            return NULL;
         }
         return newNodeLVar(lvar->offset);
     }
+
     return newNodeNum(expectNumber());
 }

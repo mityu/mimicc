@@ -2,8 +2,9 @@
 finish
 
 program    = function*
-function   = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
+function   = type ident "(" (type ident ("," type ident)*)? ")" "{" stmt* "}"
 stmt       = expr ";" |
+                type ident ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |

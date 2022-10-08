@@ -7,6 +7,7 @@
 
 typedef enum {
     TokenReserved,
+    TokenTypeName,
     TokenIdent,
     TokenNumber,
     TokenIf,
@@ -69,6 +70,8 @@ struct Node {
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
     LVar *localVars;   // List of variables local to block. (func, block, for, ...)
+                       // Stored in reversed appearing order for an
+                       // implementation reason.
     int localVarCount; // The number of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Function *func;    // Function info.
