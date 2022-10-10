@@ -430,6 +430,7 @@ static Node *function() {
         argHead.next = NULL;
         n->func->name = ident->str;
         n->func->len = ident->len;
+        n->func->retType = type;
 
         expectSign("(");
         if (!consumeReserved(")")) {

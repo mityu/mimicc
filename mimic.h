@@ -116,6 +116,7 @@ struct Function {
     int len;
     int argsCount;
     LVar *args;        // Function arguments.
+    TypeInfo *retType; // Type of return value.
 };
 
 typedef struct Globals Globals;
