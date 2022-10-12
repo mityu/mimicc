@@ -120,5 +120,6 @@ assert 10 'int main() {int n; n=5; {n=10;} return n;}'
 assert 10 'int main() {int n; n=10; {int a; a=5;} return n;}'
 assert 10 'int main() {int n; int* p; n=20; p=&n; *p=10; return n;}'
 assert 10 'int main() {int n; int* p; int **pp; n=20; p=&n; pp=&p; **pp=10; return n;}'
+assert 10 'int f(); int f() {return 10;} int main() {return f();}'
 
 echo OK

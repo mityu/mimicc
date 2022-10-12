@@ -301,6 +301,11 @@ static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
+struct Function *newFunction() {
+    Function *f = (Function*)calloc(1, sizeof(Function));
+    return f;
+};
+
 static Node *newNode(NodeKind kind) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
@@ -372,6 +377,14 @@ static LVar *findLVar(char *name, int len) {
     return NULL;
 }
 
+static Function *findFunction(char *name, int len) {
+    for (Function *f = globals.functions; f; f = f->next) {
+        if (f->len == len && memcmp(f->name, name, (size_t)len) == 0)
+            return f;
+    }
+    return NULL;
+}
+
 static TypeInfo *newTypeInfo(TypeKind kind) {
     TypeInfo *t = (TypeInfo *)calloc(1, sizeof(TypeInfo));
     t->type = kind;
@@ -401,8 +414,11 @@ void program() {
     body.next = NULL;
     globals.code = newNode(NodeBlock);
     while (!atEOF()) {
-        last->next = function();
-        last = last->next;
+        Node *n = function();
+        if (n) {
+            last->next = n;
+            last = last->next;
+        }
     }
     globals.code->body = body.next;
 }
@@ -419,24 +435,24 @@ static Node *function() {
 
     ident = consumeIdent();
     if (ident) {
-        Node *n = newNodeFunction();
+        Node *n = NULL;
+        Function *f = newFunction();
+        Function *funcFound = NULL;
         int argsCount = 0;
+        int argNum = 0;
+        int justDeclaring = 0;
         LVar argHead;
         LVar *args = &argHead;
 
-        // Dive into the new block.
-        globals.currentBlock = n;
-        globals.currentFunction = n->func;
         argHead.next = NULL;
-        n->func->name = ident->str;
-        n->func->len = ident->len;
-        n->func->retType = type;
+        f->name = ident->str;
+        f->len = ident->len;
+        f->retType = type;
 
         expectSign("(");
         if (!consumeReserved(")")) {
             // When argument exists.
             for (;;) {
-                int offset = 0;
                 TypeInfo *typeInfo = NULL;
                 Token *argToken = NULL;
 
@@ -448,25 +464,67 @@ static Node *function() {
 
                 argToken = consumeIdent();
                 if (!argToken) {
+                    // TODO: Allow omitting variable name when just declaring
+                    // function.
                     errorIdentExpected();
                     return NULL;
                 }
                 argsCount++;
-                // Arguments are all copied onto stack at the head of function.
-                if (argsCount > REG_ARGS_MAX_COUNT) {
-                    offset = -((argsCount - REG_ARGS_MAX_COUNT + 1) * 8);
-                } else {
-                    offset = argsCount * 8;
-                }
-                args->next = newLVar(argToken, typeInfo, offset);
+                // Temporally, offset is 0 here.  It's computed later if
+                // needed.
+                args->next = newLVar(argToken, typeInfo, 0);
                 args = args->next;
                 if (!consumeReserved(","))
                     break;
             }
             expectSign(")");
         }
-        n->func->args = argHead.next;
-        n->func->argsCount = argsCount;
+        f->args = argHead.next;
+        f->argsCount = argsCount;
+
+        if (consumeReserved(";")) {
+            justDeclaring = 1;
+        }
+
+        funcFound = findFunction(f->name, f->len);
+        if (funcFound) {
+            if (!justDeclaring) {
+                if (funcFound->haveImpl) {
+                    errorAt(ident->str, "Function is defined twice");
+                } else {
+                    funcFound->haveImpl = 1;
+                }
+            }
+        } else {
+            // Register function.
+            f->next = globals.functions;
+            globals.functions = f;
+        }
+
+        if (justDeclaring) {
+            return NULL;
+        }
+
+
+        n = newNodeFunction();
+        n->func = f;
+        n->token = ident;
+
+        // Dive into the new block.
+        globals.currentBlock = n;
+        globals.currentFunction = n->func;
+
+        // Compute argument variables' offset.
+        // Note that arguments are all copied onto stack at the head of
+        // function.
+        for (LVar *v = f->args; v; v = v->next) {
+            ++argNum;
+            if (argNum > REG_ARGS_MAX_COUNT) {
+                v->offset = -((argNum - REG_ARGS_MAX_COUNT + 1) * 8);
+            } else {
+                v->offset = argNum * 8;
+            }
+        }
 
         // Handle function body
         assureSign("{");

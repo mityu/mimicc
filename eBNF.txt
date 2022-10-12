@@ -2,7 +2,7 @@
 finish
 
 program    = function*
-function   = type ident "(" (type ident ("," type ident)*)? ")" "{" stmt* "}"
+function   = type ident "(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";")
 stmt       = expr ";" |
                 type ident ";" |
                 "{" stmt* "}" |

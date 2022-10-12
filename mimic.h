@@ -112,11 +112,14 @@ struct LVar {
 };
 
 struct Function {
+    Function *next;
     char *name;
     int len;
     int argsCount;
     LVar *args;        // Function arguments.
     TypeInfo *retType; // Type of return value.
+    int haveImpl;      // TRUE when implementation is given.  FALSE if
+                       // only declaration is given.
 };
 
 typedef struct Globals Globals;

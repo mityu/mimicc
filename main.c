@@ -14,6 +14,8 @@ int main(int argc, char *argv[]) {
 
     globals.source = argv[1];
     globals.currentBlock = NULL;
+    globals.currentFunction = NULL;
+    globals.functions = NULL;
     globals.blockCount = 0;
     globals.token = tokenize();
     program();
