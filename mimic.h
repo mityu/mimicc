@@ -34,8 +34,8 @@ typedef struct Token Token;
 struct Token {
     TokenType type;
     Token *next;
-    int val;          // The number when type == TokenNumber.
-    TypeKind varType; // Variable type when type is TokenTypeName.
+    int val;          // Number valid when type is TokenNumber.
+    TypeKind varType; // Variable type valid when type is TokenTypeName.
     char *str;        // The token string.
     int len;          // The token length.
 };
@@ -96,16 +96,16 @@ struct Node {
 };
 
 struct FCall {
-    char *name; // Function name.
-    int len;  // Function name length.
+    char *name;    // Function name.
+    int len;       // Function name length.
     int argsCount; // The number of arguments.
-    Node *args; // Function arguments in reversed order.
+    Node *args;    // Function arguments in reversed order.
 };
 
 struct LVar {
     LVar     *next;
     char     *name;
-    int      len;     // Length of   name.
+    int      len;     // Length of name.
     TypeInfo *type;   // Type of variable.
     int      offset;  // Offset from rbp.  Variable adress is calculated as
                       // "RBP - offset."
@@ -121,12 +121,13 @@ struct Function {
 
 typedef struct Globals Globals;
 struct Globals {
-    Node *code; // List of statements.
-    Node *currentBlock; // Current block.
-    Function *currentFunction; // Currently parsing function.
-    int blockCount;  // The number of blocks appeared in program.
-    Token* token;    // The token currently watches
-    char* source;    // The source code (input)
+    Node *code;                // The root node of program.
+    Function *functions;       // Declared function list.
+    Node *currentBlock;        // Current block.
+    Function *currentFunction; // Function currently parsed.
+    int blockCount;            // The number of blocks appeared in program.
+    Token *token;              // Token currently watches
+    char *source;              // The source code (input)
 };
 extern Globals globals;
 
