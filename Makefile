@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -g -static
 TARGET=mimic
-SRC=main.c parser.c codegen.c
+SRC=main.c parser.c codegen.c verifier.c
 OBJ=$(SRC:.c=.o)
 $(TARGET): $(OBJ)
 	gcc -o $@ $^

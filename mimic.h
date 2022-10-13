@@ -1,20 +1,37 @@
 #ifndef HEADER_MIMIC_H
 #define HEADER_MIMIC_H
 
+#include <stddef.h>
 
 #define REG_ARGS_MAX_COUNT  (6)
+#define errorUnreachable()  \
+    error("%s:%d: Internal error: unreachable", __FILE__, __LINE__);
 
 
 typedef enum {
-    TypeInt,
+    TypeNone,   // No type (block, if, for, while, ...)
+    TypeInt,    // `int`
+    TypeNumber, // Literal number
     TypePointer,
 } TypeKind;
 
 typedef struct TypeInfo TypeInfo;
 struct TypeInfo {
     TypeKind type;
-    TypeInfo *ptrTo; // Valid when type is Pointer.
+    TypeInfo *ptrTo; // Valid when type is TypePointer.
 };
+
+#define PrimitiveType(type) (TypeInfo){type, NULL}
+static struct Types {
+    TypeInfo None;
+    TypeInfo Int;
+    TypeInfo Number;
+} Types = {
+    .None = PrimitiveType(TypeNone),
+    .Int = PrimitiveType(TypeInt),
+    .Number = PrimitiveType(TypeNumber),
+};
+#undef PrimitiveType
 
 typedef enum {
     TokenReserved,
@@ -33,6 +50,7 @@ typedef enum {
 typedef struct Token Token;
 struct Token {
     TokenType type;
+    Token *prev;
     Token *next;
     int val;          // Number valid when type is TokenNumber.
     TypeKind varType; // Variable type valid when type is TokenTypeName.
@@ -81,6 +99,8 @@ struct Node {
     Node *iterator;    // Used by for statement.
     Node *next;        // Next statement in the same block. NULL if next
                        // statement doesn't exist.
+    TypeInfo *type;    // Type of this node's result value.
+    Token *token;      // Token which gave this node.
     LVar *localVars;   // List of variables local to block. (func, block, for, ...)
                        // Stored in reversed appearing order for an
                        // implementation reason.
@@ -136,6 +156,9 @@ extern Globals globals;
 
 void genCode(Node *n);
 void error(char *fmt, ...);
+void errorAt(char *loc, char *fmt, ...);
 Token *tokenize();
 void program();
+Function *findFunction(char *name, int len);
+void verifyType(Node *n);
 #endif // HEADER_MIMIC_H

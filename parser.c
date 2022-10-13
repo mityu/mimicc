@@ -50,7 +50,7 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-static void errorAt(char *loc, char *fmt, ...) {
+void errorAt(char *loc, char *fmt, ...) {
     int pos = loc - globals.source;
     va_list ap;
     va_start(ap, fmt);
@@ -87,6 +87,7 @@ static Token *newToken(TokenType type, Token *current, char *str, int len) {
     t->type = type;
     t->str = str;
     t->len = len;
+    t->prev = current;
     current->next = t;
     return t;
 }
@@ -306,7 +307,7 @@ struct Function *newFunction() {
     return f;
 };
 
-static Node *newNode(NodeKind kind) {
+static Node *newNode(NodeKind kind, TypeInfo *type) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
     n->lhs  = NULL;
@@ -314,30 +315,32 @@ static Node *newNode(NodeKind kind) {
     n->body = NULL;
     n->next = NULL;
     n->outerBlock = globals.currentBlock;
+    n->token = globals.token->prev;
+    n->type = type;
     return n;
 }
 
-static Node *newNodeBinary(NodeKind kind, Node *lhs, Node *rhs) {
-    Node *n = newNode(kind);
+static Node *newNodeBinary(NodeKind kind, Node *lhs, Node *rhs, TypeInfo *type) {
+    Node *n = newNode(kind, type);
     n->lhs = lhs;
     n->rhs = rhs;
     return n;
 }
 
 static Node *newNodeNum(int val) {
-    Node *n = newNode(NodeNum);
+    Node *n = newNode(NodeNum, &Types.Number);
     n->val = val;
     return n;
 }
 
-static Node *newNodeLVar(int offset) {
-    Node *n = newNode(NodeLVar);
+static Node *newNodeLVar(int offset, TypeInfo *type) {
+    Node *n = newNode(NodeLVar, type);
     n->offset = offset;
     return n;
 }
 
 static Node *newNodeFor() {
-    Node *n = newNode(NodeFor);
+    Node *n = newNode(NodeFor, &Types.None);
     n->initializer = NULL;
     n->condition = NULL;
     n->iterator = NULL;
@@ -345,20 +348,20 @@ static Node *newNodeFor() {
     return n;
 }
 
-static Node *newNodeFCall() {
-    Node *n = newNode(NodeFCall);
+static Node *newNodeFCall(TypeInfo *retType) {
+    Node *n = newNode(NodeFCall, retType);
     n->fcall = (FCall*)calloc(1, sizeof(FCall));
     return n;
 }
 
 static Node *newNodeFunction() {
-    Node *n = newNode(NodeFunction);
+    Node *n = newNode(NodeFunction, &Types.None);
     n->func = (Function *)calloc(1, sizeof(Function));
     return n;
 }
 
-// Find local variable by name. Return LVar* when variable found. When not,
-// returns NULL.
+// Find local variable in current block by name. Return LVar* when variable
+// found. When not, returns NULL.
 static LVar *findLVar(char *name, int len) {
     Node *block = globals.currentBlock;
     for (;;) {
@@ -377,7 +380,7 @@ static LVar *findLVar(char *name, int len) {
     return NULL;
 }
 
-static Function *findFunction(char *name, int len) {
+Function *findFunction(char *name, int len) {
     for (Function *f = globals.functions; f; f = f->next) {
         if (f->len == len && memcmp(f->name, name, (size_t)len) == 0)
             return f;
@@ -412,7 +415,7 @@ void program() {
     Node body;
     Node *last = &body;
     body.next = NULL;
-    globals.code = newNode(NodeBlock);
+    globals.code = newNode(NodeBlock, &Types.None);
     while (!atEOF()) {
         Node *n = function();
         if (n) {
@@ -577,9 +580,9 @@ static Node *stmt() {
             globals.currentBlock->localVars = lvar;
         }
 
-        return newNodeLVar(lvar->offset);
+        return newNodeLVar(lvar->offset, lvar->type);
     } else if (consumeReserved("{")) {
-        Node *n = newNode(NodeBlock);
+        Node *n = newNode(NodeBlock, &Types.None);
         Node body;
         Node *last = &body;
         body.next = NULL;
@@ -594,10 +597,11 @@ static Node *stmt() {
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectSign(";");
-        n = newNodeBinary(NodeReturn, n, NULL);
+        n = newNodeBinary(NodeReturn, n, NULL, n->type);
+        n->token = n->token->prev;
         return n;
     } else if (consumeCertainTokenType(TokenIf)) {
-        Node *n = newNode(NodeIf);
+        Node *n = newNode(NodeIf, &Types.None);
         Node elseblock;
         Node *lastElse = &elseblock;
         elseblock.next = NULL;
@@ -609,7 +613,7 @@ static Node *stmt() {
         n->body = stmt();
 
         while (consumeCertainTokenType(TokenElseif)) {
-            Node *e = newNode(NodeElseif);
+            Node *e = newNode(NodeElseif, &Types.None);
             expectSign("(");
             e->condition = expr();
             expectSign(")");
@@ -619,7 +623,7 @@ static Node *stmt() {
         }
 
         if (consumeCertainTokenType(TokenElse)) {
-            Node *e = newNode(NodeElse);
+            Node *e = newNode(NodeElse, &Types.None);
             e->body = stmt();
             lastElse->next = e;
             lastElse = lastElse->next;
@@ -665,8 +669,10 @@ static Node *expr() {
 
 static Node *assign() {
     Node *n = equality();
+    Token *t = globals.token;
     if (consumeReserved("=")) {
-        n = newNodeBinary(NodeAssign, n, assign());
+        n = newNodeBinary(NodeAssign, n, assign(), n->type);
+        n->token = t;
     }
     return n;
 }
@@ -675,9 +681,9 @@ static Node *equality() {
     Node *n = relational();
     for (;;) {
         if (consumeReserved("==")) {
-            n = newNodeBinary(NodeEq, n, relational());
+            n = newNodeBinary(NodeEq, n, relational(), &Types.Number);
         } else if (consumeReserved("!=")) {
-            n = newNodeBinary(NodeNeq, n, relational());
+            n = newNodeBinary(NodeNeq, n, relational(), &Types.Number);
         } else {
             return n;
         }
@@ -688,13 +694,13 @@ static Node *relational() {
     Node *n = add();
     for (;;) {
         if (consumeReserved("<")) {
-            n = newNodeBinary(NodeLT, n, add());
+            n = newNodeBinary(NodeLT, n, add(), &Types.Number);
         } else if (consumeReserved(">")) {
-            n = newNodeBinary(NodeLT, add(), n);
+            n = newNodeBinary(NodeLT, add(), n, &Types.Number);
         } else if (consumeReserved("<=")) {
-            n = newNodeBinary(NodeLE, n, add());
+            n = newNodeBinary(NodeLE, n, add(), &Types.Number);
         } else if (consumeReserved(">=")) {
-            n = newNodeBinary(NodeLE, add(), n);
+            n = newNodeBinary(NodeLE, add(), n, &Types.Number);
         } else {
             return n;
         }
@@ -705,9 +711,9 @@ static Node *add() {
     Node *n = mul();
     for (;;) {
         if (consumeReserved("+")) {
-            n = newNodeBinary(NodeAdd, n, mul());
+            n = newNodeBinary(NodeAdd, n, mul(), n->type);
         } else if (consumeReserved("-")) {
-            n = newNodeBinary(NodeSub, n, mul());
+            n = newNodeBinary(NodeSub, n, mul(), n->type);
         } else {
             return n;
         }
@@ -718,11 +724,11 @@ static Node *mul() {
     Node *n = unary();
     for (;;) {
         if (consumeReserved("*")) {
-            n = newNodeBinary(NodeMul, n, unary());
+            n = newNodeBinary(NodeMul, n, unary(), n->type);
         } else if (consumeReserved("/")) {
-            n = newNodeBinary(NodeDiv, n, unary());
+            n = newNodeBinary(NodeDiv, n, unary(), n->type);
         } else if (consumeReserved("%")) {
-            n = newNodeBinary(NodeDivRem, n, unary());
+            n = newNodeBinary(NodeDivRem, n, unary(), n->type);
         } else {
             return n;
         }
@@ -731,13 +737,19 @@ static Node *mul() {
 
 static Node *unary() {
     if (consumeReserved("+")) {
-        return newNodeBinary(NodeAdd, newNodeNum(0), primary());
+        Node *rhs = primary();
+        return newNodeBinary(NodeAdd, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("-")) {
-        return newNodeBinary(NodeSub, newNodeNum(0), primary());
+        Node *rhs = primary();
+        return newNodeBinary(NodeSub, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("&")) {
-        return newNodeBinary(NodeAddress, NULL, unary());
+        Node *rhs = unary();
+        TypeInfo *type = newTypeInfo(TypePointer);
+        type->ptrTo = rhs->type;
+        return newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
-        return newNodeBinary(NodeDeref, NULL, unary());
+        Node *rhs = unary();
+        return newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
     } else {
         return primary();
     }
@@ -754,13 +766,23 @@ static Node *primary() {
 
     ident = consumeIdent();
     if (ident && consumeReserved("(")) { // Function call.
-        Node *n = newNodeFCall();
+        Node *n;
+        Node *arg;
+        Function *f;
+
+        f = findFunction(ident->str, ident->len);
+        if (!f) {
+            errorAt(ident->str, "No such function.");
+        }
+
+        n = newNodeFCall(f->retType);
         n->fcall->name = ident->str;
         n->fcall->len = ident->len;
+        n->token = ident;
+
         if (consumeReserved(")")) {
             return n;
         }
-        Node *arg;
         for (;;) {
             arg = expr();
             arg->next = n->fcall->args;
@@ -773,11 +795,14 @@ static Node *primary() {
         return n;
     } else if (ident) { // Use of variables.
         LVar *lvar = findLVar(ident->str, ident->len);
+        Node *n;
         if (!lvar) {
             errorAt(ident->str, "Undefined variable");
             return NULL;
         }
-        return newNodeLVar(lvar->offset);
+        n = newNodeLVar(lvar->offset, lvar->type);
+        n->type = lvar->type;
+        return n;
     }
 
     return newNodeNum(expectNumber());

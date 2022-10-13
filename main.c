@@ -20,6 +20,7 @@ int main(int argc, char *argv[]) {
     globals.token = tokenize();
     program();
 
+    verifyType(globals.code);
 
     puts(".intel_syntax noprefix");
     genCode(globals.code);

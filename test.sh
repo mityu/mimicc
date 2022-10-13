@@ -37,6 +37,15 @@ assert_fcall() {
   fi
 }
 
+assert_fail() {
+  input="$1"
+  ./mimic "$1"
+  if [ $? -ne 1 ]; then
+    echo "Other than 1 returned."
+    exit 1
+  fi
+}
+
 assert 42 'int main(){ return 42;}'
 assert 4 'int main(){ return 5-3+2;}'
 assert 6 'int main(){ return 5+3-2;}'
@@ -109,10 +118,11 @@ assert 89 'int main(){ int a; int b; int i; a=1; b=1; for (i=0; i<9; i=i+1) {int
 assert 10 'int main(){ if (0) {return 1;} else if (1) {return 10;} else {return 2;}}'
 assert 10 'int main(){ if (0) {return 1;} else if (0) {return 2;} else if (1) {return 10;} else {return 3;}}'
 assert 10 'int main(){ if (0) {return 1;} else if (0) {return 2;} else {return 10;}}'
-assert_fcall 42 'int main() {return f();}' 'int f() {return 42;}'
-assert_fcall 1 'int main() {return f(1, 2);}' 'int f(int a, int b) {return a == 1 && b == 2;}'
-assert_fcall 8 'int main() {return f(1, 2, 3, 4, 5, 6, 7, 8);}' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
-assert_fcall 42 'int main() {return f(1, 2, 3, 4, 5, 6, f(1, 2, 3, 4, 5, 6, 7, 8), 42);}' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
+assert 10 'int f(); int f() {return 10;} int main() {return f();}'
+assert_fcall 42 'int f(); int main() {return f();}' 'int f(void) {return 42;}'
+assert_fcall 1 'int f(int a, int b); int main() {return f(1, 2);}' 'int f(int a, int b) {return a == 1 && b == 2;}'
+assert_fcall 8 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8); int main() {return f(1, 2, 3, 4, 5, 6, 7, 8);}' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
+assert_fcall 42 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8); int main() {return f(1, 2, 3, 4, 5, 6, f(1, 2, 3, 4, 5, 6, 7, 8), 42);}' 'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
 assert 13 'int fib(int n) { if (n<=1) return 1; else return fib(n-1)+fib(n-2);} int main() {return fib(6);}'
 assert 23 'int f(int a, int b) { int n1; int n2; n1 = a; n2 = b; return n1*3 + n2*2; } int main() { return f(5, 4); }'
 assert 38 'int f(int a, int b, int c, int d, int e, int f, int g, int h) { int n; int m; n = 2; m = 3; return n * g + m * h; } int main() { return f(1, 2, 3, 4, 5, 6, 7, 8); }'
@@ -120,6 +130,14 @@ assert 10 'int main() {int n; n=5; {n=10;} return n;}'
 assert 10 'int main() {int n; n=10; {int a; a=5;} return n;}'
 assert 10 'int main() {int n; int* p; n=20; p=&n; *p=10; return n;}'
 assert 10 'int main() {int n; int* p; int **pp; n=20; p=&n; pp=&p; **pp=10; return n;}'
-assert 10 'int f(); int f() {return 10;} int main() {return f();}'
+
+assert_fail 'int main(){int n; int *m; n = m; return 0;}'
+assert_fail 'int main(){return f();}'
+assert_fail 'int f(); int g(){f(3);}'
+assert_fail 'int f(int *p); int g(){f(3);}'
+assert_fail 'int f(); int main(){int *n; n = f();}'
+assert_fail 'int *f() {return 5;}'
+assert_fail 'int f() {15 = 3;}'
+assert_fail 'int f() {int n; int m; n = &m;}'
 
 echo OK
