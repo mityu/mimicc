@@ -5,6 +5,7 @@
 static void verifyTypeFCall(Node *n);
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs);
 static int checkTypeMatches(TypeInfo *t1, TypeInfo *t2);
+static int isLvalue(Node *n);
 
 void verifyType(Node *n) {
     if (n->kind == NodeFunction) {
@@ -52,11 +53,17 @@ void verifyType(Node *n) {
             errorAt(n->token->str, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
-        verifyType(n->rhs);  // TODO: This is really necessary?
+        // Type check is needed for some cases like: v = *f(...);
+        verifyType(n->rhs);
+    } else if (n->kind == NodeAddress) {
+        if (!isLvalue(n)) {
+            errorAt(n->token->str, "Not a lvalue. Cannot take reference for this.");
+        }
+        // No type check is needed for lvalue nodes.
     } else if (n->kind == NodeFCall) {
         verifyTypeFCall(n);
     } else if (n->kind == NodeAssign) {
-        if (!(n->lhs->kind == NodeLVar || n->lhs->kind == NodeDeref)) {
+        if (!isLvalue(n)) {
             errorAt(n->token->str, "Not a lvalue. Cannot assign.");
             return;
         }
@@ -129,4 +136,9 @@ static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
 
 static int checkTypeMatches(TypeInfo *t1, TypeInfo *t2) {
     return 1;
+}
+
+// Return TRUE is `n` is lvalue.
+static int isLvalue(Node *n) {
+    return n->kind == NodeLVar || n->kind == NodeDeref;
 }
