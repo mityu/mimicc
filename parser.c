@@ -748,8 +748,16 @@ static Node *unary() {
         type->ptrTo = rhs->type;
         return newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
+        Token *t = globals.token->prev->prev;
         Node *rhs = unary();
-        return newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
+        Node *n = NULL;
+        if (!(rhs->type && rhs->type->type == TypePointer)) {
+            errorAt(rhs->token->str,
+                    "Cannot dereference a non-pointer value.");
+        }
+        n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
+        n->token = t;
+        return n;
     } else {
         return primary();
     }

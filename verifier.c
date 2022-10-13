@@ -52,11 +52,7 @@ void verifyType(Node *n) {
             errorAt(n->token->str, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
-        TypeInfo *t = n->rhs->type;
-        if (!(t && t->type == TypePointer)) {
-            errorAt(n->rhs->token->str,
-                    "Cannot dereference a non-pointer value.");
-        }
+        verifyType(n->rhs);  // TODO: This is really necessary?
     } else if (n->kind == NodeFCall) {
         verifyTypeFCall(n);
     } else if (n->kind == NodeAssign) {

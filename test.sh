@@ -139,5 +139,6 @@ assert_fail 'int f(); int main(){int *n; n = f();}'
 assert_fail 'int *f() {return 5;}'
 assert_fail 'int f() {15 = 3;}'
 assert_fail 'int f() {int n; int m; n = &m;}'
+assert_fail 'int f() {int n; int *p; n = **p;}'
 
 echo OK
