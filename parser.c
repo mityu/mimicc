@@ -779,7 +779,7 @@ static Node *unary() {
     } else if (consumeReserved("*")) {
         Node *rhs = unary();
         if (!(rhs->type && rhs->type->type == TypePointer)) {
-            errorAt(rhs->token->str,
+            errorAt(tokenOperator->str,
                     "Cannot dereference a non-pointer value.");
         }
         n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
