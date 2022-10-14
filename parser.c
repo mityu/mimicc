@@ -430,6 +430,21 @@ static int sizeOf(TypeInfo *ti) {
     return -1;
 }
 
+// Determine the type of expression result for arithmetic operands.
+// For the details, see the "6.3.1 Arithmetic operands" chapter (P.68) in this
+// C11 draft PDF:
+// https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1548.pdf
+static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
+    if (lhs->type == rhs->type) {
+        return lhs;
+    } else if (lhs->type == TypeNumber) {
+        return rhs;
+    } else if (rhs->type == TypeNumber) {
+        return lhs;
+    }
+    return NULL;
+}
+
 void program() {
     Node body;
     Node *last = &body;
@@ -735,9 +750,13 @@ static Node *add() {
     for (;;) {
         Token *t = globals.token;
         if (consumeReserved("+")) {
-            n = newNodeBinary(NodeAdd, n, mul(), n->type);
+            Node *rhs = mul();
+            TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            n = newNodeBinary(NodeAdd, n, rhs, type);
         } else if (consumeReserved("-")) {
-            n = newNodeBinary(NodeSub, n, mul(), n->type);
+            Node *rhs = mul();
+            TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            n = newNodeBinary(NodeSub, n, rhs, type);
         } else {
             return n;
         }
@@ -750,11 +769,17 @@ static Node *mul() {
     for (;;) {
         Token *t = globals.token;
         if (consumeReserved("*")) {
-            n = newNodeBinary(NodeMul, n, unary(), n->type);
+            Node *rhs = unary();
+            TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            n = newNodeBinary(NodeMul, n, rhs, type);
         } else if (consumeReserved("/")) {
-            n = newNodeBinary(NodeDiv, n, unary(), n->type);
+            Node *rhs = unary();
+            TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            n = newNodeBinary(NodeDiv, n, rhs, type);
         } else if (consumeReserved("%")) {
-            n = newNodeBinary(NodeDivRem, n, unary(), n->type);
+            Node *rhs = unary();
+            TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            n = newNodeBinary(NodeDivRem, n, rhs, type);
         } else {
             return n;
         }
