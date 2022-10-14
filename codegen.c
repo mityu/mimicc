@@ -114,6 +114,33 @@ static void printlen(const char* str, int len) {
         putchar(str[i]);
 }
 
+static int isExprNode(Node *n) {
+    switch (n->kind) {
+    default:
+        return 0;
+    case NodeAdd:  // All cases below are fallthrough.
+    case NodeSub:
+    case NodeMul:
+    case NodeDiv:
+    case NodeDivRem:
+    case NodeEq:
+    case NodeNeq:
+    case NodeLT:
+    case NodeLE:
+    case NodePreIncl:
+    case NodePreDecl:
+    case NodePostIncl:
+    case NodePostDecl:
+    case NodeAddress:
+    case NodeDeref:
+    case NodeNum:
+    case NodeLVar:
+    case NodeAssign:
+    case NodeFCall:
+        return 1;
+    }
+}
+
 static const char *argRegs[REG_ARGS_MAX_COUNT] = {
     "rdi", "rsi", "rdx", "rcx", "r8", "r9"
 };
@@ -186,6 +213,10 @@ static void genCodeIf(Node *n) {
         printf("  je .Lend%d\n", n->blockID);
     }
     genCode(n->body);
+    if (isExprNode(n->body)) {
+        puts("  pop rax");
+    }
+
     if (n->elseblock) {
         printf("  jmp .Lend%d\n", n->blockID);
     }
@@ -209,17 +240,24 @@ static void genCodeIf(Node *n) {
 static void genCodeFor(Node *n) {
     if (n->initializer) {
         genCode(n->initializer);
+        puts("  pop rax");
     }
     printf(".Lbegin%d:\n", n->blockID);
     if (n->condition) {
         genCode(n->condition);
+    } else {
+        puts("  push 1");
     }
     puts("  pop rax");
     puts("  cmp rax, 0");
     printf("  je .Lend%d\n", n->blockID);
     genCode(n->body);
+    if (isExprNode(n->body)) {
+        puts("  pop rax");
+    }
     if (n->iterator) {
         genCode(n->iterator);
+        puts("  pop rax");
     }
     printf("  jmp .Lbegin%d\n", n->blockID);
     printf(".Lend%d:\n", n->blockID);
@@ -295,6 +333,7 @@ static void genCodeFunction(Node *n) {
     // Epilogue
     puts("  mov rsp, rbp");
     puts("  pop rbp");
+    puts("  ret");
 }
 
 static void genCodeIncrement(Node *n, int prefix) {
@@ -347,13 +386,16 @@ void genCode(Node *n) {
         genCodeDeref(n);
         return;
     } else if (n->kind == NodeBlock) {
+        if (n->localVarCount)
+            printf("  sub rsp, %d\n", n->localVarCount * 8);
         for (Node *c = n->body; c; c = c->next) {
-            if (n->localVarCount)
-                printf("  sub rsp, %d\n", n->localVarCount * 8);
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
-            // be thrown away.
-            puts("  pop rax");
+            // be thrown away. (But Block node does not put any value, so do
+            // not pop value.)
+            if (isExprNode(c)) {
+                puts("  pop rax");
+            }
         }
         return;
     } else if (n->kind == NodeNum) {
