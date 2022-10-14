@@ -2,7 +2,7 @@
 #include <string.h>
 #include "mimic.h"
 
-// "push" and "pop" operator implicitly uses rsp as memory adress.
+// "push" and "pop" operator implicitly uses rsp as memory address.
 // Therefore, `push rax` is equal to:
 //    sub rsp, 8
 //    mov [rsp], rax
@@ -81,7 +81,7 @@
 //   +--------------------------------------------+
 //   |               7th argument                 |
 //   +--------------------------------------------+
-//   |    Return adress of previous function      |
+//   |    Return address of previous function     |
 //   +--------------------------------------------+
 //   |            Saved RBP value                 | <-- RBP
 //   +--------------------------------------------+
@@ -126,7 +126,7 @@ static void genCodeLVal(Node *n) {
         error("Lhs of assignment is not a variable.");
     }
 
-    // Make sure the value on the top of the stack is the memory adress to lhs
+    // Make sure the value on the top of the stack is the memory address to lhs
     // variable.  Calculate it on rax from the rbp(base pointer) and offset,
     // then store it on the top of the stack.  Calculate it on rax, not on rbp,
     // because rbp must NOT be changed until exiting from a function.
@@ -150,7 +150,7 @@ static void genCodeAssign(Node *n) {
     // |                     |
     // |       ......        |
     // +---------------------+
-    // |  Lhs memory adress  | --> Load to rax.
+    // | Lhs memory address  | --> Load to rax.
     // +---------------------+
     // |     Rhs value       | --> Load to rdi.
     // +---------------------+
