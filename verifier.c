@@ -6,6 +6,8 @@ static void verifyTypeFCall(Node *n);
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs);
 static int checkComparable(TypeInfo *t1, TypeInfo *t2);
 static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2);
+static int isIntegerType(TypeInfo *t);
+static int isArithmeticType(TypeInfo *t);
 static int isLvalue(Node *n);
 
 void verifyType(Node *n) {
@@ -85,29 +87,29 @@ void verifyType(Node *n) {
     } else if (n->kind == NodeAdd || n->kind == NodeSub) {
         verifyType(n->lhs);
         if (n->lhs->type->type == TypePointer) {
-            TypeKind t = n->rhs->type->type;
-            if (!(t == TypeInt || t == TypeNumber)) {
+            if (!isArithmeticType(n->rhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
-        } else if (n->lhs->type->type == TypeInt || n->lhs->type->type == TypeNumber) {
-            TypeKind t = n->rhs->type->type;
-            if (!(t == TypeInt || t == TypeNumber)) {
-                errorAt(n->token->str, "Type mismatch. Cannot do this operation.");
+        } else if (n->rhs->type->type == TypePointer) {
+            if (!isArithmeticType(n->lhs->type)) {
+                errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
-        } else {
+        } else if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
             errorAt(n->token->str, "This operation is not supported.");
         }
         verifyType(n->rhs);
-    } else if (n->kind == NodeMul || n->kind == NodeDiv || n->kind == NodeDivRem) {
+    } else if (n->kind == NodeMul || n->kind == NodeDiv) {
         verifyType(n->lhs);
-        if (n->lhs->type->type == TypeInt || n->lhs->type->type == TypeNumber) {
-            if (!(n->rhs->type->type == TypeInt || n->rhs->type->type == TypeNumber)) {
-                errorAt(n->token->str, "Type mismatch. Cannot do this operation.");
-                return;
-            }
-        } else {
+        if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
+            errorAt(n->token->str, "This operation is not supported.");
+        }
+        verifyType(n->rhs);
+        return;
+    } else if (n->kind == NodeDivRem) {
+        verifyType(n->lhs);
+        if (!(isIntegerType(n->lhs->type) && isIntegerType(n->rhs->type))) {
             errorAt(n->token->str, "This operation is not supported.");
         }
         verifyType(n->rhs);
@@ -202,6 +204,16 @@ static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
         return checkTypeEqual(t1->ptrTo, t2->ptrTo);
     }
     return 1;
+}
+
+// Return TRUE if given type is integer type.
+static int isIntegerType(TypeInfo *t) {
+    return t->type == TypeInt || t->type == TypeNumber;
+}
+
+// Return TRUE if given type is arithmetic type.
+static int isArithmeticType(TypeInfo *t) {
+    return t->type == TypeInt || t->type == TypeNumber;
 }
 
 // Return TRUE is `n` is lvalue.
