@@ -226,9 +226,25 @@ static void genCodeFor(Node *n) {
 }
 
 static void genCodeFCall(Node *n) {
+    int stackVarCount = 0;
+    int needAlignRSP = 0;
     int regargs = n->fcall->argsCount;
+
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
+
+    for (Node *c = n->outerBlock; c; c = c->next) {
+        stackVarCount += c->localVarCount;
+        if (c->kind == NodeFunction)
+            break;
+    }
+    if ((n->fcall->argsCount - regargs) > 0)
+        stackVarCount += n->fcall->argsCount - regargs;
+
+    needAlignRSP = stackVarCount % 2;
+    if (needAlignRSP)
+        puts("  sub rsp, 8");  // Align RSP to multiple of 16.
+
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
     for (int i = 0; i < regargs; ++i)
@@ -239,6 +255,9 @@ static void genCodeFCall(Node *n) {
         putchar(n->fcall->name[i]);
     }
     putchar('\n');
+
+    if (needAlignRSP)
+        puts("  add rsp, 8");
 
     // Adjust RSP value when we used stack to pass arguments.
     if ((n->fcall->argsCount - regargs) > 0)
