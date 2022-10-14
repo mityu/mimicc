@@ -283,9 +283,11 @@ static void genCodeFunction(Node *n) {
     puts("  mov rbp, rsp");
 
     // Push arguments onto stacks from registers.
-    printf("  sub rsp, %d\n", regargs * 8);
-    for (int i = 0; i < regargs; ++i) {
-        printf("  mov %d[rbp], %s\n", -((i + 1) * 8), argRegs[i]);
+    if (regargs) {
+        printf("  sub rsp, %d\n", regargs * 8);
+        for (int i = 0; i < regargs; ++i) {
+            printf("  mov %d[rbp], %s\n", -((i + 1) * 8), argRegs[i]);
+        }
     }
 
     genCode(n->body);
