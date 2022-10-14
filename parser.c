@@ -150,7 +150,8 @@ Token *tokenize() {
             continue;
         }
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
-                hasPrefix(p, ">=") || hasPrefix(p, "<=")) {
+                hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
+                hasPrefix(p, "++") || hasPrefix(p, "--")) {
             current = newToken(TokenReserved, current, p, 2);
             p += 2;
             continue;
@@ -744,82 +745,93 @@ static Node *mul() {
 }
 
 static Node *unary() {
+    Token *tokenOperator = globals.token;
+    Node *n = NULL;
     if (consumeReserved("+")) {
         Node *rhs = primary();
-        return newNodeBinary(NodeAdd, newNodeNum(0), rhs, rhs->type);
+        n = newNodeBinary(NodeAdd, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("-")) {
         Node *rhs = primary();
-        return newNodeBinary(NodeSub, newNodeNum(0), rhs, rhs->type);
+        n = newNodeBinary(NodeSub, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("&")) {
         Node *rhs = unary();
         TypeInfo *type = newTypeInfo(TypePointer);
         type->ptrTo = rhs->type;
-        return newNodeBinary(NodeAddress, NULL, rhs, type);
+        n = newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
-        Token *t = globals.token->prev->prev;
         Node *rhs = unary();
-        Node *n = NULL;
         if (!(rhs->type && rhs->type->type == TypePointer)) {
             errorAt(rhs->token->str,
                     "Cannot dereference a non-pointer value.");
         }
         n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
-        n->token = t;
-        return n;
+    } else if (consumeReserved("++")) {
+        Node *rhs = unary();
+        n = newNodeBinary(NodePreIncl, NULL, rhs, rhs->type);
+    } else if (consumeReserved("--")) {
+        Node *rhs = unary();
+        n = newNodeBinary(NodePreDecl, NULL, rhs, rhs->type);
     } else {
         return primary();
     }
+    n->token = tokenOperator;
+    return n;
 }
 
 static Node *primary() {
+    Node *n = NULL;
     Token *ident = NULL;
     Token *type = NULL;
-    if (consumeReserved("(")) {
-        Node *n = expr();
-        expectSign(")");
-        return n;
-    }
 
     ident = consumeIdent();
-    if (ident && consumeReserved("(")) { // Function call.
-        Node *n;
-        Node *arg;
-        Function *f;
+    if (ident) {
+        if (consumeReserved("(")) { // Function call.
+            Node *arg;
+            Function *f;
 
-        f = findFunction(ident->str, ident->len);
-        if (!f) {
-            errorAt(ident->str, "No such function.");
-        }
+            f = findFunction(ident->str, ident->len);
+            if (!f) {
+                errorAt(ident->str, "No such function.");
+            }
 
-        n = newNodeFCall(f->retType);
-        n->fcall->name = ident->str;
-        n->fcall->len = ident->len;
-        n->token = ident;
+            n = newNodeFCall(f->retType);
+            n->fcall->name = ident->str;
+            n->fcall->len = ident->len;
+            n->token = ident;
 
-        if (consumeReserved(")")) {
-            return n;
+            if (consumeReserved(")")) {
+                return n;
+            }
+            for (;;) {
+                arg = expr();
+                arg->next = n->fcall->args;
+                n->fcall->args = arg;
+                ++n->fcall->argsCount;
+                if (!consumeReserved(","))
+                    break;
+            }
+            expectSign(")");
+        } else { // Use of variables or postfix increment/decrement.
+            LVar *lvar = findLVar(ident->str, ident->len);
+            if (!lvar) {
+                errorAt(ident->str, "Undefined variable");
+                return NULL;
+            }
+            n = newNodeLVar(lvar->offset, lvar->type);
+            n->type = lvar->type;
         }
-        for (;;) {
-            arg = expr();
-            arg->next = n->fcall->args;
-            n->fcall->args = arg;
-            ++n->fcall->argsCount;
-            if (!consumeReserved(","))
-                break;
-        }
+    } else if (consumeReserved("(")) {
+        n = expr();
         expectSign(")");
-        return n;
-    } else if (ident) { // Use of variables.
-        LVar *lvar = findLVar(ident->str, ident->len);
-        Node *n;
-        if (!lvar) {
-            errorAt(ident->str, "Undefined variable");
-            return NULL;
-        }
-        n = newNodeLVar(lvar->offset, lvar->type);
-        n->type = lvar->type;
-        return n;
+    } else {
+        n = newNodeNum(expectNumber());
     }
 
-    return newNodeNum(expectNumber());
+    if (consumeReserved("++")) {
+        n = newNodeBinary(NodePostIncl, n, NULL, n->type);
+    } else if (consumeReserved("--")) {
+        n = newNodeBinary(NodePostDecl, n, NULL, n->type);
+    }
+
+    return n;
 }

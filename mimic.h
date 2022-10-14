@@ -59,28 +59,32 @@ struct Token {
 };
 
 typedef enum {
-    NodeAdd,     // +
-    NodeSub,     // -
-    NodeMul,     // *
-    NodeDiv,     // /
-    NodeDivRem,  // %
-    NodeEq,      // ==
-    NodeNeq,     // !=
-    NodeLT,      // <
-    NodeLE,      // <=
-    NodeAddress, // &{var}
-    NodeDeref,   // *{ptr}
-    NodeNum,     // Integer
-    NodeLVar,    // Left hand side value (variable)
-    NodeAssign,  // {lhs} = {rhs};
-    NodeFCall,   // Function calls,
+    NodeAdd,      // +
+    NodeSub,      // -
+    NodeMul,      // *
+    NodeDiv,      // /
+    NodeDivRem,   // %
+    NodeEq,       // ==
+    NodeNeq,      // !=
+    NodeLT,       // <
+    NodeLE,       // <=
+    NodePreIncl,  // ++{var}
+    NodePreDecl,  // --{var}
+    NodePostIncl, // {var}++
+    NodePostDecl, // {var}--
+    NodeAddress,  // &{var}
+    NodeDeref,    // *{ptr}
+    NodeNum,      // Integer
+    NodeLVar,     // Left hand side value (variable)
+    NodeAssign,   // {lhs} = {rhs};
+    NodeFCall,    // Function calls,
     NodeIf,
     NodeElseif,
     NodeElse,
     NodeFor,
     NodeWhile,
-    NodeBlock,   // { ... }
-    NodeReturn,  // return {expr};
+    NodeBlock,    // { ... }
+    NodeReturn,   // return {expr};
     NodeFunction,
 } NodeKind;
 

@@ -5,6 +5,7 @@
 static void verifyTypeFCall(Node *n);
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs);
 static int checkComparable(TypeInfo *t1, TypeInfo *t2);
+static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2);
 static int isLvalue(Node *n);
 
 void verifyType(Node *n) {
@@ -111,6 +112,19 @@ void verifyType(Node *n) {
         }
         verifyType(n->rhs);
         return;
+    } else if (n->kind == NodePostIncl || n->kind == NodePostDecl ||
+            n->kind == NodePreIncl || n->kind == NodePreDecl) {
+        Node *value =
+            (n->kind == NodePreIncl || n->kind == NodePreDecl) ? n->rhs : n->lhs;
+        if (!isLvalue(value)) {
+            int isIncrement = n->kind == NodePreIncl || n->kind == NodePostIncl;
+            errorAt(
+                    value->token->str,
+                    "Lvalue is required for %s operator",
+                    isIncrement ? "incremental" : "decremental"
+                    );
+        }
+        verifyType(value);
     }
 }
 
@@ -179,6 +193,15 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
     } else {
         return t1->type == t2->type;
     }
+}
+
+static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
+    if (t1->type != t2->type) {
+        return 0;
+    } else if (t1->type == TypePointer) {
+        return checkTypeEqual(t1->ptrTo, t2->ptrTo);
+    }
+    return 1;
 }
 
 // Return TRUE is `n` is lvalue.

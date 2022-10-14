@@ -297,6 +297,48 @@ static void genCodeFunction(Node *n) {
     puts("  pop rbp");
 }
 
+static void genCodeIncrement(Node *n, int prefix) {
+    Node *expr = prefix ? n->rhs : n->lhs;
+    genCodeLVal(expr);
+    puts("  pop rax");
+    puts("  mov rdi, rax");
+    puts("  mov rax, [rax]");
+
+    // Postfix increment operator refers the value before increment.
+    if (!prefix)
+        puts("  push rax");
+
+    puts("  add rax, 1");  // TODO: Check for poitner.
+
+    // Prefix increment operator refers the value after increment.
+    if (prefix)
+        puts("  push rax");
+
+    // Reflect the expression result on variable.
+    puts("  mov [rdi], rax");
+}
+
+static void genCodeDecrement(Node *n, int prefix) {
+    Node *expr = prefix ? n->rhs : n->lhs;
+    genCodeLVal(expr);
+    puts("  pop rax");
+    puts("  mov rdi, rax");
+    puts("  mov rax, [rax]");
+
+    // Postfix decrement operator refers the value before decrement.
+    if (!prefix)
+        puts("  push rax");
+
+    puts("  sub rax, 1");  // TODO: Check for poitner.
+
+    // Prefix decrement operator refers the value after decrement.
+    if (prefix)
+        puts("  push rax");
+
+    // Reflect the expression result on variable.
+    puts("  mov [rdi], rax");
+}
+
 void genCode(Node *n) {
     if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
@@ -347,6 +389,12 @@ void genCode(Node *n) {
     } else if (n->kind == NodeFunction) {
         genCodeFunction(n);
         return;
+    } else if (n->kind == NodePreIncl || n->kind == NodePostIncl) {
+        genCodeIncrement(n, n->kind == NodePreIncl);
+        return;
+    } else if (n->kind == NodePreDecl || n->kind == NodePostDecl) {
+        genCodeDecrement(n, n->kind == NodePreDecl);
+        return;
     }
 
     genCode(n->lhs);
@@ -356,8 +404,10 @@ void genCode(Node *n) {
     puts("  pop rax");
 
     if (n->kind == NodeAdd) {
+        // TODO: Check for pointer.
         puts("  add rax, rdi");
     } else if (n->kind == NodeSub) {
+        // TODO: Check for pointer.
         puts("  sub rax, rdi");
     } else if (n->kind == NodeMul) {
         puts("  imul rax, rdi");

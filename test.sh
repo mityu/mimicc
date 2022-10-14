@@ -130,6 +130,10 @@ assert 10 'int main() {int n; n=5; {n=10;} return n;}'
 assert 10 'int main() {int n; n=10; {int a; a=5;} return n;}'
 assert 10 'int main() {int n; int* p; n=20; p=&n; *p=10; return n;}'
 assert 10 'int main() {int n; int* p; int **pp; n=20; p=&n; pp=&p; **pp=10; return n;}'
+assert 11 'int main() {int n; n = 10; return ++n;}'
+assert 9 'int main() {int n; n = 10; return --n;}'
+assert 10 'int main() {int n; n = 10; return n++;}'
+assert 10 'int main() {int n; n = 10; return n--;}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'
@@ -140,5 +144,6 @@ assert_fail 'int *f() {return 5;}'
 assert_fail 'int f() {15 = 3;}'
 assert_fail 'int f() {int n; int m; n = &m;}'
 assert_fail 'int f() {int n; int *p; n = **p;}'
+assert_fail 'int f() {int n; int m; m = &*n;}'
 
 echo OK
