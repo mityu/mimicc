@@ -4,7 +4,7 @@
 
 static void verifyTypeFCall(Node *n);
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs);
-static int checkTypeMatches(TypeInfo *t1, TypeInfo *t2);
+static int checkComparable(TypeInfo *t1, TypeInfo *t2);
 static int isLvalue(Node *n);
 
 void verifyType(Node *n) {
@@ -56,14 +56,14 @@ void verifyType(Node *n) {
         // Type check is needed for some cases like: v = *f(...);
         verifyType(n->rhs);
     } else if (n->kind == NodeAddress) {
-        if (!isLvalue(n)) {
+        if (!isLvalue(n->rhs)) {
             errorAt(n->token->str, "Not a lvalue. Cannot take reference for this.");
         }
         // No type check is needed for lvalue nodes.
     } else if (n->kind == NodeFCall) {
         verifyTypeFCall(n);
     } else if (n->kind == NodeAssign) {
-        if (!isLvalue(n)) {
+        if (!isLvalue(n->lhs)) {
             errorAt(n->token->str, "Not a lvalue. Cannot assign.");
             return;
         }
@@ -71,13 +71,45 @@ void verifyType(Node *n) {
             errorAt(n->token->str, "Type mismatch. Cannot assign.");
             return;
         }
+        verifyType(n->rhs);
     } else if (n->kind == NodeEq || n->kind == NodeNeq ||
             n->kind == NodeLE || n->kind == NodeLT) {
-        // TODO:
+        verifyType(n->lhs);
+        if (!checkComparable(n->lhs->type, n->rhs->type)) {
+            errorAt(n->token->str, "Type mismatch. Cannot compare these.");
+            return;
+        }
+        verifyType(n->rhs);
         return;
-    } else if (n->kind == NodeAdd || n->kind == NodeSub ||
-            n->kind == NodeMul || n->kind == NodeDiv || n->kind == NodeDivRem) {
-        // TODO:
+    } else if (n->kind == NodeAdd || n->kind == NodeSub) {
+        verifyType(n->lhs);
+        if (n->lhs->type->type == TypePointer) {
+            TypeKind t = n->rhs->type->type;
+            if (!(t == TypeInt || t == TypeNumber)) {
+                errorAt(n->token->str, "Invalid operation for pointer.");
+                return;
+            }
+        } else if (n->lhs->type->type == TypeInt || n->lhs->type->type == TypeNumber) {
+            TypeKind t = n->rhs->type->type;
+            if (!(t == TypeInt || t == TypeNumber)) {
+                errorAt(n->token->str, "Type mismatch. Cannot do this operation.");
+                return;
+            }
+        } else {
+            errorAt(n->token->str, "This operation is not supported.");
+        }
+        verifyType(n->rhs);
+    } else if (n->kind == NodeMul || n->kind == NodeDiv || n->kind == NodeDivRem) {
+        verifyType(n->lhs);
+        if (n->lhs->type->type == TypeInt || n->lhs->type->type == TypeNumber) {
+            if (!(n->rhs->type->type == TypeInt || n->rhs->type->type == TypeNumber)) {
+                errorAt(n->token->str, "Type mismatch. Cannot do this operation.");
+                return;
+            }
+        } else {
+            errorAt(n->token->str, "This operation is not supported.");
+        }
+        verifyType(n->rhs);
         return;
     }
 }
@@ -134,8 +166,19 @@ static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
     }
 }
 
-static int checkTypeMatches(TypeInfo *t1, TypeInfo *t2) {
-    return 1;
+static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
+    if (t1->type == TypeNumber || t2->type == TypeNumber) {
+        TypeInfo *t = t2;
+        if (t2->type == TypeNumber)
+            t = t1;
+        return t->type == TypeNumber || t->type == TypeInt;
+    } else if (t1->type == TypePointer) {
+        if (t2->type == TypePointer)
+            return checkComparable(t1->ptrTo, t2->ptrTo);
+        return 0;
+    } else {
+        return t1->type == t2->type;
+    }
 }
 
 // Return TRUE is `n` is lvalue.

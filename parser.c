@@ -680,6 +680,7 @@ static Node *assign() {
 static Node *equality() {
     Node *n = relational();
     for (;;) {
+        Token *t = globals.token;
         if (consumeReserved("==")) {
             n = newNodeBinary(NodeEq, n, relational(), &Types.Number);
         } else if (consumeReserved("!=")) {
@@ -687,12 +688,14 @@ static Node *equality() {
         } else {
             return n;
         }
+        n->token = t;
     }
 }
 
 static Node *relational() {
     Node *n = add();
     for (;;) {
+        Token *t = globals.token;
         if (consumeReserved("<")) {
             n = newNodeBinary(NodeLT, n, add(), &Types.Number);
         } else if (consumeReserved(">")) {
@@ -704,12 +707,14 @@ static Node *relational() {
         } else {
             return n;
         }
+        n->token = t;
     }
 }
 
 static Node *add() {
     Node *n = mul();
     for (;;) {
+        Token *t = globals.token;
         if (consumeReserved("+")) {
             n = newNodeBinary(NodeAdd, n, mul(), n->type);
         } else if (consumeReserved("-")) {
@@ -717,12 +722,14 @@ static Node *add() {
         } else {
             return n;
         }
+        n->token = t;
     }
 }
 
 static Node *mul() {
     Node *n = unary();
     for (;;) {
+        Token *t = globals.token;
         if (consumeReserved("*")) {
             n = newNodeBinary(NodeMul, n, unary(), n->type);
         } else if (consumeReserved("/")) {
@@ -732,6 +739,7 @@ static Node *mul() {
         } else {
             return n;
         }
+        n->token = t;
     }
 }
 
