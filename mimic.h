@@ -44,6 +44,7 @@ typedef enum {
     TokenFor,
     TokenWhile,
     TokenReturn,
+    TokenSizeof,
     TokenEOF,
 } TokenType;
 

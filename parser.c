@@ -149,6 +149,13 @@ Token *tokenize() {
             p += 6;
             continue;
         }
+
+        if (isToken(p, "sizeof")) {
+            current = newToken(TokenSizeof, current, p, 6);
+            p += 6;
+            continue;
+        }
+
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
                 hasPrefix(p, "++") || hasPrefix(p, "--")) {
@@ -410,6 +417,17 @@ static TypeInfo *parseType() {
         typeInfo = t;
     }
     return typeInfo;
+}
+
+static int sizeOf(Node *n) {
+    TypeKind type = n->type->type;
+    if (type == TypeInt || type == TypeNumber) {
+        return 4;
+    } else if (type == TypePointer) {
+        return 8;
+    }
+    errorUnreachable();
+    return -1;
 }
 
 void program() {
@@ -771,6 +789,10 @@ static Node *unary() {
     } else if (consumeReserved("--")) {
         Node *rhs = unary();
         n = newNodeBinary(NodePreDecl, NULL, rhs, rhs->type);
+    } else if (consumeCertainTokenType(TokenSizeof)) {
+        Node *rhs = unary();
+        int size = sizeOf(rhs);
+        n = newNodeNum(size);
     } else {
         return primary();
     }
