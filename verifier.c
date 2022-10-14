@@ -84,15 +84,15 @@ void verifyType(Node *n) {
         }
         verifyType(n->rhs);
         return;
-    } else if (n->kind == NodeAdd || n->kind == NodeSub) {
+    } else if (n->kind == NodeAdd) {
         verifyType(n->lhs);
         if (n->lhs->type->type == TypePointer) {
-            if (!isArithmeticType(n->rhs->type)) {
+            if (!isIntegerType(n->rhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
         } else if (n->rhs->type->type == TypePointer) {
-            if (!isArithmeticType(n->lhs->type)) {
+            if (!isIntegerType(n->lhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
@@ -100,6 +100,22 @@ void verifyType(Node *n) {
             errorAt(n->token->str, "This operation is not supported.");
         }
         verifyType(n->rhs);
+    } else if (n->kind == NodeSub) {
+        verifyType(n->lhs);
+        if (n->rhs->type->type == TypePointer) {
+            if (n->lhs->type->type != TypePointer) {
+                errorAt(n->token->str, "Invalid operation for binary operator");
+            }
+        } else if (n->lhs->type->type == TypePointer) {
+            // When lhs is pointer, only pointer or integers are accepted as
+            // rhs.  At here, rhs must not be pointer, so only check if rhs is
+            // integer.
+            if (!isIntegerType(n->rhs->type)) {
+                errorAt(n->token->str, "Invalid operation for binary operator");
+            }
+        } else if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
+            errorAt(n->token->str, "This operation is not supported.");
+        }
     } else if (n->kind == NodeMul || n->kind == NodeDiv) {
         verifyType(n->lhs);
         if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
@@ -183,18 +199,15 @@ static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
 }
 
 static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
-    if (t1->type == TypeNumber || t2->type == TypeNumber) {
-        TypeInfo *t = t2;
-        if (t2->type == TypeNumber)
-            t = t1;
-        return t->type == TypeNumber || t->type == TypeInt;
+    // What's real type?
+    if (isArithmeticType(t1) && isArithmeticType(t2)) {
+        return 1;
     } else if (t1->type == TypePointer) {
         if (t2->type == TypePointer)
             return checkComparable(t1->ptrTo, t2->ptrTo);
         return 0;
-    } else {
-        return t1->type == t2->type;
     }
+    return 0;
 }
 
 static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
