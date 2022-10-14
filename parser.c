@@ -419,11 +419,11 @@ static TypeInfo *parseType() {
     return typeInfo;
 }
 
-static int sizeOf(Node *n) {
-    TypeKind type = n->type->type;
-    if (type == TypeInt || type == TypeNumber) {
+// Return size of given type.  If computing failed, exit program.
+static int sizeOf(TypeInfo *ti) {
+    if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
-    } else if (type == TypePointer) {
+    } else if (ti->type == TypePointer) {
         return 8;
     }
     errorUnreachable();
@@ -790,9 +790,24 @@ static Node *unary() {
         Node *rhs = unary();
         n = newNodeBinary(NodePreDecl, NULL, rhs, rhs->type);
     } else if (consumeCertainTokenType(TokenSizeof)) {
-        Node *rhs = unary();
-        int size = sizeOf(rhs);
-        n = newNodeNum(size);
+        Token *token_save = globals.token;
+        TypeInfo *type = NULL;
+
+        // First, do check for "sizeof(type)".
+        if (consumeReserved("(")) {
+            type = parseType();
+            if (type)
+                expectSign(")");
+        }
+
+        // Then, if "sizeof(type)" didn't match the case, do check for
+        // "sizeof {unary-expr}".
+        if (!type) {
+            globals.token = token_save;
+            type = unary()->type;
+        }
+
+        n = newNodeNum(sizeOf(type));
     } else {
         return primary();
     }
