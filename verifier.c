@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "mimic.h"
 
@@ -150,8 +151,10 @@ void verifyType(Node *n) {
 // actual arguments are assignable to the formal parameters.  Exit program if
 // some does not match.
 static void verifyTypeFCall(Node *n) {
+#define ARGS_BUFFER_SIZE    (10)
+    Node *actualArgBuf[ARGS_BUFFER_SIZE];
+    Node **actualArgs = actualArgBuf;
     LVar *formalArg = NULL;
-    Node *actualArg = NULL;
 
     if (n->kind != NodeFCall) {
         error("Internal error: Not a NodeFCall node is given.");
@@ -170,18 +173,30 @@ static void verifyTypeFCall(Node *n) {
                 );
     }
 
+    if (f->argsCount > ARGS_BUFFER_SIZE) {
+        actualArgs =
+            (Node **)calloc(f->argsCount, sizeof(Node *));
+    }
+    for (Node *c = n->fcall->args, **store = &actualArgs[f->argsCount-1]; c; c = c->next) {
+        *store = c;
+        --store;
+    }
+
     formalArg = f->args;
-    actualArg = n->fcall->args;
     for (int i = 0; i < f->argsCount; ++i) {
-        if (!checkAssignable(formalArg->type, actualArg->type)) {
+        if (!checkAssignable(formalArg->type, actualArgs[i]->type)) {
             errorAt(
-                    actualArg->token->str,
+                    actualArgs[i]->token->str,
                     "Type mismatch."
                     );
         }
         formalArg = formalArg->next;
-        actualArg = actualArg->next;
     }
+    if (f->argsCount > ARGS_BUFFER_SIZE) {
+        free(actualArgs);
+        actualArgs = NULL;
+    }
+#undef ARGS_BUFFER_SIZE
 }
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
