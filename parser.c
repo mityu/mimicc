@@ -481,6 +481,7 @@ static Node *function() {
         int justDeclaring = 0;
         LVar argHead;
         LVar *args = &argHead;
+        Token *missingIdentOfArg = NULL;
 
         argHead.next = NULL;
         f->name = ident->str;
@@ -489,7 +490,8 @@ static Node *function() {
 
         expectSign("(");
         if (!consumeReserved(")")) {
-            // When argument exists.
+            // ")" doesn't follows just after "(", arguments must exist.
+            // Parse arguments in this loop.
             for (;;) {
                 TypeInfo *typeInfo = NULL;
                 Token *argToken = NULL;
@@ -502,13 +504,19 @@ static Node *function() {
 
                 argToken = consumeIdent();
                 if (!argToken) {
-                    // TODO: Allow omitting variable name when just declaring
-                    // function.
-                    errorIdentExpected();
-                    return NULL;
+                    // Argumnent name is omitted.  If omitting is OK is checked
+                    // later.  Just do remember where argument name is missing
+                    // here.
+                    if (!missingIdentOfArg) {
+                        // Remember the first argument whose name is omitted.
+                        // Don't overwrite if any arguments' name is omitted
+                        // before.
+                        missingIdentOfArg = globals.token;
+                    }
+                    argToken = globals.token;
                 }
                 argsCount++;
-                // Temporally, offset is 0 here.  It's computed later if
+                // Temporally, set offset to 0 here.  It's computed later if
                 // needed.
                 args->next = newLVar(argToken, typeInfo, 0);
                 args = args->next;
@@ -524,12 +532,26 @@ static Node *function() {
             justDeclaring = 1;
         }
 
+        // Missing variable name although this is not just a function
+        // declaration.
+        if (!justDeclaring && missingIdentOfArg) {
+            Token *token_save = globals.token;
+            globals.token = missingIdentOfArg;
+            errorIdentExpected();
+            globals.token = token_save;
+            return NULL;
+        }
+
         funcFound = findFunction(f->name, f->len);
         if (funcFound) {
             if (!justDeclaring) {
                 if (funcFound->haveImpl) {
                     errorAt(ident->str, "Function is defined twice");
                 } else {
+                    // Argument name may be omitted with function declaration.
+                    // Function implementation must have argument name, so
+                    // replace it to make sure argument name can be found.
+                    funcFound->args = f->args;
                     funcFound->haveImpl = 1;
                 }
             }

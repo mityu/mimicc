@@ -145,6 +145,7 @@ assert 8 'int main() {int *n; return sizeof n;}'
 assert 4 'int main() {return sizeof(int);}'
 assert 8 'int main() {return sizeof(int*);}'
 assert 8 'int main() {return sizeof(int**);}'
+assert 10 'int add(int, int); int add(int a, int b) {return a + b;} int main() {return add(3, 7);}'
 assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = 3 + p; return *q;}' \
   "#include <stdlib.h>
   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
@@ -170,5 +171,6 @@ assert_fail 'int f() {15 = 3;}'
 assert_fail 'int f() {int n; int m; n = &m;}'
 assert_fail 'int f() {int n; int *p; n = **p;}'
 assert_fail 'int f() {int n; int m; m = &*n;}'
+assert_fail 'int add(int, int); int add(int a, int b) {int a;}'
 
 echo OK
