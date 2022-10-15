@@ -102,8 +102,6 @@
 //                         .    (Local variables or tmp values exprs left)
 //                         .
 
-static void genCodeDeref(Node *n);
-
 static void printn(const char* str) {
     for (; *str; ++str)
         putchar(*str);
@@ -158,7 +156,8 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 
 static void genCodeLVal(Node *n) {
     if (n->kind == NodeDeref) {
-        genCodeDeref(n);
+        genCode(n->rhs);
+        // Address for variable must be on the top of the stack.
         return;
     } else if (n->kind != NodeLVar) {
         error("Lhs of assignment is not a variable.");
@@ -173,8 +172,10 @@ static void genCodeLVal(Node *n) {
     puts("  push rax");
 }
 
+// Generate code dereferencing variables as rvalue.  If code for dereference as
+// lvalue, use genCodeLVal() instead.
 static void genCodeDeref(Node *n) {
-    genCodeLVal(n->rhs);
+    genCodeLVal(n);
     puts("  mov rax, [rsp]");
     puts("  mov rax, [rax]");
     puts("  mov [rsp], rax");

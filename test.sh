@@ -46,11 +46,6 @@ assert_fail() {
   fi
 }
 
-# assert_fcall 1 'int alloc4(int **p); int main() {int *p; alloc4(&p); return *p;}' \
-#   "#include <stdlib.h>
-#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-# exit 0
-
 assert 42 'int main(){ return 42;}'
 assert 4 'int main(){ return 5-3+2;}'
 assert 6 'int main(){ return 5+3-2;}'
@@ -160,6 +155,8 @@ assert_fcall 2 'int alloc4(int **p); int main() {int *p; alloc4(&p); p++; return
 assert_fcall 3 'int alloc4(int **p); int main() {int *p; alloc4(&p); p = p + 3; p--; return *p;}' \
   "#include <stdlib.h>
   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+assert_fcall 10 'int **ptr(); int main() {int **pp; pp = ptr(); return **pp;}' 'int n = 10; int *p = &n; int **ptr(void) {return &p;}'
+assert_fcall 1 'int ptr(int **pp, int ***ppp); int main() {int *p; int **pp; ptr(&p, &pp); return p == *pp;}' 'int n = 10; int *p = &n; void ptr(int **pp, int ***ppp) {*ppp = &p; *pp = p;}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'
