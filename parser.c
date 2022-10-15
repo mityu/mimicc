@@ -144,7 +144,7 @@ Token *tokenize() {
             continue;
         }
 
-        if (hasPrefix(p, "return") && !isAlnum(p[6])) {
+        if (isToken(p, "return")) {
             current = newToken(TokenReturn, current, p, 6);
             p += 6;
             continue;
