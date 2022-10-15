@@ -158,6 +158,7 @@ Token *tokenize() {
 
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
+                hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
                 hasPrefix(p, "++") || hasPrefix(p, "--")) {
             current = newToken(TokenReserved, current, p, 2);
             p += 2;
@@ -706,8 +707,22 @@ static Node *assign() {
     Token *t = globals.token;
     if (consumeReserved("=")) {
         n = newNodeBinary(NodeAssign, n, assign(), n->type);
+    } else if (consumeReserved("+=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+        n = newNodeBinary(NodeAdd, lhs, rhs, type);
         n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+    } else if (consumeReserved("-=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+        n = newNodeBinary(NodeSub, lhs, rhs, type);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
     }
+    n->token = t;
     return n;
 }
 
