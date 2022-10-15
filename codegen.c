@@ -141,6 +141,17 @@ static int isExprNode(Node *n) {
     }
 }
 
+// Return an integer corresponding to 1 for given type.
+// In concrate explanation, return
+// - sizeof(type) for "type*"
+// - 1 for integer.
+static int getAlternativeOfOneForType(TypeInfo *ti) {
+    if (ti->type == TypePointer) {
+        return sizeOf(ti->ptrTo);
+    }
+    return 1;
+}
+
 static const char *argRegs[REG_ARGS_MAX_COUNT] = {
     "rdi", "rsi", "rdx", "rcx", "r8", "r9"
 };
@@ -347,7 +358,7 @@ static void genCodeIncrement(Node *n, int prefix) {
     if (!prefix)
         puts("  push rax");
 
-    puts("  add rax, 1");  // TODO: Check for poitner.
+    printf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
 
     // Prefix increment operator refers the value after increment.
     if (prefix)
@@ -368,7 +379,7 @@ static void genCodeDecrement(Node *n, int prefix) {
     if (!prefix)
         puts("  push rax");
 
-    puts("  sub rax, 1");  // TODO: Check for poitner.
+    printf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
 
     // Prefix decrement operator refers the value after decrement.
     if (prefix)
@@ -437,6 +448,44 @@ void genCode(Node *n) {
     } else if (n->kind == NodePreDecl || n->kind == NodePostDecl) {
         genCodeDecrement(n, n->kind == NodePreDecl);
         return;
+    } else if (n->kind == NodeAdd) {
+        int altOne = getAlternativeOfOneForType(n->type);
+        genCode(n->lhs);
+        genCode(n->rhs);
+
+        if (altOne != 1) {
+            // Load integer to RAX and pointer to RDI in either case.
+            if (n->lhs->type->type == TypePointer) { // ptr + num
+                puts("  pop rax");
+                puts("  pop rdi");
+            } else {  // num + ptr
+                puts("  pop rdi");
+                puts("  pop rax");
+            }
+            printf("  mov rsi, %d\n", altOne);
+            puts("  imul rax, rsi");
+        } else {
+            puts("  pop rdi");
+            puts("  pop rax");
+        }
+
+        puts("  add rax, rdi");
+        puts("  push rax");
+        return;
+    } else if (n->kind == NodeSub) {
+        int altOne = getAlternativeOfOneForType(n->type);
+        genCode(n->lhs);
+        genCode(n->rhs);
+
+        puts("  pop rdi");
+        puts("  pop rax");
+        if (altOne != 1) {
+            printf("  mov rsi, %d\n", altOne);
+            puts("  imul rdi, rsi");
+        }
+        puts("  sub rax, rdi");
+        puts("  push rax");
+        return;
     }
 
     genCode(n->lhs);
@@ -445,13 +494,7 @@ void genCode(Node *n) {
     puts("  pop rdi");
     puts("  pop rax");
 
-    if (n->kind == NodeAdd) {
-        // TODO: Check for pointer.
-        puts("  add rax, rdi");
-    } else if (n->kind == NodeSub) {
-        // TODO: Check for pointer.
-        puts("  sub rax, rdi");
-    } else if (n->kind == NodeMul) {
+    if (n->kind == NodeMul) {
         puts("  imul rax, rdi");
     } else if (n->kind == NodeDiv) {
         puts("  cqo");

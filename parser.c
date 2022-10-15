@@ -420,7 +420,7 @@ static TypeInfo *parseType() {
 }
 
 // Return size of given type.  If computing failed, exit program.
-static int sizeOf(TypeInfo *ti) {
+int sizeOf(TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
     } else if (ti->type == TypePointer) {

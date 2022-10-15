@@ -46,6 +46,11 @@ assert_fail() {
   fi
 }
 
+# assert_fcall 1 'int alloc4(int **p); int main() {int *p; alloc4(&p); return *p;}' \
+#   "#include <stdlib.h>
+#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+# exit 0
+
 assert 42 'int main(){ return 42;}'
 assert 4 'int main(){ return 5-3+2;}'
 assert 6 'int main(){ return 5+3-2;}'
@@ -130,6 +135,7 @@ assert 10 'int main() {int n; n=5; {n=10;} return n;}'
 assert 10 'int main() {int n; n=10; {int a; a=5;} return n;}'
 assert 10 'int main() {int n; int* p; n=20; p=&n; *p=10; return n;}'
 assert 10 'int main() {int n; int* p; int **pp; n=20; p=&n; pp=&p; **pp=10; return n;}'
+assert 10 'int f(int *n) {*n = 10;} int main() {int n; n = 15; f(&n); return n;}'
 assert 11 'int main() {int n; n = 10; return ++n;}'
 assert 9 'int main() {int n; n = 10; return --n;}'
 assert 10 'int main() {int n; n = 10; return n++;}'
@@ -142,6 +148,18 @@ assert 8 'int main() {int *n; return sizeof n;}'
 assert 4 'int main() {return sizeof(int);}'
 assert 8 'int main() {return sizeof(int*);}'
 assert 8 'int main() {return sizeof(int**);}'
+assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = 3 + p; return *q;}' \
+  "#include <stdlib.h>
+  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = p + 3; return *q;}' \
+  "#include <stdlib.h>
+  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+assert_fcall 2 'int alloc4(int **p); int main() {int *p; alloc4(&p); p++; return *p;}' \
+  "#include <stdlib.h>
+  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+assert_fcall 3 'int alloc4(int **p); int main() {int *p; alloc4(&p); p = p + 3; p--; return *p;}' \
+  "#include <stdlib.h>
+  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'

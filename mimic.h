@@ -165,5 +165,6 @@ void errorAt(char *loc, char *fmt, ...);
 Token *tokenize();
 void program();
 Function *findFunction(char *name, int len);
+int sizeOf(TypeInfo *ti);
 void verifyType(Node *n);
 #endif // HEADER_MIMIC_H
