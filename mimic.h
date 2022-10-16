@@ -83,7 +83,6 @@ typedef enum {
     NodeElseif,
     NodeElse,
     NodeFor,
-    NodeWhile,
     NodeBlock,    // { ... }
     NodeReturn,   // return {expr};
     NodeFunction,
