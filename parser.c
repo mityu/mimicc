@@ -934,7 +934,7 @@ static Node *primary() {
                     break;
             }
             expectSign(")");
-        } else { // Use of variables or postfix increment/decrement.
+        } else { // Variable accessing.
             LVar *lvar = findLVar(ident->str, ident->len);
             if (!lvar) {
                 errorAt(ident->str, "Undefined variable");
@@ -953,6 +953,11 @@ static Node *primary() {
         n = newNodeBinary(NodePostIncl, n, NULL, n->type);
     } else if (consumeReserved("--")) {
         n = newNodeBinary(NodePostDecl, n, NULL, n->type);
+    } else if (consumeReserved("[")) {
+        Node *e = expr();
+        expectSign("]");
+        n = newNodeBinary(NodeAdd, n, e, n->type);
+        n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
     }
 
     return n;

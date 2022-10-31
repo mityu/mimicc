@@ -166,7 +166,7 @@ assert 2 'int main() {int a[2]; *a = 2; return *a;}'
 assert 5 'int main() {int a[2]; *a = 2; *(a+1) = 3; return *a + *(a+1);}'
 assert 10 'int main() {int b[2]; int a; a = 10; *b = 3; *(b+1) = 5; return a;}'
 assert 10 'int main() {int a; int b[2]; a = 10; *b = 3; *(b+1) = 5; return a;}'
-# assert 10 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return a;}'
+assert 10 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return a;}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'

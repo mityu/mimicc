@@ -22,6 +22,6 @@ unary      = ("+" | "-")? primary |
 primary    = num |
                 ident ("(" (expr ("," expr)*)? ")")? |
                 "(" expr ")" |
-                primary ("++" | "--")
+                primary ("++" | "--" | "[" expr "]")
 type       = basetype "*"*
 basetype   = "int"
