@@ -204,7 +204,7 @@ static void verifyTypeFCall(Node *n) {
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
     if (lhs->type == TypePointer || lhs->type == TypeArray) {
         if (rhs->type == TypePointer || lhs->type == TypeArray) {
-            return checkAssignable(lhs->ptrTo, rhs->ptrTo);
+            return checkAssignable(lhs->baseType, rhs->baseType);
         }
         return 0;
     } else if (rhs->type == TypeNumber) {
@@ -220,7 +220,7 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
         return 1;
     } else if (t1->type == TypePointer || t1->type == TypeArray) {
         if (t2->type == TypePointer || t2->type == TypeArray)
-            return checkComparable(t1->ptrTo, t2->ptrTo);
+            return checkComparable(t1->baseType, t2->baseType);
         return 0;
     }
     return 0;
@@ -231,7 +231,7 @@ static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
     if (t1->type != t2->type) {
         return 0;
     } else if (t1->type == TypePointer) {
-        return checkTypeEqual(t1->ptrTo, t2->ptrTo);
+        return checkTypeEqual(t1->baseType, t2->baseType);
     }
     return 1;
 }

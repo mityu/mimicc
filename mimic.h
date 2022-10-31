@@ -19,16 +19,11 @@ typedef enum {
 typedef struct TypeInfo TypeInfo;
 struct TypeInfo {
     TypeKind type;
-
-    // TODO: Integrate ptrTo and array.elemType.
-    TypeInfo *ptrTo; // Valid when type is TypePointer.
-    struct Array {
-        TypeInfo *elemType;
-        int size;
-    } array;         // Valid when type is TypeArray.
+    TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
+    int arraySize;
 };
 
-#define PrimitiveType(type) (TypeInfo){type, NULL, {NULL, 0}}
+#define PrimitiveType(type) (TypeInfo){type, NULL, 0}
 static struct Types {
     TypeInfo None;
     TypeInfo Int;

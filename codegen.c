@@ -145,7 +145,7 @@ static int isExprNode(Node *n) {
 // - 1 for integer.
 static int getAlternativeOfOneForType(TypeInfo *ti) {
     if (ti->type == TypePointer) {
-        return sizeOf(ti->ptrTo);
+        return sizeOf(ti->baseType);
     }
     return 1;
 }

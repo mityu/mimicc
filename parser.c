@@ -414,7 +414,7 @@ static TypeInfo *parseType() {
     typeInfo = newTypeInfo(type->varType);
     while (consumeReserved("*")) {
         TypeInfo *t = newTypeInfo(TypePointer);
-        t->ptrTo = typeInfo;
+        t->baseType = typeInfo;
         typeInfo = t;
     }
     return typeInfo;
@@ -427,7 +427,7 @@ int sizeOf(TypeInfo *ti) {
     } else if (ti->type == TypePointer) {
         return 8;
     } else if (ti->type == TypeArray) {
-        return sizeOf(ti->array.elemType) * ti->array.size;
+        return sizeOf(ti->baseType) * ti->arraySize;
     }
     errorUnreachable();
     return -1;
@@ -618,9 +618,8 @@ static Node *stmt() {
             int arraySize = expectNumber();
             expectSign("]");
             typeInfo = newTypeInfo(TypeArray);
-            typeInfo->array.elemType = elemType;
-            typeInfo->array.size = arraySize;
-            typeInfo->ptrTo = elemType;  // Also set type information to ptrTo.
+            typeInfo->arraySize = arraySize;
+            typeInfo->baseType = elemType;
         }
 
         expectSign(";");
@@ -631,9 +630,10 @@ static Node *stmt() {
             return NULL;
         }
 
-        globals.currentBlock->localVarLen++;
         if (typeInfo->type == TypeArray) {
-            globals.currentBlock->localVarLen += typeInfo->array.size - 1;
+            globals.currentBlock->localVarLen += typeInfo->arraySize;
+        } else {
+            globals.currentBlock->localVarLen++;
         }
 
 
@@ -858,7 +858,7 @@ static Node *unary() {
     } else if (consumeReserved("&")) {
         Node *rhs = unary();
         TypeInfo *type = newTypeInfo(TypePointer);
-        type->ptrTo = rhs->type;
+        type->baseType = rhs->type;
         n = newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
         Node *rhs = unary();
@@ -868,7 +868,7 @@ static Node *unary() {
                     "Cannot dereference a non-pointer value.");
         }
 
-        n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
+        n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->baseType);
     } else if (consumeReserved("++")) {
         Node *rhs = unary();
         n = newNodeBinary(NodePreIncl, NULL, rhs, rhs->type);
