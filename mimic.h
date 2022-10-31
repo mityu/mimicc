@@ -12,16 +12,23 @@ typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
     TypeInt,    // `int`
     TypeNumber, // Literal number
+    TypeArray,
     TypePointer,
 } TypeKind;
 
 typedef struct TypeInfo TypeInfo;
 struct TypeInfo {
     TypeKind type;
+
+    // TODO: Integrate ptrTo and array.elemType.
     TypeInfo *ptrTo; // Valid when type is TypePointer.
+    struct Array {
+        TypeInfo *elemType;
+        int size;
+    } array;         // Valid when type is TypeArray.
 };
 
-#define PrimitiveType(type) (TypeInfo){type, NULL}
+#define PrimitiveType(type) (TypeInfo){type, NULL, {NULL, 0}}
 static struct Types {
     TypeInfo None;
     TypeInfo Int;
@@ -108,7 +115,7 @@ struct Node {
     LVar *localVars;   // List of variables local to block. (func, block, for, ...)
                        // Stored in reversed appearing order for an
                        // implementation reason.
-    int localVarCount; // The number of local variables (not includes inner blocks').
+    int localVarLen;   // The size of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Function *func;    // Function info.
     Node *outerBlock;  // One step outer block.

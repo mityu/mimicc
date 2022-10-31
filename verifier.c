@@ -87,12 +87,13 @@ void verifyType(Node *n) {
         return;
     } else if (n->kind == NodeAdd) {
         verifyType(n->lhs);
-        if (n->lhs->type->type == TypePointer) {
+        if (n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray) {
             if (!isIntegerType(n->rhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
-        } else if (n->rhs->type->type == TypePointer) {
+        } else if (n->rhs->type->type == TypePointer ||
+                n->rhs->type->type == TypeArray) {
             if (!isIntegerType(n->lhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
@@ -103,11 +104,11 @@ void verifyType(Node *n) {
         verifyType(n->rhs);
     } else if (n->kind == NodeSub) {
         verifyType(n->lhs);
-        if (n->rhs->type->type == TypePointer) {
-            if (n->lhs->type->type != TypePointer) {
+        if (n->rhs->type->type == TypePointer || n->rhs->type->type == TypeArray) {
+            if (!(n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray)) {
                 errorAt(n->token->str, "Invalid operation for binary operator");
             }
-        } else if (n->lhs->type->type == TypePointer) {
+        } else if (n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray) {
             // When lhs is pointer, only pointer or integers are accepted as
             // rhs.  At here, rhs must not be pointer, so only check if rhs is
             // integer.
@@ -201,8 +202,8 @@ static void verifyTypeFCall(Node *n) {
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
-    if (lhs->type == TypePointer) {
-        if (rhs->type == TypePointer) {
+    if (lhs->type == TypePointer || lhs->type == TypeArray) {
+        if (rhs->type == TypePointer || lhs->type == TypeArray) {
             return checkAssignable(lhs->ptrTo, rhs->ptrTo);
         }
         return 0;
@@ -217,14 +218,15 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
     // What's real type?
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
-    } else if (t1->type == TypePointer) {
-        if (t2->type == TypePointer)
+    } else if (t1->type == TypePointer || t1->type == TypeArray) {
+        if (t2->type == TypePointer || t2->type == TypeArray)
             return checkComparable(t1->ptrTo, t2->ptrTo);
         return 0;
     }
     return 0;
 }
 
+// TODO: Support array
 static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
     if (t1->type != t2->type) {
         return 0;

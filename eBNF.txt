@@ -4,7 +4,7 @@ finish
 program    = function*
 function   = type ident "(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";")
 stmt       = expr ";" |
-                type ident ";" |
+                type ident ("[" num "]") ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |

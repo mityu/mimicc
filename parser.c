@@ -164,7 +164,7 @@ Token *tokenize() {
             p += 2;
             continue;
         }
-        if (strchr("+-*/%()=;<>{},&", *p)) {
+        if (strchr("+-*/%()=;[]<>{},&", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
@@ -426,6 +426,8 @@ int sizeOf(TypeInfo *ti) {
         return 4;
     } else if (ti->type == TypePointer) {
         return 8;
+    } else if (ti->type == TypeArray) {
+        return sizeOf(ti->array.elemType) * ti->array.size;
     }
     errorUnreachable();
     return -1;
@@ -610,6 +612,17 @@ static Node *stmt() {
             errorIdentExpected();
             return NULL;
         }
+
+        if (consumeReserved("[")) {
+            TypeInfo *elemType = typeInfo;
+            int arraySize = expectNumber();
+            expectSign("]");
+            typeInfo = newTypeInfo(TypeArray);
+            typeInfo->array.elemType = elemType;
+            typeInfo->array.size = arraySize;
+            typeInfo->ptrTo = elemType;  // Also set type information to ptrTo.
+        }
+
         expectSign(";");
 
         lvar = findLVar(ident->str, ident->len);
@@ -617,7 +630,11 @@ static Node *stmt() {
             errorAt(ident->str, "Redefinition of variable");
             return NULL;
         }
-        globals.currentBlock->localVarCount++;
+
+        globals.currentBlock->localVarLen++;
+        if (typeInfo->type == TypeArray) {
+            globals.currentBlock->localVarLen += typeInfo->array.size - 1;
+        }
 
 
         if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
@@ -625,9 +642,14 @@ static Node *stmt() {
                 globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
         }
         for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-            varCount += block->localVarCount;
+            varCount += block->localVarLen;
         }
         lvar = newLVar(ident, typeInfo, varCount * 8);
+
+        // Adjust localVarLen for following variables when array is declared.
+        // if (typeInfo->type == TypeArray) {
+        //     globals.currentBlock->localVarLen += typeInfo->array.size - 1;
+        // }
 
         // Register variable.
         if (globals.currentBlock->localVars) {
@@ -840,10 +862,12 @@ static Node *unary() {
         n = newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
         Node *rhs = unary();
-        if (!(rhs->type && rhs->type->type == TypePointer)) {
+        TypeKind typeKind = rhs->type->type;
+        if (!(rhs->type && (typeKind == TypePointer || typeKind == TypeArray))) {
             errorAt(tokenOperator->str,
                     "Cannot dereference a non-pointer value.");
         }
+
         n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->ptrTo);
     } else if (consumeReserved("++")) {
         Node *rhs = unary();
@@ -917,7 +941,6 @@ static Node *primary() {
                 return NULL;
             }
             n = newNodeLVar(lvar->offset, lvar->type);
-            n->type = lvar->type;
         }
     } else if (consumeReserved("(")) {
         n = expr();

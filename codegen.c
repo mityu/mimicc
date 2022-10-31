@@ -284,7 +284,7 @@ static void genCodeFCall(Node *n) {
         regargs = REG_ARGS_MAX_COUNT;
 
     for (Node *c = n->outerBlock; c; c = c->next) {
-        stackVarCount += c->localVarCount;
+        stackVarCount += c->localVarLen;
         if (c->kind == NodeFunction)
             break;
     }
@@ -398,8 +398,8 @@ void genCode(Node *n) {
         genCodeDeref(n);
         return;
     } else if (n->kind == NodeBlock) {
-        if (n->localVarCount)
-            printf("  sub rsp, %d\n", n->localVarCount * 8);
+        if (n->localVarLen)
+            printf("  sub rsp, %d\n", n->localVarLen * 8);
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
@@ -417,6 +417,11 @@ void genCode(Node *n) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);
+
+        // But, array is an exception.  It works like a pointer even when it's
+        // being a rvalue.
+        if (n->type->type == TypeArray)
+            return;
 
         // In order to change this lvalue into rvalue, push a value of a
         // variable to the top of the stack.
