@@ -10,6 +10,7 @@ static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2);
 static int isIntegerType(TypeInfo *t);
 static int isArithmeticType(TypeInfo *t);
 static int isLvalue(Node *n);
+static int isWorkLikePointer(TypeInfo *t);
 
 void verifyType(Node *n) {
     if (n->kind == NodeFunction) {
@@ -87,13 +88,12 @@ void verifyType(Node *n) {
         return;
     } else if (n->kind == NodeAdd) {
         verifyType(n->lhs);
-        if (n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray) {
+        if (isWorkLikePointer(n->lhs->type)) {
             if (!isIntegerType(n->rhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
             }
-        } else if (n->rhs->type->type == TypePointer ||
-                n->rhs->type->type == TypeArray) {
+        } else if (isWorkLikePointer(n->rhs->type)) {
             if (!isIntegerType(n->lhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
                 return;
@@ -104,11 +104,11 @@ void verifyType(Node *n) {
         verifyType(n->rhs);
     } else if (n->kind == NodeSub) {
         verifyType(n->lhs);
-        if (n->rhs->type->type == TypePointer || n->rhs->type->type == TypeArray) {
-            if (!(n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray)) {
+        if (isWorkLikePointer(n->rhs->type)) {
+            if (!isWorkLikePointer(n->lhs->type)) {
                 errorAt(n->token->str, "Invalid operation for binary operator");
             }
-        } else if (n->lhs->type->type == TypePointer || n->lhs->type->type == TypeArray) {
+        } else if (isWorkLikePointer(n->lhs->type)) {
             // When lhs is pointer, only pointer or integers are accepted as
             // rhs.  At here, rhs must not be pointer, so only check if rhs is
             // integer.
@@ -202,8 +202,8 @@ static void verifyTypeFCall(Node *n) {
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
-    if (lhs->type == TypePointer || lhs->type == TypeArray) {
-        if (rhs->type == TypePointer || lhs->type == TypeArray) {
+    if (isWorkLikePointer(lhs)) {
+        if (isWorkLikePointer(rhs)) {
             return checkAssignable(lhs->baseType, rhs->baseType);
         }
         return 0;
@@ -218,8 +218,8 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
     // What's real type?
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
-    } else if (t1->type == TypePointer || t1->type == TypeArray) {
-        if (t2->type == TypePointer || t2->type == TypeArray)
+    } else if (isWorkLikePointer(t1)) {
+        if (isWorkLikePointer(t2))
             return checkComparable(t1->baseType, t2->baseType);
         return 0;
     }
@@ -249,4 +249,12 @@ static int isArithmeticType(TypeInfo *t) {
 // Return TRUE is `n` is lvalue.
 static int isLvalue(Node *n) {
     return n->kind == NodeLVar || n->kind == NodeDeref;
+}
+
+// Return TRUE if given type can work like a pointer. Currently returns TRUE
+// when given type is pointer or array.
+static int isWorkLikePointer(TypeInfo *t) {
+    if (t->type == TypePointer || t->type == TypeArray)
+        return 1;
+    return 0;
 }
