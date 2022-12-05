@@ -100,6 +100,7 @@ assert 1 'int main(){ int foo; int bar; foo = 5; bar = (foo * foo == 25); return
 assert 1 'int main(){ int foo; int bar; bar = ((foo = 5) == 5); return bar;}'
 assert 11 'int main() {int a; int b; int c; int d; a=4; b=3; c=2; d=1; a+=b+=c+=d+=1; return a;}'
 assert 2 'int main() {int a; int b; int c; int d; a=4; b=3; c=2; d=1; a-=b-=c-=d; return a;}'
+assert 15 'int main() {int a, b; a = 5; b = 10; return a + b;}'
 assert 42 'int main(){ return 42; return 10;}'
 assert 42 'int main(){ if (1) return 42; return 10;}'
 assert 10 'int main(){ if (0) return 42; return 10;}'

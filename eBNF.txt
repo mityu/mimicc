@@ -1,27 +1,29 @@
 0;/\C\<Alith\>//^finish$/+1,$Alith \%(=.*\)\@<!=
 finish
 
-program    = decl*
-decl       = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")? ";")
-stmt       = expr ";" |
+program     = decl*
+decl        = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")? ";")
+stmt        = expr ";" |
                 type ident ("[" num "]") ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |
                 "while" "(" expr ")" stmt |
                 "return" expr ";"
-expr       = assign
-assign     = equality (("=" | "+=" | "-=") assign)?
-equality   = relational ("==" relational | "!=" relational)*
-relational = add (">" add | "<" add | ">=" add | "<=" add)*
-add        = mul ("+" mul | "-" mul)*
-mul        = unary ("*" unary | "/" unary | "%" unary)*
-unary      = ("+" | "-")? primary |
+vardecl     = type ident ("," pointertype ident)* ";"
+expr        = assign
+assign      = equality (("=" | "+=" | "-=") assign)?
+equality    = relational ("==" relational | "!=" relational)*
+relational  = add (">" add | "<" add | ">=" add | "<=" add)*
+add         = mul ("+" mul | "-" mul)*
+mul         = unary ("*" unary | "/" unary | "%" unary)*
+unary       = ("+" | "-")? primary |
                 ("++" | "--" | "&" | "*") unary |
                 "sizeof" unary
-primary    = num |
+primary     = num |
                 ident ("(" (expr ("," expr)*)? ")")? |
                 "(" expr ")" |
                 primary ("++" | "--" | "[" expr "]")
-type       = basetype "*"*
-basetype   = "int"
+type        = basetype pointertype
+pointertype = "*"*
+basetype    = "int"

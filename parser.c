@@ -749,6 +749,7 @@ static Node *vardecl(){
     Token *ident = NULL;
     LVar *lvar = NULL;
     int totalVarSize = 0;
+    int currentVarSize = 0;
     TypeInfo *baseType = NULL;
     TypeInfo *varType = NULL;
 
@@ -761,49 +762,54 @@ static Node *vardecl(){
     }
 
 
-    varType = parsePointerType(baseType);
-    ident = consumeIdent();
-    if (!ident) {
-        errorIdentExpected();
-        return NULL;
-    }
+    for (;;) {
+        varType = parsePointerType(baseType);
+        ident = consumeIdent();
+        if (!ident) {
+            errorIdentExpected();
+            return NULL;
+        }
 
-    if (consumeReserved("[")) {
-        TypeInfo *elemType = varType;
-        int arraySize = expectNumber();
-        expectSign("]");
-        varType = newTypeInfo(TypeArray);
-        varType->arraySize = arraySize;
-        varType->baseType = elemType;
+        if (consumeReserved("[")) {
+            TypeInfo *elemType = varType;
+            int arraySize = expectNumber();
+            expectSign("]");
+            varType = newTypeInfo(TypeArray);
+            varType->arraySize = arraySize;
+            varType->baseType = elemType;
+        }
+
+        lvar = findLVar(ident->str, ident->len);
+        if (lvar) {
+            errorAt(ident->str, "Redefinition of variable");
+            return NULL;
+        }
+
+        currentVarSize = 8;
+        if (varType->type == TypeArray) {
+            currentVarSize = varType->arraySize * 8;
+        }
+        totalVarSize += currentVarSize;
+        globals.currentBlock->localVarSize += currentVarSize;
+
+        lvar = newLVar(ident, varType, totalVarSize);
+
+        // Register variable.
+        if (globals.currentBlock->localVars) {
+            lvar->next = globals.currentBlock->localVars;
+            globals.currentBlock->localVars = lvar;
+        } else {
+            globals.currentBlock->localVars = lvar;
+        }
+
+        n->next = newNodeLVar(lvar->offset, lvar->type);
+        n = n->next;
+
+        if (!consumeReserved(","))
+            break;
     }
 
     expectSign(";");
-
-    lvar = findLVar(ident->str, ident->len);
-    if (lvar) {
-        errorAt(ident->str, "Redefinition of variable");
-        return NULL;
-    }
-
-    int thisVarSize = 8;
-    if (varType->type == TypeArray) {
-        thisVarSize = varType->arraySize * 8;
-    }
-    totalVarSize += thisVarSize;
-    globals.currentBlock->localVarSize += thisVarSize;
-
-    lvar = newLVar(ident, varType, totalVarSize);
-
-    // Register variable.
-    if (globals.currentBlock->localVars) {
-        lvar->next = globals.currentBlock->localVars;
-        globals.currentBlock->localVars = lvar;
-    } else {
-        globals.currentBlock->localVars = lvar;
-    }
-
-    n->next = newNodeLVar(lvar->offset, lvar->type);
-    n = n->next;
 
     return headNode.next;
 }
