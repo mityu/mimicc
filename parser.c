@@ -652,7 +652,7 @@ static Node *stmt() {
     if (typeInfo) {
         Token *ident = consumeIdent();
         LVar *lvar = NULL;
-        int varCount = 0;
+        int totalVarSize = 0;
 
         if (!ident) {
             errorIdentExpected();
@@ -677,25 +677,20 @@ static Node *stmt() {
         }
 
         if (typeInfo->type == TypeArray) {
-            globals.currentBlock->localVarLen += typeInfo->arraySize;
+            globals.currentBlock->localVarSize += typeInfo->arraySize * 8;
         } else {
-            globals.currentBlock->localVarLen++;
+            globals.currentBlock->localVarSize += 8;
         }
 
 
         if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
-            varCount =
+            totalVarSize =
                 globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
         }
         for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-            varCount += block->localVarLen;
+            totalVarSize += block->localVarSize;
         }
-        lvar = newLVar(ident, typeInfo, varCount * 8);
-
-        // Adjust localVarLen for following variables when array is declared.
-        // if (typeInfo->type == TypeArray) {
-        //     globals.currentBlock->localVarLen += typeInfo->array.size - 1;
-        // }
+        lvar = newLVar(ident, typeInfo, totalVarSize);
 
         // Register variable.
         if (globals.currentBlock->localVars) {

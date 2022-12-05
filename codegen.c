@@ -294,24 +294,24 @@ static void genCodeFor(Node *n) {
 }
 
 static void genCodeFCall(Node *n) {
-    int stackVarCount = 0;
-    int needAlignRSP = 0;
+    int stackVarSize = 0;
+    int exCapAlignRSP = 0; // Extra memory size to capture to align RSP.
     int regargs = n->fcall->argsCount;
 
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
     for (Node *c = n->outerBlock; c; c = c->next) {
-        stackVarCount += c->localVarLen;
+        stackVarSize += c->localVarSize;
         if (c->kind == NodeFunction)
             break;
     }
     if ((n->fcall->argsCount - regargs) > 0)
-        stackVarCount += n->fcall->argsCount - regargs;
+        stackVarSize += (n->fcall->argsCount - regargs) * 8;
 
-    needAlignRSP = stackVarCount % 2;
-    if (needAlignRSP)
-        puts("  sub rsp, 8");  // Align RSP to multiple of 16.
+    exCapAlignRSP = 16 - (stackVarSize % 16);
+    if (exCapAlignRSP)
+        printf("  sub rsp, %d\n", exCapAlignRSP);  // Align RSP to multiple of 16.
 
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
@@ -324,8 +324,8 @@ static void genCodeFCall(Node *n) {
     }
     putchar('\n');
 
-    if (needAlignRSP)
-        puts("  add rsp, 8");
+    if (exCapAlignRSP)
+        printf("  add rsp, %d\n", exCapAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
     if ((n->fcall->argsCount - regargs) > 0)
@@ -416,8 +416,8 @@ void genCode(Node *n) {
         genCodeDeref(n);
         return;
     } else if (n->kind == NodeBlock) {
-        if (n->localVarLen)
-            printf("  sub rsp, %d\n", n->localVarLen * 8);
+        if (n->localVarSize)
+            printf("  sub rsp, %d\n", n->localVarSize);
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should

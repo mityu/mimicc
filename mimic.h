@@ -111,7 +111,7 @@ struct Node {
     LVar *localVars;   // List of variables local to block. (func, block, for, ...)
                        // Stored in reversed appearing order for an
                        // implementation reason.
-    int localVarLen;   // The size of local variables (not includes inner blocks').
+    int localVarSize;   // The size of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Function *func;    // Function info.
     Node *outerBlock;  // One step outer block.
