@@ -498,6 +498,7 @@ static Node *decl() {
         Function *funcFound = NULL;
         int argsCount = 0;
         int argNum = 0;
+        int argOffset = 0;
         int justDeclaring = 0;
         LVar argHead;
         LVar *args = &argHead;
@@ -633,12 +634,19 @@ static Node *decl() {
         // Compute argument variables' offset.
         // Note that arguments are all copied onto stack at the head of
         // function.
+        argOffset = 0;
+        argNum = 0;
         for (LVar *v = f->args; v; v = v->next) {
             ++argNum;
             if (argNum > REG_ARGS_MAX_COUNT) {
-                v->offset = -((argNum - REG_ARGS_MAX_COUNT + 1) * 8);
+                argOffset -= sizeOf(v->type);
+                v->offset = argOffset;
             } else {
-                v->offset = argNum * 8;
+                argOffset += sizeOf(v->type);
+                v->offset = argOffset;
+                if (argNum == REG_ARGS_MAX_COUNT) {
+                    argOffset = -8;
+                }
             }
         }
 
@@ -785,10 +793,7 @@ static Node *vardecl(){
             return NULL;
         }
 
-        currentVarSize = 8;
-        if (varType->type == TypeArray) {
-            currentVarSize = varType->arraySize * 8;
-        }
+        currentVarSize = sizeOf(varType);
         totalVarSize += currentVarSize;
         globals.currentBlock->localVarSize += currentVarSize;
 

@@ -294,7 +294,8 @@ static void genCodeFor(Node *n) {
 }
 
 static void genCodeFCall(Node *n) {
-    int stackVarSize = 0;
+    int stackVarSize = 0; // Size of local variables on stack.
+    int stackArgSize = 0;  // Size (not count) of arguments on stack.
     int exCapAlignRSP = 0; // Extra memory size to capture to align RSP.
     int regargs = n->fcall->argsCount;
 
@@ -306,8 +307,15 @@ static void genCodeFCall(Node *n) {
         if (c->kind == NodeFunction)
             break;
     }
-    if ((n->fcall->argsCount - regargs) > 0)
-        stackVarSize += (n->fcall->argsCount - regargs) * 8;
+    if ((n->fcall->argsCount - regargs) > 0) {
+        Node *arg = n->fcall->args;
+        for (int i = 0; i < regargs; ++i)
+            arg = arg->next;
+        stackArgSize = 0;
+        for (; arg; arg = arg->next)
+            stackArgSize += sizeOf(arg->type);
+        stackVarSize += stackArgSize;
+    }
 
     exCapAlignRSP = (16 - (stackVarSize % 16)) % 16;
     if (exCapAlignRSP)
@@ -328,8 +336,8 @@ static void genCodeFCall(Node *n) {
         printf("  add rsp, %d\n", exCapAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
-    if ((n->fcall->argsCount - regargs) > 0)
-        printf("  add rsp, %d\n", (n->fcall->argsCount - regargs) * 8);
+    if (stackArgSize)
+        printf("  add rsp, %d\n", stackArgSize);
 
     puts("  push rax");
 }
@@ -352,9 +360,19 @@ static void genCodeFunction(Node *n) {
 
     // Push arguments onto stacks from registers.
     if (regargs) {
-        printf("  sub rsp, %d\n", regargs * 8);
+        int offsets[REG_ARGS_MAX_COUNT] = {};
+        int totalOffset = 0;
+        LVar *arg = n->func->args;
+
         for (int i = 0; i < regargs; ++i) {
-            printf("  mov %d[rbp], %s\n", -((i + 1) * 8), argRegs[i]);
+            totalOffset += sizeOf(arg->type);
+            offsets[i] = totalOffset;
+            arg = arg->next;
+        }
+
+        printf("  sub rsp, %d\n", totalOffset);
+        for (int i = 0; i < regargs; ++i) {
+            printf("  mov %d[rbp], %s\n", -offsets[i], argRegs[i]);
         }
     }
 
