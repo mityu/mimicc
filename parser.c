@@ -7,7 +7,7 @@
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
 static TypeInfo *parseType();
-static Node *function();
+static Node *decl();
 static Node *stmt();
 static Node *expr();
 static Node *assign();
@@ -369,8 +369,19 @@ static Node *newNodeFunction() {
     return n;
 }
 
+// Find global variable by name. Return LVar* when variable is found. Returns
+// NULL when not.
+LVar *findGlobalVar(char *name, int len) {
+    for (LVar *v = globals.vars; v; v = v->next) {
+        if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+            return v;
+    }
+    return NULL;
+}
+
 // Find local variable in current block by name. Return LVar* when variable
 // found. When not, returns NULL.
+// Note that this function does NOT search global variables.
 static LVar *findLVar(char *name, int len) {
     Node *block = globals.currentBlock;
     for (;;) {
@@ -454,7 +465,7 @@ void program() {
     body.next = NULL;
     globals.code = newNode(NodeBlock, &Types.None);
     while (!atEOF()) {
-        Node *n = function();
+        Node *n = decl();
         if (n) {
             last->next = n;
             last = last->next;
@@ -463,7 +474,7 @@ void program() {
     globals.code->body = body.next;
 }
 
-static Node *function() {
+static Node *decl() {
     TypeInfo *type = NULL;
     Token *ident = NULL;
 
@@ -476,7 +487,7 @@ static Node *function() {
     ident = consumeIdent();
     if (ident) {
         Node *n = NULL;
-        Function *f = newFunction();
+        Function *f = NULL;
         Function *funcFound = NULL;
         int argsCount = 0;
         int argNum = 0;
@@ -485,12 +496,47 @@ static Node *function() {
         LVar *args = &argHead;
         Token *missingIdentOfArg = NULL;
 
+        if (!consumeReserved("(")) {
+            // Opening bracket isn't found. Must be global variable
+            // declaration.
+            LVar *gvar = NULL;
+
+            if (findGlobalVar(ident->str, ident->len)) {
+                errorAt(ident->str, "Redefinition of variable.");
+                return NULL;
+            }
+
+            if (consumeReserved("[")) { // Array declaration.
+                TypeInfo *elemType = type;
+                int arraySize = expectNumber();
+                expectSign("]");
+                type = newTypeInfo(TypeArray);
+                type->arraySize = arraySize;
+                type->baseType = elemType;
+            }
+
+            expectSign(";");
+
+            // Global variable doesn't have an offset.
+            gvar = newLVar(ident, type, -1);
+
+            // Register variable.
+            if (globals.vars) {
+                gvar->next = globals.vars;
+                globals.vars = gvar;
+            } else {
+                globals.vars = gvar;
+            }
+            return NULL;
+        }
+
         argHead.next = NULL;
+        f = newFunction();
         f->name = ident->str;
         f->len = ident->len;
         f->retType = type;
 
-        expectSign("(");
+
         if (!consumeReserved(")")) {
             // ")" doesn't follows just after "(", arguments must exist.
             // Parse arguments in this loop.
@@ -751,6 +797,7 @@ static Node *assign() {
     Token *t = globals.token;
     if (consumeReserved("=")) {
         n = newNodeBinary(NodeAssign, n, assign(), n->type);
+        n->token = t;
     } else if (consumeReserved("+=")) {
         Node *lhs = n;
         Node *rhs = assign();
@@ -758,6 +805,7 @@ static Node *assign() {
         n = newNodeBinary(NodeAdd, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
     } else if (consumeReserved("-=")) {
         Node *lhs = n;
         Node *rhs = assign();
@@ -765,8 +813,8 @@ static Node *assign() {
         n = newNodeBinary(NodeSub, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
     }
-    n->token = t;
     return n;
 }
 
@@ -936,11 +984,16 @@ static Node *primary() {
             expectSign(")");
         } else { // Variable accessing.
             LVar *lvar = findLVar(ident->str, ident->len);
-            if (!lvar) {
+            LVar *gvar = NULL;
+            if (lvar) {
+                n = newNodeLVar(lvar->offset, lvar->type);
+            } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
+                n = newNode(NodeGVar, gvar->type);
+            } else {
                 errorAt(ident->str, "Undefined variable");
                 return NULL;
             }
-            n = newNodeLVar(lvar->offset, lvar->type);
+            n->token = ident;
         }
     } else if (consumeReserved("(")) {
         n = expr();

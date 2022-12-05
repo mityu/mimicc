@@ -141,10 +141,10 @@ static int isExprNode(Node *n) {
 
 // Return an integer corresponding to 1 for given type.
 // In concrate explanation, return
-// - sizeof(type) for "type*"
+// - sizeof(type) for "type *" and "type[]"
 // - 1 for integer.
 static int getAlternativeOfOneForType(TypeInfo *ti) {
-    if (ti->type == TypePointer) {
+    if (ti->type == TypePointer || ti->type == TypeArray) {
         return sizeOf(ti->baseType);
     }
     return 1;
@@ -159,17 +159,35 @@ static void genCodeLVal(Node *n) {
         genCode(n->rhs);
         // Address for variable must be on the top of the stack.
         return;
-    } else if (n->kind != NodeLVar) {
+    } else if (!(n->kind == NodeLVar || n->kind == NodeGVar)) {
         error("Lhs of assignment is not a variable.");
     }
 
     // Make sure the value on the top of the stack is the memory address to lhs
-    // variable.  Calculate it on rax from the rbp(base pointer) and offset,
-    // then store it on the top of the stack.  Calculate it on rax, not on rbp,
-    // because rbp must NOT be changed until exiting from a function.
-    puts("  mov rax, rbp");
-    printf("  sub rax, %d\n", n->offset);
-    puts("  push rax");
+    // variable.
+    // When it's local variable, calculate it on rax from the rbp(base pointer)
+    // and offset, then store it on the top of the stack.  Calculate it on rax,
+    // not on rbp, because rbp must NOT be changed until exiting from a
+    // function.
+    if (n->kind == NodeGVar) {
+        printn("  lea rax, ");
+        printlen(n->token->str, n->token->len);
+        puts("[rip]");
+        puts("  push rax");
+    } else {
+        puts("  mov rax, rbp");
+        printf("  sub rax, %d\n", n->offset);
+        puts("  push rax");
+    }
+}
+
+void genCodeGvarDecl() {
+    puts(".data");
+    for (LVar *v = globals.vars; v; v = v->next) {
+        printlen(v->name, v->len);
+        puts(":");
+        printf("  .zero %d\n", sizeOf(v->type));
+    }
 }
 
 // Generate code dereferencing variables as rvalue.  If code for dereference as
@@ -413,7 +431,7 @@ void genCode(Node *n) {
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
         return;
-    } else if (n->kind == NodeLVar) {
+    } else if (n->kind == NodeLVar || n->kind == NodeGVar) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);

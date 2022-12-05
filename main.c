@@ -24,6 +24,7 @@ int main(int argc, char *argv[]) {
 
     puts(".intel_syntax noprefix");
     genCode(globals.code);
+    genCodeGvarDecl();
 
     return 0;
 }

@@ -1,8 +1,8 @@
 0;/\C\<Alith\>//^finish$/+1,$Alith \%(=.*\)\@<!=
 finish
 
-program    = function*
-function   = type ident "(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";")
+program    = decl*
+decl       = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")? ";")
 stmt       = expr ";" |
                 type ident ("[" num "]") ";" |
                 "{" stmt* "}" |

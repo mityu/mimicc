@@ -78,7 +78,7 @@ typedef enum {
     NodeAddress,  // &{var}
     NodeDeref,    // *{ptr}
     NodeNum,      // Integer
-    NodeLVar,     // Left hand side value (variable)
+    NodeLVar,     // Left hand side value (local variable)
     NodeAssign,   // {lhs} = {rhs};
     NodeFCall,    // Function calls,
     NodeIf,
@@ -88,6 +88,7 @@ typedef enum {
     NodeBlock,    // { ... }
     NodeReturn,   // return {expr};
     NodeFunction,
+    NodeGVar,     // Global variable, work as lvar.
 } NodeKind;
 
 typedef struct Function Function;
@@ -152,6 +153,7 @@ typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
     Function *functions;       // Declared function list.
+    LVar *vars;                // Global variables.
     Node *currentBlock;        // Current block.
     Function *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
@@ -161,6 +163,7 @@ struct Globals {
 extern Globals globals;
 
 void genCode(Node *n);
+void genCodeGvarDecl();
 void error(char *fmt, ...);
 void errorAt(char *loc, char *fmt, ...);
 Token *tokenize();

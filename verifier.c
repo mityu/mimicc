@@ -248,7 +248,7 @@ static int isArithmeticType(TypeInfo *t) {
 
 // Return TRUE is `n` is lvalue.
 static int isLvalue(Node *n) {
-    return n->kind == NodeLVar || n->kind == NodeDeref;
+    return n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeDeref;
 }
 
 // Return TRUE if given type can work like a pointer. Currently returns TRUE
