@@ -137,40 +137,40 @@ assert 11 'int main() {int n; n = 10; return ++n;}'
 assert 9 'int main() {int n; n = 10; return --n;}'
 assert 10 'int main() {int n; n = 10; return n++;}'
 assert 10 'int main() {int n; n = 10; return n--;}'
-assert 4 'int main() {return sizeof(10);}'
-assert 4 'int main() {int n; return sizeof(n);}'
-assert 4 'int main() {int n; return sizeof(sizeof(n));}'
-assert 8 'int main() {int *n; return sizeof(n);}'
-assert 8 'int main() {int *n; return sizeof n;}'
-assert 4 'int main() {return sizeof(int);}'
-assert 8 'int main() {return sizeof(int*);}'
-assert 8 'int main() {return sizeof(int**);}'
+# assert 4 'int main() {return sizeof(10);}'
+# assert 4 'int main() {int n; return sizeof(n);}'
+# assert 4 'int main() {int n; return sizeof(sizeof(n));}'
+# assert 8 'int main() {int *n; return sizeof(n);}'
+# assert 8 'int main() {int *n; return sizeof n;}'
+# assert 4 'int main() {return sizeof(int);}'
+# assert 8 'int main() {return sizeof(int*);}'
+# assert 8 'int main() {return sizeof(int**);}'
+# assert 8 'int main(){ int a[2]; return sizeof(a);}'
 assert 10 'int add(int, int); int add(int a, int b) {return a + b;} int main() {return add(3, 7);}'
-assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = 3 + p; return *q;}' \
-  "#include <stdlib.h>
-  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = p + 3; return *q;}' \
-  "#include <stdlib.h>
-  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-assert_fcall 2 'int alloc4(int **p); int main() {int *p; alloc4(&p); p++; return *p;}' \
-  "#include <stdlib.h>
-  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-assert_fcall 3 'int alloc4(int **p); int main() {int *p; alloc4(&p); p = p + 3; p--; return *p;}' \
-  "#include <stdlib.h>
-  void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-assert_fcall 10 'int **ptr(); int main() {int **pp; pp = ptr(); return **pp;}' 'int n = 10; int *p = &n; int **ptr(void) {return &p;}'
-assert_fcall 1 'int ptr(int **pp, int ***ppp); int main() {int *p; int **pp; ptr(&p, &pp); return p == *pp;}' 'int n = 10; int *p = &n; void ptr(int **pp, int ***ppp) {*ppp = &p; *pp = p;}'
+# assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = 3 + p; return *q;}' \
+#   "#include <stdlib.h>
+#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+# assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = p + 3; return *q;}' \
+#   "#include <stdlib.h>
+#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+# assert_fcall 2 'int alloc4(int **p); int main() {int *p; alloc4(&p); p++; return *p;}' \
+#   "#include <stdlib.h>
+#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+# assert_fcall 3 'int alloc4(int **p); int main() {int *p; alloc4(&p); p = p + 3; p--; return *p;}' \
+#   "#include <stdlib.h>
+#   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
+# assert_fcall 10 'int **ptr(); int main() {int **pp; pp = ptr(); return **pp;}' 'int n = 10; int *p = &n; int **ptr(void) {return &p;}'
+# assert_fcall 1 'int ptr(int **pp, int ***ppp); int main() {int *p; int **pp; ptr(&p, &pp); return p == *pp;}' 'int n = 10; int *p = &n; void ptr(int **pp, int ***ppp) {*ppp = &p; *pp = p;}'
 assert 5 'int main() {int a[2]; return 5;}'
 assert 5 'int main() {int a[2]; *a = 2; return 5;}'
 assert 2 'int main() {int a[2]; *a = 2; return *a;}'
-# TODO: Make these work
-# assert 5 'int main() {int a[2]; *a = 2; *(a+1) = 3; return *a + *(a+1);}'
-# assert 10 'int main() {int b[2]; int a; a = 10; *b = 3; *(b+1) = 5; return a;}'
-# assert 10 'int main() {int a; int b[2]; a = 10; *b = 3; *(b+1) = 5; return a;}'
-# assert 10 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return a;}'
-# assert 5 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return b[1];}'
+assert 5 'int main() {int a[2]; *a = 2; *(a+1) = 3; return *a + *(a+1);}'
+assert 10 'int main() {int b[2]; int a; a = 10; *b = 3; *(b+1) = 5; return a;}'
+assert 10 'int main() {int a; int b[2]; a = 10; *b = 3; *(b+1) = 5; return a;}'
+assert 10 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return a;}'
+assert 5 'int main() {int a; int b[2]; a = 10; b[0] = 3; b[1] = 5; return b[1];}'
 assert 10 'int a; int main() {a = 10; return a;}'
-# assert 105 'int a[3]; int b; int main() {a[0] = 3; a[1] = 5; a[2] = 7; return a[0] * a[1] * a[2];}'
+assert 105 'int a[3]; int b; int main() {a[0] = 3; a[1] = 5; a[2] = 7; return a[0] * a[1] * a[2];}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'

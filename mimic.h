@@ -171,4 +171,5 @@ void program();
 Function *findFunction(char *name, int len);
 int sizeOf(TypeInfo *ti);
 void verifyType(Node *n);
+int isWorkLikePointer(TypeInfo *t);
 #endif // HEADER_MIMIC_H

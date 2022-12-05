@@ -479,7 +479,7 @@ void genCode(Node *n) {
 
         if (altOne != 1) {
             // Load integer to RAX and pointer to RDI in either case.
-            if (n->lhs->type->type == TypePointer) { // ptr + num
+            if (isWorkLikePointer(n->lhs->type)) { // ptr + num
                 puts("  pop rax");
                 puts("  pop rdi");
             } else {  // num + ptr

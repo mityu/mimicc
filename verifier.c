@@ -10,7 +10,6 @@ static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2);
 static int isIntegerType(TypeInfo *t);
 static int isArithmeticType(TypeInfo *t);
 static int isLvalue(Node *n);
-static int isWorkLikePointer(TypeInfo *t);
 
 void verifyType(Node *n) {
     if (n->kind == NodeFunction) {
@@ -253,7 +252,7 @@ static int isLvalue(Node *n) {
 
 // Return TRUE if given type can work like a pointer. Currently returns TRUE
 // when given type is pointer or array.
-static int isWorkLikePointer(TypeInfo *t) {
+int isWorkLikePointer(TypeInfo *t) {
     if (t->type == TypePointer || t->type == TypeArray)
         return 1;
     return 0;
