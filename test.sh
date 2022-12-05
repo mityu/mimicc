@@ -159,8 +159,8 @@ assert 10 'int add(int, int); int add(int a, int b) {return a + b;} int main() {
 # assert_fcall 3 'int alloc4(int **p); int main() {int *p; alloc4(&p); p = p + 3; p--; return *p;}' \
 #   "#include <stdlib.h>
 #   void alloc4(int **p) {*p = (int *)malloc(sizeof(int)*4); (*p)[0] = 1; (*p)[1] = 2; (*p)[2] = 3; (*p)[3] = 4;}"
-# assert_fcall 10 'int **ptr(); int main() {int **pp; pp = ptr(); return **pp;}' 'int n = 10; int *p = &n; int **ptr(void) {return &p;}'
-# assert_fcall 1 'int ptr(int **pp, int ***ppp); int main() {int *p; int **pp; ptr(&p, &pp); return p == *pp;}' 'int n = 10; int *p = &n; void ptr(int **pp, int ***ppp) {*ppp = &p; *pp = p;}'
+assert_fcall 10 'int **ptr(); int main() {int **pp; pp = ptr(); return **pp;}' 'int n = 10; int *p = &n; int **ptr(void) {return &p;}'
+assert_fcall 1 'int ptr(int **pp, int ***ppp); int main() {int *p; int **pp; ptr(&p, &pp); return p == *pp;}' 'int n = 10; int *p = &n; void ptr(int **pp, int ***ppp) {*ppp = &p; *pp = p;}'
 assert 5 'int main() {int a[2]; return 5;}'
 assert 5 'int main() {int a[2]; *a = 2; return 5;}'
 assert 2 'int main() {int a[2]; *a = 2; return *a;}'
