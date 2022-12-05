@@ -6,7 +6,8 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
-static TypeInfo *parseType();
+static TypeInfo *parseBaseType();
+static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
 static Node *stmt();
 static Node *expr();
@@ -414,15 +415,19 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
     return t;
 }
 
-// Parse declared type and return type information.  Return NULL if type
+// Parse base of declared type and return its information.  Return NULL if type
 // doesn't appear.
-static TypeInfo *parseType() {
-    TypeInfo *typeInfo = NULL;
+static TypeInfo *parseBaseType() {
     Token *type = consumeTypeName();
     if (!type) {
         return NULL;
     }
-    typeInfo = newTypeInfo(type->varType);
+    return newTypeInfo(type->varType);
+}
+
+// Parse pointer declarations.
+static TypeInfo *parsePointerType(TypeInfo *baseType) {
+    TypeInfo *typeInfo = baseType;
     while (consumeReserved("*")) {
         TypeInfo *t = newTypeInfo(TypePointer);
         t->baseType = typeInfo;
@@ -478,11 +483,12 @@ static Node *decl() {
     TypeInfo *type = NULL;
     Token *ident = NULL;
 
-    type = parseType();
+    type = parseBaseType();
     if (!type) {
         errorTypeExpected();
         return NULL;
     }
+    type = parsePointerType(type);
 
     ident = consumeIdent();
     if (ident) {
@@ -544,11 +550,12 @@ static Node *decl() {
                 TypeInfo *typeInfo = NULL;
                 Token *argToken = NULL;
 
-                typeInfo = parseType();
+                typeInfo = parseBaseType();
                 if (!typeInfo) {
                     errorTypeExpected();
                     return NULL;
                 }
+                typeInfo = parsePointerType(typeInfo);
 
                 argToken = consumeIdent();
                 if (!argToken) {
@@ -648,7 +655,9 @@ static Node *decl() {
 }
 
 static Node *stmt() {
-    TypeInfo *typeInfo = parseType();
+    TypeInfo *typeInfo = parseBaseType();
+    if (typeInfo)
+        typeInfo = parsePointerType(typeInfo);
     if (typeInfo) {
         Token *ident = consumeIdent();
         LVar *lvar = NULL;
@@ -924,9 +933,10 @@ static Node *unary() {
 
         // First, do check for "sizeof(type)".
         if (consumeReserved("(")) {
-            type = parseType();
+            type = parseBaseType();
             if (type)
                 expectSign(")");
+            type = parsePointerType(type);
         }
 
         // Then, if "sizeof(type)" didn't match the case, do check for
