@@ -691,11 +691,6 @@ static Node *stmt() {
             globals.currentBlock->localVarSize += 8;
         }
 
-
-        if (globals.currentFunction->argsCount > REG_ARGS_MAX_COUNT) {
-            totalVarSize =
-                globals.currentFunction->argsCount - REG_ARGS_MAX_COUNT;
-        }
         for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
             totalVarSize += block->localVarSize;
         }

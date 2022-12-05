@@ -309,7 +309,7 @@ static void genCodeFCall(Node *n) {
     if ((n->fcall->argsCount - regargs) > 0)
         stackVarSize += (n->fcall->argsCount - regargs) * 8;
 
-    exCapAlignRSP = 16 - (stackVarSize % 16);
+    exCapAlignRSP = (16 - (stackVarSize % 16)) % 16;
     if (exCapAlignRSP)
         printf("  sub rsp, %d\n", exCapAlignRSP);  // Align RSP to multiple of 16.
 
