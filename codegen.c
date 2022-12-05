@@ -2,6 +2,10 @@
 #include <string.h>
 #include "mimic.h"
 
+// TODO: Function call appears in function arguments, alignment may be broken.
+// TODO: Do not use "push" and "pop" when store too much arguments to stack?
+// TODO: Maybe even when sizeOf(number) returns 4, it actually uses 8 bytes.
+
 // "push" and "pop" operator implicitly uses rsp as memory address.
 // Therefore, `push rax` is equal to:
 //    sub rsp, 8
@@ -150,8 +154,77 @@ static int getAlternativeOfOneForType(TypeInfo *ti) {
     return 1;
 }
 
+typedef enum {
+    RAX,
+    RDI,
+    RSI,
+    RDX,
+    RCX,
+    RBP,
+    RSP,
+    RBX,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    R15,
+    RegCount,
+} RegKind;
+
+const int Reg8 = 3;
+const int Reg16 = 2;
+const int Reg32 = 1;
+const int Reg64 = 0;
+
+static const char *RegTable[RegCount][4] = {
+    {"rax", "eax",  "ax",   "al"},
+    {"rdi", "edi",  "di",   "dil"},
+    {"rsi", "esi",  "si",   "sil"},
+    {"rdx", "edx",  "dx",   "dl"},
+    {"rcx", "ecx",  "cx",   "cl"},
+    {"rbp", "ebp",  "bp",   "bpl"},
+    {"rsp", "esp",  "sp",   "spl"},
+    {"rbx", "ebx",  "bx",   "bl"},
+    {"r8",  "r8d",  "r8w",  "r8b"},
+    {"r9",  "r9d",  "r9w",  "r9b"},
+    {"r10", "r10d", "r10w", "r10b"},
+    {"r11", "r11d", "r11w", "r11b"},
+    {"r12", "r12d", "r12w", "r12b"},
+    {"r13", "r13d", "r13w", "r13b"},
+    {"r14", "r14d", "r14w", "r14b"},
+    {"r15", "r15d", "r15w", "r15b"},
+};
+
+static const char *getReg(RegKind reg, int size) {
+    switch (size) {
+    case 1: return RegTable[reg][3];
+    case 2: return RegTable[reg][2];
+    case 4: return RegTable[reg][1];
+    case 8: return RegTable[reg][0];
+    }
+    errorUnreachable();
+    return "";
+}
+
+/*
+// Generate 'mov' instruction.
+static void genInstrMov(RegKind dest, TypeInfo *destType, Node *n) {
+    // TODO: Check which register should be used.
+    // TODO: Check if sign extension is needed.
+}
+*/
+
+/*
 static const char *argRegs[REG_ARGS_MAX_COUNT] = {
     "rdi", "rsi", "rdx", "rcx", "r8", "r9"
+};
+*/
+
+static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
+    RDI, RSI, RDX, RCX, R8, R9
 };
 
 static void genCodeLVal(Node *n) {
@@ -207,20 +280,30 @@ static void genCodeAssign(Node *n) {
     // |                     |
     // |       ......        |
     // +---------------------+
-    // | Lhs memory address  | --> Load to rax.
+    // | Lhs memory address  | --> Load to RAX.
     // +---------------------+
-    // |     Rhs value       | --> Load to rdi.
+    // |     Rhs value       | --> Load to RDI.
     // +---------------------+
     //
     // Stack after assign:
     // |                     |
     // |       ......        |
     // +---------------------+
-    // |     Rhs value       | <-- Restore from rdi.
+    // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
     puts("  pop rdi");
     puts("  pop rax");
-    puts("  mov [rax], rdi");
+    switch (sizeOf(n->rhs->type)) {
+    case 8:
+        puts("  mov [rax], rdi");
+        break;
+    case 4:
+        puts("  mov DWORD PTR [rax], edi");
+        break;
+    default:
+        errorUnreachable();
+    }
+    /* printf("  mov [rax], %s\n", getReg(RDI, sizeOf(n->rhs->type))); */
     puts("  push rdi");
 }
 
@@ -312,19 +395,21 @@ static void genCodeFCall(Node *n) {
         for (int i = 0; i < regargs; ++i)
             arg = arg->next;
         stackArgSize = 0;
-        for (; arg; arg = arg->next)
-            stackArgSize += sizeOf(arg->type);
+        for (; arg; arg = arg->next) {
+            // stackArgSize += sizeOf(arg->type); // TODO: Make this work
+            stackArgSize += 8;
+        }
         stackVarSize += stackArgSize;
     }
 
     exCapAlignRSP = (16 - (stackVarSize % 16)) % 16;
     if (exCapAlignRSP)
-        printf("  sub rsp, %d\n", exCapAlignRSP);  // Align RSP to multiple of 16.
+        printf("  sub rsp, %d /*align*/\n", exCapAlignRSP);  // Align RSP to multiple of 16.
 
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
     for (int i = 0; i < regargs; ++i)
-        printf("  pop %s\n", argRegs[i]);
+        printf("  pop %s\n", getReg(argRegs[i], 8));
 
     printf("  call ");
     for (int i = 0; i < n->fcall->len; ++i) {
@@ -333,7 +418,7 @@ static void genCodeFCall(Node *n) {
     putchar('\n');
 
     if (exCapAlignRSP)
-        printf("  add rsp, %d\n", exCapAlignRSP);
+        printf("  add rsp, %d /*align*/\n", exCapAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
     if (stackArgSize)
@@ -361,18 +446,30 @@ static void genCodeFunction(Node *n) {
     // Push arguments onto stacks from registers.
     if (regargs) {
         int offsets[REG_ARGS_MAX_COUNT] = {};
+        int size[REG_ARGS_MAX_COUNT] = {};
         int totalOffset = 0;
         LVar *arg = n->func->args;
 
         for (int i = 0; i < regargs; ++i) {
-            totalOffset += sizeOf(arg->type);
+            size[i] = sizeOf(arg->type);
+            totalOffset += size[i];
             offsets[i] = totalOffset;
             arg = arg->next;
         }
 
         printf("  sub rsp, %d\n", totalOffset);
         for (int i = 0; i < regargs; ++i) {
-            printf("  mov %d[rbp], %s\n", -offsets[i], argRegs[i]);
+            switch (size[i]) {
+            case 8:
+                printf("  mov %d[rbp], %s\n", -offsets[i], getReg(argRegs[i], size[i]));
+                break;
+            case 4:
+                printf("  mov DWORD PTR %d[rbp], %s\n",
+                       -offsets[i], getReg(argRegs[i], size[i]));
+                break;
+            default:
+                errorUnreachable();
+            }
         }
     }
 
@@ -395,6 +492,7 @@ static void genCodeIncrement(Node *n, int prefix) {
     if (!prefix)
         puts("  push rax");
 
+    // TODO: Use eax for non-pointers.
     printf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
 
     // Prefix increment operator refers the value after increment.
@@ -416,6 +514,7 @@ static void genCodeDecrement(Node *n, int prefix) {
     if (!prefix)
         puts("  push rax");
 
+    // TODO: Use eax for non-pointers.
     printf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
 
     // Prefix decrement operator refers the value after decrement.
@@ -462,7 +561,16 @@ void genCode(Node *n) {
         // In order to change this lvalue into rvalue, push a value of a
         // variable to the top of the stack.
         puts("  pop rax");
-        puts("  mov rax, [rax]");
+        switch (sizeOf(n->type)) {
+        case 8:
+            puts("  mov rax, [rax]");
+            break;
+        case 4:
+            puts("  mov eax, DWORD PTR [rax]");
+            break;
+        default:
+            errorUnreachable();
+        }
         puts("  push rax");
 
         return;
@@ -495,7 +603,7 @@ void genCode(Node *n) {
         genCode(n->lhs);
         genCode(n->rhs);
 
-        if (altOne != 1) {
+        if (altOne != 1) { // Pointer or array
             // Load integer to RAX and pointer to RDI in either case.
             if (isWorkLikePointer(n->lhs->type)) { // ptr + num
                 puts("  pop rax");
@@ -511,6 +619,7 @@ void genCode(Node *n) {
             puts("  pop rax");
         }
 
+        // TODO: Use eax, edi for non-pointers
         puts("  add rax, rdi");
         puts("  push rax");
         return;
@@ -525,6 +634,7 @@ void genCode(Node *n) {
             printf("  mov rsi, %d\n", altOne);
             puts("  imul rdi, rsi");
         }
+        // TODO: Use eax, edi for non-pointers
         puts("  sub rax, rdi");
         puts("  push rax");
         return;
@@ -537,28 +647,35 @@ void genCode(Node *n) {
     puts("  pop rax");
 
     if (n->kind == NodeMul) {
+        // TODO: Use eax, edi for non-pointers
         puts("  imul rax, rdi");
     } else if (n->kind == NodeDiv) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cqo");
         puts("  idiv rdi");
     } else if (n->kind == NodeDivRem) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cqo");
         puts("  idiv rdi");
         puts("  push rdx");
         return;
     } else if (n->kind == NodeEq) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cmp rax, rdi");
         puts("  sete al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeNeq) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cmp rax, rdi");
         puts("  setne al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLT) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cmp rax, rdi");
         puts("  setl al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLE) {
+        // TODO: Use eax, edi for non-pointers
         puts("  cmp rax, rdi");
         puts("  setle al");
         puts("  movzb rax, al");

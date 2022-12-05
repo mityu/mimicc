@@ -639,7 +639,8 @@ static Node *decl() {
         for (LVar *v = f->args; v; v = v->next) {
             ++argNum;
             if (argNum > REG_ARGS_MAX_COUNT) {
-                argOffset -= sizeOf(v->type);
+                // argOffset -= sizeOf(v->type);  // TODO: Make this valid
+                argOffset -= 8;
                 v->offset = argOffset;
             } else {
                 argOffset += sizeOf(v->type);
