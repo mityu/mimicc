@@ -2,8 +2,8 @@
 #include <string.h>
 #include "mimic.h"
 
-// TODO: Function call appears in function arguments, alignment may be broken.
 // TODO: Do not use "push" and "pop" when store too much arguments to stack?
+// TODO: Maybe even when sizeOf(number) returns 4, it actually uses 8 bytes.
 
 // "push" and "pop" operator implicitly uses rsp as memory address.
 // Therefore, `push rax` is equal to:
