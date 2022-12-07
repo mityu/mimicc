@@ -497,21 +497,41 @@ static void genCodeIncrement(Node *n, int prefix) {
     genCodeLVal(expr);
     puts("  pop rax");
     puts("  mov rdi, rax");
-    puts("  mov rax, [rax]");
+    switch (sizeOf(n->type)) {
+    case 8:
+        puts("  mov rax, [rax]");
+        break;
+    case 4:
+        puts("  mov eax, DWORD PTR [rax]");
+        break;
+    }
 
     // Postfix increment operator refers the value before increment.
     if (!prefix)
         puts("  push rax");
 
-    // TODO: Use eax for non-pointers.
-    printf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
+    switch (sizeOf(n->type)) {
+    case 8:
+        printf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
+        break;
+    case 4:
+        printf("  add eax, %d\n", getAlternativeOfOneForType(n->type));
+        break;
+    }
 
     // Prefix increment operator refers the value after increment.
     if (prefix)
         puts("  push rax");
 
     // Reflect the expression result on variable.
-    puts("  mov [rdi], rax");
+    switch (sizeOf(n->type)) {
+    case 8:
+        puts("  mov [rdi], rax");
+        break;
+    case 4:
+        puts("  mov DWORD PTR [rdi], eax");
+        break;
+    }
 }
 
 static void genCodeDecrement(Node *n, int prefix) {
@@ -519,21 +539,41 @@ static void genCodeDecrement(Node *n, int prefix) {
     genCodeLVal(expr);
     puts("  pop rax");
     puts("  mov rdi, rax");
-    puts("  mov rax, [rax]");
+    switch (sizeOf(n->type)) {
+    case 8:
+        puts("  mov rax, [rax]");
+        break;
+    case 4:
+        puts("  mov eax, DWORD PTR [rax]");
+        break;
+    }
 
     // Postfix decrement operator refers the value before decrement.
     if (!prefix)
         puts("  push rax");
 
-    // TODO: Use eax for non-pointers.
-    printf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
+    switch (sizeOf(n->type)) {
+    case 8:
+        printf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
+        break;
+    case 4:
+        printf("  sub eax, %d\n", getAlternativeOfOneForType(n->type));
+        break;
+    }
 
     // Prefix decrement operator refers the value after decrement.
     if (prefix)
         puts("  push rax");
 
     // Reflect the expression result on variable.
-    puts("  mov [rdi], rax");
+    switch (sizeOf(n->type)) {
+    case 8:
+        puts("  mov [rdi], rax");
+        break;
+    case 4:
+        puts("  mov DWORD PTR [rdi], eax");
+        break;
+    }
 }
 
 void genCode(Node *n) {
@@ -625,14 +665,14 @@ void genCode(Node *n) {
             }
             printf("  mov rsi, %d\n", altOne);
             puts("  imul rax, rsi");
+            puts("  add rax, rdi");
+            puts("  push rax");
         } else {
             puts("  pop rdi");
             puts("  pop rax");
+            puts("  add eax, edi");
+            puts("  push rax");
         }
-
-        // TODO: Use eax, edi for non-pointers
-        puts("  add rax, rdi");
-        puts("  push rax");
         return;
     } else if (n->kind == NodeSub) {
         int altOne = getAlternativeOfOneForType(n->type);
@@ -644,10 +684,12 @@ void genCode(Node *n) {
         if (altOne != 1) {
             printf("  mov rsi, %d\n", altOne);
             puts("  imul rdi, rsi");
+            puts("  sub rax, rdi");
+            puts("  push rax");
+        } else {
+            puts("  sub eax, edi");
+            puts("  push rax");
         }
-        // TODO: Use eax, edi for non-pointers
-        puts("  sub rax, rdi");
-        puts("  push rax");
         return;
     }
 
@@ -658,35 +700,53 @@ void genCode(Node *n) {
     puts("  pop rax");
 
     if (n->kind == NodeMul) {
-        // TODO: Use eax, edi for non-pointers
-        puts("  imul rax, rdi");
+        switch (sizeOf(n->type)) {
+        case 8:
+            puts("  imul rax, rdi");
+            break;
+        case 4:
+            puts("  imul eax, edi");
+            break;
+        }
     } else if (n->kind == NodeDiv) {
-        // TODO: Use eax, edi for non-pointers
         puts("  cqo");
-        puts("  idiv rdi");
+        switch (sizeOf(n->type)) {
+        case 8:
+            puts("  idiv rdi");
+            break;
+        case 4:
+            puts("  idiv edi");
+            break;
+        }
     } else if (n->kind == NodeDivRem) {
-        // TODO: Use eax, edi for non-pointers
         puts("  cqo");
-        puts("  idiv rdi");
+        switch (sizeOf(n->type)) {
+        case 8:
+            puts("  idiv rdi");
+            break;
+        case 4:
+            puts("  idiv edi");
+            break;
+        }
         puts("  push rdx");
         return;
     } else if (n->kind == NodeEq) {
-        // TODO: Use eax, edi for non-pointers
+        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  sete al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeNeq) {
-        // TODO: Use eax, edi for non-pointers
+        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setne al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLT) {
-        // TODO: Use eax, edi for non-pointers
+        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setl al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLE) {
-        // TODO: Use eax, edi for non-pointers
+        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setle al");
         puts("  movzb rax, al");
