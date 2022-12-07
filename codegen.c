@@ -4,7 +4,6 @@
 
 // TODO: Function call appears in function arguments, alignment may be broken.
 // TODO: Do not use "push" and "pop" when store too much arguments to stack?
-// TODO: Maybe even when sizeOf(number) returns 4, it actually uses 8 bytes.
 
 // "push" and "pop" operator implicitly uses rsp as memory address.
 // Therefore, `push rax` is equal to:
@@ -377,6 +376,8 @@ static void genCodeFor(Node *n) {
 }
 
 static void genCodeFCall(Node *n) {
+    static int stackAlignState = -1;  // RSP % 16
+    int stackAlignStateSave = 0;
     int stackVarSize = 0; // Size of local variables on stack.
     int stackArgSize = 0;  // Size (not count) of arguments on stack.
     int exCapAlignRSP = 0; // Extra memory size to capture to align RSP.
@@ -385,26 +386,35 @@ static void genCodeFCall(Node *n) {
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
-    for (Node *c = n->outerBlock; c; c = c->next) {
-        stackVarSize += c->localVarSize;
-        if (c->kind == NodeFunction)
-            break;
+    if (stackAlignState == -1) {
+        stackAlignState = 0;
+        for (Node *c = n->outerBlock; c; c = c->next) {
+            stackVarSize += c->localVarSize;
+            if (c->kind == NodeFunction)
+                break;
+        }
     }
+
     if ((n->fcall->argsCount - regargs) > 0) {
         Node *arg = n->fcall->args;
         for (int i = 0; i < regargs; ++i)
             arg = arg->next;
         stackArgSize = 0;
         for (; arg; arg = arg->next) {
-            // stackArgSize += sizeOf(arg->type); // TODO: Make this work
+            // stackArgSize += sizeOf(arg->type); // TODO: Make this work???
             stackArgSize += 8;
         }
         stackVarSize += stackArgSize;
     }
 
-    exCapAlignRSP = (16 - (stackVarSize % 16)) % 16;
+    stackAlignStateSave = stackAlignState;
+    stackAlignState = (stackAlignState + stackVarSize) % 16;
+    if (stackAlignState)
+        exCapAlignRSP = 16 - stackAlignState;
+
     if (exCapAlignRSP)
-        printf("  sub rsp, %d /*align*/\n", exCapAlignRSP);  // Align RSP to multiple of 16.
+        // Align RSP to multiple of 16.
+        printf("  sub rsp, %d /* RSP alignment */\n", exCapAlignRSP);
 
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
@@ -417,8 +427,9 @@ static void genCodeFCall(Node *n) {
     }
     putchar('\n');
 
+    stackAlignState = stackAlignStateSave;
     if (exCapAlignRSP)
-        printf("  add rsp, %d /*align*/\n", exCapAlignRSP);
+        printf("  add rsp, %d /* RSP alignment */\n", exCapAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
     if (stackArgSize)
