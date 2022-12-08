@@ -401,8 +401,7 @@ static void genCodeFCall(Node *n) {
             arg = arg->next;
         stackArgSize = 0;
         for (; arg; arg = arg->next) {
-            // stackArgSize += sizeOf(arg->type); // TODO: Make this work???
-            stackArgSize += 8;
+            stackArgSize += ONE_WORD_BYTES;
         }
         stackVarSize += stackArgSize;
     }
@@ -419,7 +418,7 @@ static void genCodeFCall(Node *n) {
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
     for (int i = 0; i < regargs; ++i)
-        printf("  pop %s\n", getReg(argRegs[i], 8));
+        printf("  pop %s\n", getReg(argRegs[i], ONE_WORD_BYTES));
 
     printf("  call ");
     for (int i = 0; i < n->fcall->len; ++i) {

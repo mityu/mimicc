@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #define REG_ARGS_MAX_COUNT  (6)
+#define ONE_WORD_BYTES  (8)
 #define errorUnreachable()  \
     error("%s:%d: Internal error: unreachable", __FILE__, __LINE__);
 
