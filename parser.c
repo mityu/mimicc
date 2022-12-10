@@ -962,9 +962,10 @@ static Node *unary() {
         // First, do check for "sizeof(type)".
         if (consumeReserved("(")) {
             type = parseBaseType();
-            if (type)
+            if (type) {
+                type = parsePointerType(type);
                 expectSign(")");
-            type = parsePointerType(type);
+            }
         }
 
         // Then, if "sizeof(type)" didn't match the case, do check for
