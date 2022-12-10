@@ -218,6 +218,17 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
     RDI, RSI, RDX, RCX, R8, R9
 };
 
+void genCodeGvarDecl() {
+    if (globals.vars == NULL)
+        return;
+    puts("\n.data");
+    for (LVar *v = globals.vars; v; v = v->next) {
+        printlen(v->name, v->len);
+        puts(":");
+        printf("  .zero %d\n", sizeOf(v->type));
+    }
+}
+
 static void genCodeLVal(Node *n) {
     if (n->kind == NodeDeref) {
         genCode(n->rhs);
@@ -242,15 +253,6 @@ static void genCodeLVal(Node *n) {
         puts("  mov rax, rbp");
         printf("  sub rax, %d\n", n->offset);
         puts("  push rax");
-    }
-}
-
-void genCodeGvarDecl() {
-    puts(".data");
-    for (LVar *v = globals.vars; v; v = v->next) {
-        printlen(v->name, v->len);
-        puts(":");
-        printf("  .zero %d\n", sizeOf(v->type));
     }
 }
 
