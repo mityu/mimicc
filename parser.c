@@ -113,6 +113,13 @@ Token *tokenize() {
             continue;
         }
 
+        if (isToken(p, "char")) {
+            current = newToken(TokenTypeName, current, p, 4);
+            current->varType = TypeChar;
+            p += 4;
+            continue;
+        }
+
         if (isToken(p, "if")) {
             current = newToken(TokenIf, current, p, 2);
             p += 2;
@@ -441,6 +448,8 @@ static TypeInfo *parsePointerType(TypeInfo *baseType) {
 int sizeOf(TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
+    } else if (ti->type == TypeChar) {
+        return 1;
     } else if (ti->type == TypePointer) {
         return 8;
     } else if (ti->type == TypeArray) {
@@ -461,7 +470,12 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
         return rhs;
     } else if (rhs->type == TypeNumber) {
         return lhs;
+    } else if (lhs->type == TypeInt) {
+        return lhs;
+    } else if (rhs->type == TypeInt) {
+        return rhs;
     }
+    errorUnreachable();
     return NULL;
 }
 

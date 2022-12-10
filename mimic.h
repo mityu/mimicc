@@ -12,6 +12,7 @@
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
     TypeInt,    // `int`
+    TypeChar,
     TypeNumber, // Literal number
     TypeArray,
     TypePointer,
@@ -28,10 +29,12 @@ struct TypeInfo {
 static struct Types {
     TypeInfo None;
     TypeInfo Int;
+    TypeInfo Char;
     TypeInfo Number;
 } Types = {
     .None = PrimitiveType(TypeNone),
     .Int = PrimitiveType(TypeInt),
+    .Char = PrimitiveType(TypeChar),
     .Number = PrimitiveType(TypeNumber),
 };
 #undef PrimitiveType

@@ -209,14 +209,6 @@ static const char *getReg(RegKind reg, int size) {
 }
 
 /*
-// Generate 'mov' instruction.
-static void genInstrMov(RegKind dest, TypeInfo *destType, Node *n) {
-    // TODO: Check which register should be used.
-    // TODO: Check if sign extension is needed.
-}
-*/
-
-/*
 static const char *argRegs[REG_ARGS_MAX_COUNT] = {
     "rdi", "rsi", "rdx", "rcx", "r8", "r9"
 };
@@ -292,17 +284,19 @@ static void genCodeAssign(Node *n) {
     // +---------------------+
     puts("  pop rdi");
     puts("  pop rax");
-    switch (sizeOf(n->rhs->type)) {
+    switch (sizeOf(n->type)) {
     case 8:
         puts("  mov [rax], rdi");
         break;
     case 4:
         puts("  mov DWORD PTR [rax], edi");
         break;
+    case 1:
+        puts("  mov BYTE PTR [rax], dil");
+        break;
     default:
         errorUnreachable();
     }
-    /* printf("  mov [rax], %s\n", getReg(RDI, sizeOf(n->rhs->type))); */
     puts("  push rdi");
 }
 
@@ -469,17 +463,21 @@ static void genCodeFunction(Node *n) {
 
         printf("  sub rsp, %d\n", totalOffset);
         for (int i = 0; i < regargs; ++i) {
+            const char *fmt;
             switch (size[i]) {
             case 8:
-                printf("  mov %d[rbp], %s\n", -offsets[i], getReg(argRegs[i], size[i]));
+                fmt = "  mov %d[rbp], %s\n";
                 break;
             case 4:
-                printf("  mov DWORD PTR %d[rbp], %s\n",
-                       -offsets[i], getReg(argRegs[i], size[i]));
+                fmt = "  mov DWORD PTR %d[rbp], %s\n";
+                break;
+            case 1:
+                fmt = "  mov BYTE PTR %d[rbp], %s\n";
                 break;
             default:
                 errorUnreachable();
             }
+            printf(fmt, -offsets[i], getReg(argRegs[i], size[i]));
         }
     }
 
@@ -502,7 +500,14 @@ static void genCodeIncrement(Node *n, int prefix) {
         break;
     case 4:
         puts("  mov eax, DWORD PTR [rax]");
+        puts("  movsx rax, eax");
         break;
+    case 1:
+        puts("  mov al, BYTE PTR [rax]");
+        puts("  movsx rax, al");
+        break;
+    default:
+        errorUnreachable();
     }
 
     // Postfix increment operator refers the value before increment.
@@ -515,7 +520,14 @@ static void genCodeIncrement(Node *n, int prefix) {
         break;
     case 4:
         printf("  add eax, %d\n", getAlternativeOfOneForType(n->type));
+        puts("  movsx rax, eax");
         break;
+    case 1:
+        printf("  add al, %d\n", getAlternativeOfOneForType(n->type));
+        puts("  movsx rax, al");
+        break;
+    default:
+        errorUnreachable();
     }
 
     // Prefix increment operator refers the value after increment.
@@ -530,6 +542,11 @@ static void genCodeIncrement(Node *n, int prefix) {
     case 4:
         puts("  mov DWORD PTR [rdi], eax");
         break;
+    case 1:
+        puts("  mov BYTE PTR [rdi], al");
+        break;
+    default:
+        errorUnreachable();
     }
 }
 
@@ -544,7 +561,14 @@ static void genCodeDecrement(Node *n, int prefix) {
         break;
     case 4:
         puts("  mov eax, DWORD PTR [rax]");
+        puts("  movsx rax, eax");
         break;
+    case 1:
+        puts("  mov al, BYTE PTR [rax]");
+        puts("  movsx rax, al");
+        break;
+    default:
+        errorUnreachable();
     }
 
     // Postfix decrement operator refers the value before decrement.
@@ -557,7 +581,14 @@ static void genCodeDecrement(Node *n, int prefix) {
         break;
     case 4:
         printf("  sub eax, %d\n", getAlternativeOfOneForType(n->type));
+        puts("  movsx rax, eax");
         break;
+    case 1:
+        printf("  sub al, %d\n", getAlternativeOfOneForType(n->type));
+        puts("  movsx rax, al");
+        break;
+    default:
+        errorUnreachable();
     }
 
     // Prefix decrement operator refers the value after decrement.
@@ -572,6 +603,11 @@ static void genCodeDecrement(Node *n, int prefix) {
     case 4:
         puts("  mov DWORD PTR [rdi], eax");
         break;
+    case 1:
+        puts("  mov BYTE PTR [rdi], al");
+        break;
+    default:
+        errorUnreachable();
     }
 }
 
@@ -617,6 +653,11 @@ void genCode(Node *n) {
             break;
         case 4:
             puts("  mov eax, DWORD PTR [rax]");
+            puts("  movsx rax, eax");
+            break;
+        case 1:
+            puts("  mov al, BYTE PTR [rax]");
+            puts("  movsx rax, al");
             break;
         default:
             errorUnreachable();
@@ -653,7 +694,7 @@ void genCode(Node *n) {
         genCode(n->lhs);
         genCode(n->rhs);
 
-        if (altOne != 1) { // Pointer or array
+        if (isWorkLikePointer(n->lhs->type) || isWorkLikePointer(n->rhs->type)) {
             // Load integer to RAX and pointer to RDI in either case.
             if (isWorkLikePointer(n->lhs->type)) { // ptr + num
                 puts("  pop rax");
@@ -669,7 +710,21 @@ void genCode(Node *n) {
         } else {
             puts("  pop rdi");
             puts("  pop rax");
-            puts("  add eax, edi");
+            switch (sizeOf(n->lhs->type)) {
+            case 8:
+                puts("  add rax, rdi");
+                break;
+            case 4:
+                puts("  add eax, edi");
+                puts("  movsx rax, eax");
+                break;
+            case 1:
+                puts("  add al, dil");
+                puts("  movsx rax, al");
+                break;
+            default:
+                errorUnreachable();
+            }
             puts("  push rax");
         }
         return;
@@ -686,7 +741,17 @@ void genCode(Node *n) {
             puts("  sub rax, rdi");
             puts("  push rax");
         } else {
-            puts("  sub eax, edi");
+            switch (sizeOf(n->type)) {
+            case 4:
+                puts("  sub eax, edi");
+                puts("  movsx rax, eax");
+                break;
+            case 1:
+                puts("  sub al, dil");
+                puts("  movsx rax, al");
+            default:
+                errorUnreachable();
+            }
             puts("  push rax");
         }
         return;
@@ -698,54 +763,30 @@ void genCode(Node *n) {
     puts("  pop rdi");
     puts("  pop rax");
 
+    // Maybe these oprands should use only 8bytes registers.
     if (n->kind == NodeMul) {
-        switch (sizeOf(n->type)) {
-        case 8:
-            puts("  imul rax, rdi");
-            break;
-        case 4:
-            puts("  imul eax, edi");
-            break;
-        }
+        puts("  imul rax, rdi");
     } else if (n->kind == NodeDiv) {
         puts("  cqo");
-        switch (sizeOf(n->type)) {
-        case 8:
-            puts("  idiv rdi");
-            break;
-        case 4:
-            puts("  idiv edi");
-            break;
-        }
+        puts("  idiv rdi");
     } else if (n->kind == NodeDivRem) {
         puts("  cqo");
-        switch (sizeOf(n->type)) {
-        case 8:
-            puts("  idiv rdi");
-            break;
-        case 4:
-            puts("  idiv edi");
-            break;
-        }
+        puts("  idiv rdi");
         puts("  push rdx");
         return;
     } else if (n->kind == NodeEq) {
-        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  sete al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeNeq) {
-        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setne al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLT) {
-        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setl al");
         puts("  movzb rax, al");
     } else if (n->kind == NodeLE) {
-        // TODO: Use eax, edi for non-pointers?
         puts("  cmp rax, rdi");
         puts("  setle al");
         puts("  movzb rax, al");

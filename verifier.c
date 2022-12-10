@@ -207,10 +207,13 @@ static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
         }
         return 0;
     } else if (rhs->type == TypeNumber) {
-        return lhs->type == TypeInt;
+        return lhs->type == TypeInt || lhs->type == TypeChar;
+    } else if (lhs->type == TypeInt) {
+        return rhs->type == TypeInt || rhs->type == TypeChar;  // TODO: Truely OK?
     } else {
         return lhs->type == rhs->type;
     }
+    errorUnreachable();
 }
 
 static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
@@ -242,7 +245,7 @@ static int isIntegerType(TypeInfo *t) {
 
 // Return TRUE if given type is arithmetic type.
 static int isArithmeticType(TypeInfo *t) {
-    return t->type == TypeInt || t->type == TypeNumber;
+    return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber;
 }
 
 // Return TRUE is `n` is lvalue.
