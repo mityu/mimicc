@@ -106,6 +106,14 @@ Token *tokenize() {
             continue;
         }
 
+        if (hasPrefix(p, "/*")) {
+            char *q = strstr(p + 2, "*/");
+            if (q == NULL)
+                errorAt(p, "Unterminated comment");
+            p = q + 2;
+            continue;
+        }
+
         if (hasPrefix(p, "//")) {
             p += 2;
             while (*p != '\n' && *p != '\0')

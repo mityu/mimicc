@@ -181,6 +181,7 @@ assert 2 'int main() {char x[3]; char *p; x[0] = 1; x[1] = 2; x[2] = 3; p = x; p
 assert 6 'int main() {char c; c = 5; c++; return c;}'
 assert 4 'int main() {char c; c = 5; c--; return c;}'
 assert 10 'int main() {return 10;} // comment'
+assert 10 'int main() {/* return 5; */ return 10;}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'
@@ -193,5 +194,6 @@ assert_fail 'int f() {int n; int m; n = &m;}'
 assert_fail 'int f() {int n; int *p; n = **p;}'
 assert_fail 'int f() {int n; int m; m = &*n;}'
 assert_fail 'int add(int, int); int add(int a, int b) {int a;}'
+assert_fail 'int main() {/*}'
 
 echo OK
