@@ -106,6 +106,13 @@ Token *tokenize() {
             continue;
         }
 
+        if (hasPrefix(p, "//")) {
+            p += 2;
+            while (*p != '\n' && *p != '\0')
+                ++p;
+            continue;
+        }
+
         if (isToken(p, "int")) {
             current = newToken(TokenTypeName, current, p, 3);
             current->varType = TypeInt;

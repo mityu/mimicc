@@ -180,6 +180,7 @@ assert 3 'int main() {char x[3]; int y; x[0] = 2; x[1] = -1; y = 4; return x[1] 
 assert 2 'int main() {char x[3]; char *p; x[0] = 1; x[1] = 2; x[2] = 3; p = x; p++; return *p;}'
 assert 6 'int main() {char c; c = 5; c++; return c;}'
 assert 4 'int main() {char c; c = 5; c--; return c;}'
+assert 10 'int main() {return 10;} // comment'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'
