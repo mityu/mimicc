@@ -199,11 +199,15 @@ Token *tokenize() {
             current->len = p - q;
             continue;
         }
+
+        // TODO: Add literal char parser.
+
         if (*p == '"') {
             char *q = ++p;
             LiteralString *str = (LiteralString *)calloc(1, sizeof(LiteralString));
             while (*p != '"')
                 ++p;
+            // TODO: Add support for control characters
             current = newToken(TokenLiteralString, current, q, p - q);
             current->val = globals.literalStringCount++;
             ++p;
