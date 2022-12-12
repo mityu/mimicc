@@ -218,10 +218,16 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
     RDI, RSI, RDX, RCX, R8, R9
 };
 
-void genCodeGvarDecl() {
-    if (globals.vars == NULL)
+void genCodeGlobals() {
+    if (globals.vars == NULL && globals.strings == NULL)
         return;
     puts("\n.data");
+    for (LiteralString *s = globals.strings; s; s = s->next) {
+        printf(".LiteralString%d:\n", s->string->val);
+        printn("  .string  \"");
+        printlen(s->string->str, s->string->len);
+        puts("\"\n");
+    }
     for (LVar *v = globals.vars; v; v = v->next) {
         printlen(v->name, v->len);
         puts(":");
@@ -635,6 +641,10 @@ void genCode(Node *n) {
         return;
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
+        return;
+    } else if (n->kind == NodeLiteralString) {
+        printf("  lea rax, .LiteralString%d[rip]\n", n->token->val);
+        puts("  push rax");
         return;
     } else if (n->kind == NodeLVar || n->kind == NodeGVar) {
         // When NodeLVar appears with itself alone, it should be treated as a

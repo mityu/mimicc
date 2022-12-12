@@ -17,7 +17,9 @@ int main(int argc, char *argv[]) {
     globals.currentFunction = NULL;
     globals.functions = NULL;
     globals.vars = NULL;
+    globals.strings = NULL;
     globals.blockCount = 0;
+    globals.literalStringCount = 0;
     globals.token = tokenize();
     program();
 
@@ -25,7 +27,7 @@ int main(int argc, char *argv[]) {
 
     puts(".intel_syntax noprefix");
     genCode(globals.code);
-    genCodeGvarDecl();
+    genCodeGlobals();
 
     return 0;
 }

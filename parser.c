@@ -199,6 +199,22 @@ Token *tokenize() {
             current->len = p - q;
             continue;
         }
+        if (*p == '"') {
+            char *q = ++p;
+            LiteralString *str = (LiteralString *)calloc(1, sizeof(LiteralString));
+            while (*p != '"')
+                ++p;
+            current = newToken(TokenLiteralString, current, q, p - q);
+            current->val = globals.literalStringCount++;
+            ++p;
+
+            // Register to literal string list.
+            str->string = current;
+            str->next = globals.strings;
+            globals.strings = str;
+            continue;
+        }
+
         if ('a' <= *p && *p <= 'z' || *p == '_') {
             char *q = p;
             while (isAlnum(*p))
@@ -254,6 +270,22 @@ static Token *consumeIdent() {
         return NULL;
     }
     if (globals.token->type == TokenIdent) {
+        Token *t = globals.token;
+        globals.token = globals.token->next;
+        return t;
+    }
+    return NULL;
+}
+
+// If the type of the current token is TokenLiteralString, consume the token
+// and returns the pointer to the token structure.  If not, returns NULL
+// instead.
+static Token *consumeLiteralString() {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+        return NULL;
+    }
+    if (globals.token->type == TokenLiteralString) {
         Token *t = globals.token;
         globals.token = globals.token->next;
         return t;
@@ -340,6 +372,8 @@ struct Function *newFunction() {
     return f;
 };
 
+// Generate new node object and returns it.  Members of kind, type, outerBlock,
+// and token are automatically set to valid value.
 static Node *newNode(NodeKind kind, TypeInfo *type) {
     Node *n = calloc(1, sizeof(Node));
     n->kind = kind;
@@ -1015,6 +1049,7 @@ static Node *unary() {
 static Node *primary() {
     Node *n = NULL;
     Token *ident = NULL;
+    Token *string = NULL;
     Token *type = NULL;
 
     ident = consumeIdent();
@@ -1061,6 +1096,12 @@ static Node *primary() {
     } else if (consumeReserved("(")) {
         n = expr();
         expectSign(")");
+    } else if ((string = consumeLiteralString())) {
+        TypeInfo *type = newTypeInfo(TypeArray);
+        type->arraySize = string->len;
+        type->baseType = &Types.Char;
+
+        n = newNode(NodeLiteralString, type);
     } else {
         n = newNodeNum(expectNumber());
     }

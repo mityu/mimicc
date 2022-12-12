@@ -51,6 +51,7 @@ typedef enum {
     TokenWhile,
     TokenReturn,
     TokenSizeof,
+    TokenLiteralString,
     TokenEOF,
 } TokenType;
 
@@ -59,40 +60,42 @@ struct Token {
     TokenType type;
     Token *prev;
     Token *next;
-    int val;          // Number valid when type is TokenNumber.
+    int val;          // Number valid when type is TokenNumber, or literal
+                      // string ID when type is Token.
     TypeKind varType; // Variable type valid when type is TokenTypeName.
     char *str;        // The token string.
     int len;          // The token length.
 };
 
 typedef enum {
-    NodeAdd,      // +
-    NodeSub,      // -
-    NodeMul,      // *
-    NodeDiv,      // /
-    NodeDivRem,   // %
-    NodeEq,       // ==
-    NodeNeq,      // !=
-    NodeLT,       // <
-    NodeLE,       // <=
-    NodePreIncl,  // ++{var}
-    NodePreDecl,  // --{var}
-    NodePostIncl, // {var}++
-    NodePostDecl, // {var}--
-    NodeAddress,  // &{var}
-    NodeDeref,    // *{ptr}
-    NodeNum,      // Integer
-    NodeLVar,     // Left hand side value (local variable)
-    NodeAssign,   // {lhs} = {rhs};
-    NodeFCall,    // Function calls,
+    NodeAdd,           // +
+    NodeSub,           // -
+    NodeMul,           // *
+    NodeDiv,           // /
+    NodeDivRem,        // %
+    NodeEq,            // ==
+    NodeNeq,           // !=
+    NodeLT,            // <
+    NodeLE,            // <=
+    NodePreIncl,       // ++{var}
+    NodePreDecl,       // --{var}
+    NodePostIncl,      // {var}++
+    NodePostDecl,      // {var}--
+    NodeAddress,       // &{var}
+    NodeDeref,         // *{ptr}
+    NodeNum,           // Integer
+    NodeLiteralString, // literal string
+    NodeLVar,          // Left hand side value (local variable)
+    NodeAssign,        // {lhs} = {rhs};
+    NodeFCall,         // Function calls,
     NodeIf,
     NodeElseif,
     NodeElse,
     NodeFor,
-    NodeBlock,    // { ... }
-    NodeReturn,   // return {expr};
+    NodeBlock,         // { ... }
+    NodeReturn,        // return {expr};
     NodeFunction,
-    NodeGVar,     // Global variable, work as lvar.
+    NodeGVar,          // Global variable, work as lvar.
 } NodeKind;
 
 typedef struct Function Function;
@@ -153,21 +156,29 @@ struct Function {
                        // only declaration is given.
 };
 
+typedef struct LiteralString LiteralString;
+struct LiteralString {
+    LiteralString *next;
+    Token *string;
+};
+
 typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
     Function *functions;       // Declared function list.
     LVar *vars;                // Global variables.
+    LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
     Function *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
+    int literalStringCount;    // The number of literal strings appeared in program.
     Token *token;              // Token currently watches
     char *source;              // The source code (input)
 };
 extern Globals globals;
 
 void genCode(Node *n);
-void genCodeGvarDecl();
+void genCodeGlobals();
 void error(char *fmt, ...);
 void errorAt(char *loc, char *fmt, ...);
 Token *tokenize();
