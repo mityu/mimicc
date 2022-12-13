@@ -641,7 +641,7 @@ void genCode(Node *n) {
         printf("  push %d\n", n->val);
         return;
     } else if (n->kind == NodeLiteralString) {
-        printf("  lea rax, .LiteralString%d[rip]\n", n->token->val);
+        printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         puts("  push rax");
         return;
     } else if (n->kind == NodeLVar || n->kind == NodeGVar) {

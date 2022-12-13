@@ -205,27 +205,26 @@ Token *tokenize() {
 
         if (*p == '"') {
             char *end;
-            int len, lclen, id;
+            int len, lslen;
             LiteralString *str;
             parseCharStr(p + 1, &end, &len);
             if (end == NULL) {
                 errorAt(p, "String is not terminated.");
                 return NULL;
             }
-            id = globals.literalStringCount++;
-
-            current = newToken(TokenLiteralString, current, p, end - p);
-            current->val = id;
-
-            lclen = (int)(end - p);
+            lslen = (int)(end - p);
             str = (LiteralString *)calloc(1, sizeof(LiteralString));
-            str->id = id;
+            str->id = globals.literalStringCount++;
             str->len = len;
-            str->string = (char *)malloc(lclen * sizeof(char));
-            memcpy(str->string, p + 1, lclen - 1);
-            str->string[lclen - 1] = '\0';
+            str->string = (char *)malloc(lslen * sizeof(char));
+            memcpy(str->string, p + 1, lslen - 1);
+            str->string[lslen - 1] = '\0';
             str->next = globals.strings;
             globals.strings = str;
+
+            current = newToken(TokenLiteralString, current, p, end - p);
+            current->literalStr = str;
+
 
             p = end + 1;
             continue;
@@ -493,13 +492,27 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
 // contains the last NUL string('\0').
 // If string literal is not terminated, set NULL to 'end' and 0 to 'len'.
 static void parseCharStr(char *start, char **end, int *len) {
-    // TODO: Add support for control characters (adjust 'len' value)
     *len = 0;
     while (*start != '\0') {
         ++(*len);
         if (*start == '"') {
             *end = start;
             return;
+        } else if (*start == '\\') { // Handle escape sequences.
+            ++start;
+            if (*start == '\0')
+                break;
+            switch (*start) {
+            default:
+                ++(*len);
+                break;
+            case 'n': // All cases below do fallthrough
+            case 'r': // TODO: Add missing escape sequences.
+            case 't':
+            case '"':
+            case '\\':
+                break;
+            }
         }
         ++start;
     }
@@ -1133,7 +1146,7 @@ static Node *primary() {
         expectSign(")");
     } else if ((string = consumeLiteralString())) {
         TypeInfo *type = newTypeInfo(TypeArray);
-        type->arraySize = string->len;
+        type->arraySize = string->literalStr->len;
         type->baseType = &Types.Char;
 
         n = newNode(NodeLiteralString, type);

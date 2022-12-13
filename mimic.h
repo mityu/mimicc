@@ -8,6 +8,7 @@
 #define errorUnreachable()  \
     error("%s:%d: Internal error: unreachable", __FILE__, __LINE__);
 
+typedef struct LiteralString LiteralString;
 
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
@@ -60,11 +61,12 @@ struct Token {
     TokenType type;
     Token *prev;
     Token *next;
-    int val;          // Number valid when type is TokenNumber, or literal
-                      // string ID when type is Token.
-    TypeKind varType; // Variable type valid when type is TokenTypeName.
-    char *str;        // The token string.
-    int len;          // The token length.
+    int val;                   // Number valid when type is TokenNumber.
+    TypeKind varType;          // Variable type valid when type is TokenTypeName.
+    LiteralString *literalStr; // Reference to literal string when type is
+                               // TokenLiteralString.
+    char *str;                 // The token string.
+    int len;                   // The token length.
 };
 
 typedef enum {
@@ -156,7 +158,6 @@ struct Function {
                        // only declaration is given.
 };
 
-typedef struct LiteralString LiteralString;
 struct LiteralString {
     LiteralString *next;
     char *string;
