@@ -6,6 +6,7 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
+static void parseCharStr(char *start, char **end, int *len);
 static TypeInfo *parseBaseType();
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
@@ -203,19 +204,30 @@ Token *tokenize() {
         // TODO: Add literal char parser.
 
         if (*p == '"') {
-            char *q = ++p;
-            LiteralString *str = (LiteralString *)calloc(1, sizeof(LiteralString));
-            while (*p != '"')
-                ++p;
-            // TODO: Add support for control characters
-            current = newToken(TokenLiteralString, current, q, p - q);
-            current->val = globals.literalStringCount++;
-            ++p;
+            char *end;
+            int len, lclen, id;
+            LiteralString *str;
+            parseCharStr(p + 1, &end, &len);
+            if (end == NULL) {
+                errorAt(p, "String is not terminated.");
+                return NULL;
+            }
+            id = globals.literalStringCount++;
 
-            // Register to literal string list.
-            str->string = current;
+            current = newToken(TokenLiteralString, current, p, end - p);
+            current->val = id;
+
+            lclen = (int)(end - p);
+            str = (LiteralString *)calloc(1, sizeof(LiteralString));
+            str->id = id;
+            str->len = len;
+            str->string = (char *)malloc(lclen * sizeof(char));
+            memcpy(str->string, p + 1, lclen - 1);
+            str->string[lclen - 1] = '\0';
             str->next = globals.strings;
             globals.strings = str;
+
+            p = end + 1;
             continue;
         }
 
@@ -474,6 +486,25 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
     TypeInfo *t = (TypeInfo *)calloc(1, sizeof(TypeInfo));
     t->type = kind;
     return t;
+}
+
+// Parse string literal and set the pointer to end of string literal (includes
+// the closing quote) and the length of string.  Note that the returned length
+// contains the last NUL string('\0').
+// If string literal is not terminated, set NULL to 'end' and 0 to 'len'.
+static void parseCharStr(char *start, char **end, int *len) {
+    // TODO: Add support for control characters (adjust 'len' value)
+    *len = 0;
+    while (*start != '\0') {
+        ++(*len);
+        if (*start == '"') {
+            *end = start;
+            return;
+        }
+        ++start;
+    }
+    *len = 0;
+    *end = NULL;
 }
 
 // Parse base of declared type and return its information.  Return NULL if type

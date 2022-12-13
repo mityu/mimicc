@@ -223,10 +223,8 @@ void genCodeGlobals() {
         return;
     puts("\n.data");
     for (LiteralString *s = globals.strings; s; s = s->next) {
-        printf(".LiteralString%d:\n", s->string->val);
-        printn("  .string  \"");
-        printlen(s->string->str, s->string->len);
-        puts("\"\n");
+        printf(".LiteralString%d:\n", s->id);
+        printf("  .string  \"%s\"\n", s->string);
     }
     for (LVar *v = globals.vars; v; v = v->next) {
         printlen(v->name, v->len);

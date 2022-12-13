@@ -159,7 +159,9 @@ struct Function {
 typedef struct LiteralString LiteralString;
 struct LiteralString {
     LiteralString *next;
-    Token *string;
+    char *string;
+    int len;
+    int id;
 };
 
 typedef struct Globals Globals;

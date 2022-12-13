@@ -204,5 +204,6 @@ assert_fail 'int f() {int n; int *p; n = **p;}'
 assert_fail 'int f() {int n; int m; m = &*n;}'
 assert_fail 'int add(int, int); int add(int a, int b) {int a;}'
 assert_fail 'int main() {/*}'
+assert_fail 'int main() {return sizeof("foo);}'
 
 echo OK
