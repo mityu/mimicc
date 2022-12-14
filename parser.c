@@ -6,7 +6,6 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
-static void parseCharStr(char *start, char **end, int *len);
 static int checkEscapeChar(char c, char quote, char *decoded);
 static TypeInfo *parseBaseType();
 static TypeInfo *parsePointerType(TypeInfo *baseType);
@@ -221,36 +220,52 @@ Token *tokenize() {
             if (*(++p) != '\'') {
                 errorAt(p, "Character literal is too long.");
             }
-            current = newToken(TokenNumber, current, q, p - q);
+            current = newToken(TokenNumber, current, q, p - q + 1);
             current->val = (int)c;
             p++;
             continue;
         }
 
         if (*p == '"') {
-            char *end;
-            int len, lslen;
-            LiteralString *str;
-            parseCharStr(p + 1, &end, &len);
-            if (end == NULL) {
-                errorAt(p, "String is not terminated.");
-                return NULL;
+            char *q = p;
+            int literalLen = 0;  // String length on text editor.
+            int len = 0;  // String length in program.
+            LiteralString *str = NULL;
+
+            while (*(++p) != '\0') {
+                ++len;
+                ++literalLen;
+                if (*p == '"') {
+                    break;
+                } else if (*p == '\\') {
+                    char c;
+                    ++p;
+                    ++literalLen;
+                    if (*p == '\0') {
+                        --literalLen;
+                        break;
+                    } else if (!checkEscapeChar(*p, '"', &c)) {
+                        errorAt(p - 1, "Invalid escape character.");
+                    }
+                }
             }
-            lslen = (int)(end - p);
+
+            if (*p == '\0')
+                errorAt(p - 1, "String is not terminated.");
+
             str = (LiteralString *)calloc(1, sizeof(LiteralString));
             str->id = globals.literalStringCount++;
             str->len = len;
-            str->string = (char *)malloc(lslen * sizeof(char));
-            memcpy(str->string, p + 1, lslen - 1);
-            str->string[lslen - 1] = '\0';
+            str->string = (char *)malloc(literalLen * sizeof(char));
+            memcpy(str->string, q + 1, literalLen - 1);
+            str->string[literalLen - 1] = '\0';
             str->next = globals.strings;
             globals.strings = str;
 
-            current = newToken(TokenLiteralString, current, p, end - p);
+            current = newToken(TokenLiteralString, current, q, p - q + 1);
             current->literalStr = str;
 
-
-            p = end + 1;
+            p++;  // Skip closing double quote.
             continue;
         }
 
@@ -534,39 +549,6 @@ static int checkEscapeChar(char c, char quote, char *decoded) {
     }
     *decoded = c;
     return 0;
-}
-
-// Parse string literal and set the pointer to end of string literal (includes
-// the closing quote) and the length of string.  Note that the returned length
-// contains the last NUL string('\0').
-// If string literal is not terminated, set NULL to 'end' and 0 to 'len'.
-static void parseCharStr(char *start, char **end, int *len) {
-    *len = 0;
-    while (*start != '\0') {
-        ++(*len);
-        if (*start == '"') {
-            *end = start;
-            return;
-        } else if (*start == '\\') { // Handle escape sequences.
-            ++start;
-            if (*start == '\0')
-                break;
-            switch (*start) {
-            default:
-                ++(*len);
-                break;
-            case 'n': // All cases below do fallthrough
-            case 'r': // TODO: Add missing escape sequences.
-            case 't':
-            case '"':
-            case '\\':
-                break;
-            }
-        }
-        ++start;
-    }
-    *len = 0;
-    *end = NULL;
 }
 
 // Parse base of declared type and return its information.  Return NULL if type
