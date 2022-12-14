@@ -7,6 +7,7 @@
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF();
 static void parseCharStr(char *start, char **end, int *len);
+static int checkEscapeChar(char c, char quote, char *decoded);
 static TypeInfo *parseBaseType();
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
@@ -201,7 +202,30 @@ Token *tokenize() {
             continue;
         }
 
-        // TODO: Add literal char parser.
+        if (*p == '\'') {
+            char *q = p;
+            char c;
+            ++p;
+            if (*p == '\0') {
+                errorAt(p, "Character literal is not terminated.");
+            } else if (*p == '\'') {
+                errorAt(q, "Empty character literal.");
+            } else if (*p == '\\') {
+                if (!checkEscapeChar(*(++p), '\'', &c)) {
+                    errorAt(p - 1, "Invalid escape character.");
+                }
+            } else {
+                c = *p;
+            }
+
+            if (*(++p) != '\'') {
+                errorAt(p, "Character literal is too long.");
+            }
+            current = newToken(TokenNumber, current, q, p - q);
+            current->val = (int)c;
+            p++;
+            continue;
+        }
 
         if (*p == '"') {
             char *end;
@@ -485,6 +509,31 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
     TypeInfo *t = (TypeInfo *)calloc(1, sizeof(TypeInfo));
     t->type = kind;
     return t;
+}
+
+// Check character after backslash builds an escape character.
+// If so, set the escape character to *decoded and returns TRUE.
+static int checkEscapeChar(char c, char quote, char *decoded) {
+    static const char table[][2] = {
+        {'n', '\n'},
+        {'r', '\r'},
+        {'t', '\t'},
+        {'v', '\v'},
+        {'\\', '\\'},
+        {'0', '\0'},
+    };
+    for (int i = 0; i < (sizeof(table)/sizeof(table[0])); ++i) {
+        if (c == table[i][0]) {
+            *decoded = table[i][1];
+            return 1;
+        }
+    }
+    if (c == quote) {
+        *decoded = quote;
+        return 1;
+    }
+    *decoded = c;
+    return 0;
 }
 
 // Parse string literal and set the pointer to end of string literal (includes
