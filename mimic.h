@@ -152,6 +152,7 @@ struct Function {
     char *name;
     int len;
     int argsCount;
+    int haveVaArgs;    // TRUE if function have variadic arguments
     LVar *args;        // Function arguments.  NOT IN REVERSED ORDER.
     TypeInfo *retType; // Type of return value.
     int haveImpl;      // TRUE when implementation is given.  FALSE if

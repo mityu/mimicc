@@ -195,6 +195,7 @@ assert 2 'int main() {return sizeof("\\");}'
 assert 2 'int main() {return sizeof("\"");}'
 assert 10 'int main() {return 10;} // comment'
 assert 10 'int main() {/* return 5; */ return 10;}'
+assert 97 'char *malloc(int); int sprintf(char *, char *, ...); int main() {char *s; s = malloc(4 * sizeof(char)); sprintf(s, "%s", "abc"); return *s;}'
 
 assert_fail 'int main(){int n; int *m; n = m; return 0;}'
 assert_fail 'int main(){return f();}'

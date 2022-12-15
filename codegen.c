@@ -420,6 +420,10 @@ static void genCodeFCall(Node *n) {
     for (int i = 0; i < regargs; ++i)
         printf("  pop %s\n", getReg(argRegs[i], ONE_WORD_BYTES));
 
+    // Set AL to count of float arguments in variadic arguments area.  This is
+    // always 0 now.
+    puts("  mov al, 0");
+
     printf("  call ");
     for (int i = 0; i < n->fcall->len; ++i) {
         putchar(n->fcall->name[i]);

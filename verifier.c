@@ -154,6 +154,7 @@ static void verifyTypeFCall(Node *n) {
 #define ARGS_BUFFER_SIZE    (10)
     Node *actualArgBuf[ARGS_BUFFER_SIZE];
     Node **actualArgs = actualArgBuf;
+    Node *arg = NULL;
     LVar *formalArg = NULL;
 
     if (n->kind != NodeFCall) {
@@ -164,10 +165,17 @@ static void verifyTypeFCall(Node *n) {
     if (!f) {
         errorUnreachable();
     }
-    if (n->fcall->argsCount != f->argsCount) {
+    if (n->fcall->argsCount != f->argsCount && !f->haveVaArgs) {
         errorAt(
                 n->token->str,
                 "%d arguments are expected, but got %d.",
+                f->argsCount,
+                n->fcall->argsCount
+                );
+    } else if (n->fcall->argsCount < f->argsCount && f->haveVaArgs) {
+        errorAt(
+                n->token->str,
+                "At least %d arguments are expected, but got just %d.",
                 f->argsCount,
                 n->fcall->argsCount
                 );
@@ -177,8 +185,16 @@ static void verifyTypeFCall(Node *n) {
         actualArgs =
             (Node **)calloc(f->argsCount, sizeof(Node *));
     }
-    for (Node *c = n->fcall->args, **store = &actualArgs[f->argsCount-1]; c; c = c->next) {
-        *store = c;
+
+    if (f->argsCount == 0)
+        return;
+
+    arg = n->fcall->args;
+    // Skip args in variadic arguments area
+    for (int i = 0; i < n->fcall->argsCount - f->argsCount; ++i)
+        arg = arg->next;
+    for (Node **store = &actualArgs[f->argsCount-1]; arg; arg = arg->next) {
+        *store = arg;
         --store;
     }
 

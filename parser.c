@@ -181,6 +181,12 @@ Token *tokenize() {
             continue;
         }
 
+        if (hasPrefix(p, "...")) {
+            current = newToken(TokenReserved, current, p, 3);
+            p += 3;
+            continue;
+        }
+
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
                 hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
@@ -656,6 +662,7 @@ static Node *decl() {
                 return NULL;
             }
 
+            // TODO: Support multi dimension
             if (consumeReserved("[")) { // Array declaration.
                 TypeInfo *elemType = type;
                 int arraySize = expectNumber();
@@ -696,6 +703,12 @@ static Node *decl() {
 
                 typeInfo = parseBaseType();
                 if (!typeInfo) {
+                    if (consumeReserved("...")) {
+                        // Once variadic arguments found, it must be the end of
+                        // function arguments.
+                        f->haveVaArgs = 1;
+                        break;
+                    }
                     errorTypeExpected();
                     return NULL;
                 }
@@ -750,6 +763,8 @@ static Node *decl() {
                     // Argument name may be omitted with function declaration.
                     // Function implementation must have argument name, so
                     // replace it to make sure argument name can be found.
+                    // TODO: Check if arguments are same.
+                    // TODO: Free funcFound->args
                     funcFound->args = f->args;
                     funcFound->haveImpl = 1;
                 }
