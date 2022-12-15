@@ -151,6 +151,9 @@ assert 4 'int main() {return sizeof(int);}'
 assert 8 'int main() {return sizeof(int*);}'
 assert 8 'int main() {return sizeof(int**);}'
 assert 8 'int main(){ int a[2]; return sizeof(a);}'
+assert 24 'int main() { int a[2][3]; return sizeof(a);}'
+assert 12 'int main() { int a[2][3]; return sizeof(a[0]);}'
+assert 16 'int main() { int a[2][3][4]; return sizeof(a[0][0]);}'
 assert 10 'int add(int, int); int add(int a, int b) {return a + b;} int main() {return add(3, 7);}'
 assert_fcall 4 'int alloc4(int **p); int main() {int *p; int *q; alloc4(&p); q = 3 + p; return *q;}' \
   "#include <stdlib.h>
@@ -178,6 +181,7 @@ assert 10 'int a; int main() {a = 10; return a;}'
 assert 105 'int a[3]; int b; int main() {a[0] = 3; a[1] = 5; a[2] = 7; return a[0] * a[1] * a[2];}'
 assert 3 'int main() {char x[3]; int y; x[0] = 2; x[1] = -1; y = 4; return x[1] + y;}'
 assert 2 'int main() {char x[3]; char *p; x[0] = 1; x[1] = 2; x[2] = 3; p = x; p++; return *p;}'
+assert 3 'int main() {int x[2][3], i, j; for (i=0; i<2; ++i) for (j=0; j<3; ++j) x[i][j] = 2 + i + j; return x[0][1];}'
 assert 6 'int main() {char c; c = 5; c++; return c;}'
 assert 4 'int main() {char c; c = 5; c--; return c;}'
 assert 97 "int main() {return 'a';}"

@@ -913,6 +913,8 @@ static Node *vardecl(){
 
 
     for (;;) {
+        TypeInfo arrayTypeHead;
+        TypeInfo *currentType = &arrayTypeHead;
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
@@ -920,13 +922,17 @@ static Node *vardecl(){
             return NULL;
         }
 
-        if (consumeReserved("[")) {
-            TypeInfo *elemType = varType;
+        while (consumeReserved("[")) {
             int arraySize = expectNumber();
             expectSign("]");
-            varType = newTypeInfo(TypeArray);
-            varType->arraySize = arraySize;
-            varType->baseType = elemType;
+            currentType->baseType = newTypeInfo(TypeArray);
+            currentType->baseType->arraySize = arraySize;
+            currentType = currentType->baseType;
+        }
+
+        if (currentType != &arrayTypeHead) {
+            currentType->baseType = varType;
+            varType = arrayTypeHead.baseType;
         }
 
         lvar = findLVar(ident->str, ident->len);
@@ -1189,11 +1195,20 @@ static Node *primary() {
         n = newNodeBinary(NodePostIncl, n, NULL, n->type);
     } else if (consumeReserved("--")) {
         n = newNodeBinary(NodePostDecl, n, NULL, n->type);
-    } else if (consumeReserved("[")) {
-        Node *e = expr();
-        expectSign("]");
-        n = newNodeBinary(NodeAdd, n, e, n->type);
-        n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
+    } else  if (consumeReserved("[")) {
+        Node *ex = NULL;
+        TypeInfo *exprType = n->type;
+        for (;;) {
+            if (!isWorkLikePointer(exprType))
+                errorAt(globals.token->prev->str, "Array or pointer is needed.");
+            ex = expr();
+            expectSign("]");
+            n = newNodeBinary(NodeAdd, n, ex, exprType);
+            exprType = exprType->baseType;
+            if (!consumeReserved("["))
+                break;
+        }
+        n = newNodeBinary(NodeDeref, NULL, n, exprType);
     }
 
     return n;
