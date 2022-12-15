@@ -2,9 +2,9 @@
 finish
 
 program     = decl*
-decl        = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")? ";")
+decl        = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")* ";")
 stmt        = expr ";" |
-                type ident ("[" num "]") ";" |
+                type ident ("[" num "]")* ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |
@@ -23,7 +23,7 @@ unary       = ("+" | "-")? primary |
 primary     = num |
                 ident ("(" (expr ("," expr)*)? ")")? |
                 "(" expr ")" |
-                primary ("++" | "--" | "[" expr "]")
+                primary ("++" | "--" | ("[" expr "]")*)
 type        = basetype pointertype
 pointertype = "*"*
 basetype    = "int"
