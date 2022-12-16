@@ -629,15 +629,16 @@ void program() {
 }
 
 static Node *decl() {
+    TypeInfo *baseType = NULL;
     TypeInfo *type = NULL;
     Token *ident = NULL;
 
-    type = parseBaseType();
-    if (!type) {
+    baseType = parseBaseType();
+    if (!baseType) {
         errorTypeExpected();
         return NULL;
     }
-    type = parsePointerType(type);
+    type = parsePointerType(baseType);
 
     ident = consumeIdent();
     if (ident) {
@@ -655,40 +656,51 @@ static Node *decl() {
         if (!consumeReserved("(")) {
             // Opening bracket isn't found. Must be global variable
             // declaration.
-            LVar *gvar = NULL;
-            TypeInfo arrayTypeHead;
-            TypeInfo *currentType = &arrayTypeHead;
+            for (;;) {
+                LVar *gvar = NULL;
+                TypeInfo arrayTypeHead;
+                TypeInfo *currentType = &arrayTypeHead;
 
-            if (findGlobalVar(ident->str, ident->len)) {
-                errorAt(ident->str, "Redefinition of variable.");
-                return NULL;
+                if (findGlobalVar(ident->str, ident->len)) {
+                    errorAt(ident->str, "Redefinition of variable.");
+                    return NULL;
+                }
+
+                while (consumeReserved("[")) {
+                    int arraySize = expectNumber();
+                    expectSign("]");
+                    currentType->baseType = newTypeInfo(TypeArray);
+                    currentType->baseType->arraySize = arraySize;
+                    currentType = currentType->baseType;
+                }
+
+                if (currentType != &arrayTypeHead) {
+                    currentType->baseType = type;
+                    type = arrayTypeHead.baseType;
+                }
+
+                // Global variable doesn't have an offset.
+                gvar = newLVar(ident, type, -1);
+
+                // Register variable.
+                if (globals.vars) {
+                    gvar->next = globals.vars;
+                    globals.vars = gvar;
+                } else {
+                    globals.vars = gvar;
+                }
+
+                if (!consumeReserved(","))
+                    break;
+
+                type = parsePointerType(baseType);
+                ident = consumeIdent();
+                if (!ident) {
+                    errorIdentExpected();
+                    return NULL;
+                }
             }
-
-            while (consumeReserved("[")) {
-                int arraySize = expectNumber();
-                expectSign("]");
-                currentType->baseType = newTypeInfo(TypeArray);
-                currentType->baseType->arraySize = arraySize;
-                currentType = currentType->baseType;
-            }
-
-            if (currentType != &arrayTypeHead) {
-                currentType->baseType = type;
-                type = arrayTypeHead.baseType;
-            }
-
             expectSign(";");
-
-            // Global variable doesn't have an offset.
-            gvar = newLVar(ident, type, -1);
-
-            // Register variable.
-            if (globals.vars) {
-                gvar->next = globals.vars;
-                globals.vars = gvar;
-            } else {
-                globals.vars = gvar;
-            }
             return NULL;
         }
 
