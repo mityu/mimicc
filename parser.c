@@ -656,20 +656,25 @@ static Node *decl() {
             // Opening bracket isn't found. Must be global variable
             // declaration.
             LVar *gvar = NULL;
+            TypeInfo arrayTypeHead;
+            TypeInfo *currentType = &arrayTypeHead;
 
             if (findGlobalVar(ident->str, ident->len)) {
                 errorAt(ident->str, "Redefinition of variable.");
                 return NULL;
             }
 
-            // TODO: Support multi dimension
-            if (consumeReserved("[")) { // Array declaration.
-                TypeInfo *elemType = type;
+            while (consumeReserved("[")) {
                 int arraySize = expectNumber();
                 expectSign("]");
-                type = newTypeInfo(TypeArray);
-                type->arraySize = arraySize;
-                type->baseType = elemType;
+                currentType->baseType = newTypeInfo(TypeArray);
+                currentType->baseType->arraySize = arraySize;
+                currentType = currentType->baseType;
+            }
+
+            if (currentType != &arrayTypeHead) {
+                currentType->baseType = type;
+                type = arrayTypeHead.baseType;
             }
 
             expectSign(";");
@@ -906,8 +911,8 @@ static Node *stmt() {
     }
 }
 
-// Parse variable declaration. If there's no variable declaration, returns
-// NULL.
+// Parse local variable declaration. If there's no variable declaration,
+// returns NULL.
 static Node *vardecl(){
     Node headNode;
     Node *n = &headNode;
