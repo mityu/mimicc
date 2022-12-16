@@ -354,7 +354,10 @@ static void genCodeIf(Node *n) {
                 genCode(e->condition);
                 puts("  pop rax");
                 puts("  cmp rax, 0");
-                printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+                if (e->next)
+                    printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+                else  // Last 'else' is omitted.
+                    printf("  je .Lend%d\n", n->blockID);
             }
             genCode(e->body);
             printf("  jmp .Lend%d\n", n->blockID);
