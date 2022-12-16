@@ -220,5 +220,9 @@ assert_fail 'int main() {return sizeof("foo);}'
 assert_fail "int main() {return ';}"
 assert_fail "int main() {return '';}"
 assert_fail "int main() {return '\l';}"
+assert_fail 'int main() {void n;}'
+assert_fail 'void f(int, void);'
+assert_fail 'void f(void, int);'
+assert_fail 'void f(); int main(void) {int n; n = f();}'
 
 echo OK

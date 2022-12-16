@@ -12,8 +12,9 @@ typedef struct LiteralString LiteralString;
 
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
+    TypeVoid,   // `void`
     TypeInt,    // `int`
-    TypeChar,
+    TypeChar,   // `char`
     TypeNumber, // Literal number
     TypeArray,
     TypePointer,
@@ -29,13 +30,15 @@ struct TypeInfo {
 #define PrimitiveType(type) (TypeInfo){type, NULL, 0}
 static struct Types {
     TypeInfo None;
+    TypeInfo Void;
     TypeInfo Int;
     TypeInfo Char;
     TypeInfo Number;
 } Types = {
-    .None = PrimitiveType(TypeNone),
-    .Int = PrimitiveType(TypeInt),
-    .Char = PrimitiveType(TypeChar),
+    .None   = PrimitiveType(TypeNone),
+    .Void   = PrimitiveType(TypeVoid),
+    .Int    = PrimitiveType(TypeInt),
+    .Char   = PrimitiveType(TypeChar),
     .Number = PrimitiveType(TypeNumber),
 };
 #undef PrimitiveType

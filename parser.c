@@ -139,6 +139,13 @@ Token *tokenize() {
             continue;
         }
 
+        if (isToken(p, "void")) {
+            current = newToken(TokenTypeName, current, p, 4);
+            current->varType = TypeVoid;
+            p += 4;
+            continue;
+        }
+
         if (isToken(p, "int")) {
             current = newToken(TokenTypeName, current, p, 3);
             current->varType = TypeInt;
@@ -734,6 +741,7 @@ static Node *decl() {
             for (;;) {
                 TypeInfo *typeInfo = NULL;
                 Token *argToken = NULL;
+                Token *typeToken = globals.token;
 
                 typeInfo = parseBaseType();
                 if (!typeInfo) {
@@ -747,6 +755,17 @@ static Node *decl() {
                     return NULL;
                 }
                 typeInfo = parsePointerType(typeInfo);
+
+                if (typeInfo->type == TypeVoid) {
+                    if (argsCount != 0) {
+                        errorAt(
+                                typeToken->str,
+                                "Function parameter must be only one if \"void\" appears."
+                                );
+                        return NULL;
+                    }
+                    break;
+                }
 
                 argToken = consumeIdent();
                 if (!argToken) {
@@ -982,6 +1001,11 @@ static Node *vardecl(){
         if (currentType != &arrayTypeHead) {
             currentType->baseType = varType;
             varType = arrayTypeHead.baseType;
+        }
+
+        if (varType->type == TypeVoid) {
+            errorAt(ident->str, "Cannot declare variable with type \"void\"");
+            return NULL;
         }
 
         lvar = findLVar(ident->str, ident->len);
