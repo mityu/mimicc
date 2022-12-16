@@ -45,8 +45,6 @@ static char *readFile(const char *path) {
 }
 
 int main(int argc, char *argv[]) {
-    int lvar_count = 0;
-
     if (argc != 2) {
         fprintf(stderr, "Invalid arguments\n");
         return 1;
