@@ -1,11 +1,12 @@
 CFLAGS=-std=c11 -g -static
 TARGET=mimic
 SRC=main.c parser.c codegen.c verifier.c
-OBJ=$(SRC:.c=.o)
+OBJ=$(SRC:%.c=obj/%.o)
 $(TARGET): $(OBJ)
 	gcc -o $@ $^
 
-%.o: %.c mimic.h
+obj/%.o: %.c mimic.h
+	@[ -d ./obj ] || mkdir ./obj
 	gcc -o $@ -c $<
 
 test: $(TARGET)
