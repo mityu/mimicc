@@ -6,6 +6,16 @@
 
 Globals globals;
 
+// Allocate memory and return it with entirely 0 cleared.  If allocating memory
+// fails, exit program immediately.
+void *safeAlloc(size_t size) {
+    void *p = malloc(size);
+    if (!p)
+        error("Allocating memory failed.");
+    memset(p, 0, size);
+    return p;
+}
+
 static char *readFile(const char *path) {
     FILE *fp = fopen(path, "r");
     char *buf = NULL;
@@ -24,7 +34,7 @@ static char *readFile(const char *path) {
         error("%s: fseek: %s\n", path, strerror(errno));
     }
 
-    buf = (char *)calloc(1, (size + 2) * sizeof(char));
+    buf = (char *)safeAlloc((size + 2) * sizeof(char));
     fread(buf, size, 1, fp);
     fclose(fp);
 

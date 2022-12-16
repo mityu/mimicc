@@ -183,7 +183,7 @@ static void verifyTypeFCall(const Node *n) {
 
     if (f->argsCount > ARGS_BUFFER_SIZE) {
         actualArgs =
-            (Node **)calloc(f->argsCount, sizeof(Node *));
+            (Node **)safeAlloc(f->argsCount * sizeof(Node *));
     }
 
     if (f->argsCount == 0)

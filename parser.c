@@ -103,7 +103,7 @@ static int isToken(char *p, char *op) {
 
 // Generate a new token, concatenate it to `current`, and return the new one.
 static Token *newToken(TokenType type, Token *current, char *str, int len) {
-    Token *t = (Token*)calloc(1, sizeof(Token));
+    Token *t = (Token*)safeAlloc(sizeof(Token));
     t->type = type;
     t->str = str;
     t->len = len;
@@ -289,7 +289,7 @@ Token *tokenize() {
             if (*p == '\0')
                 errorAt(p - 1, "String is not terminated.");
 
-            str = (LiteralString *)calloc(1, sizeof(LiteralString));
+            str = (LiteralString *)safeAlloc(sizeof(LiteralString));
             str->id = globals.literalStringCount++;
             str->len = len;
             str->string = (char *)malloc(literalLen * sizeof(char));
@@ -448,7 +448,7 @@ static int atEOF() {
 }
 
 static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
-    LVar *v = (LVar *)calloc(1, sizeof(LVar));
+    LVar *v = (LVar *)safeAlloc(sizeof(LVar));
     v->next = NULL;
     v->name = t->str;
     v->len = t->len;
@@ -458,14 +458,14 @@ static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
 }
 
 struct Function *newFunction() {
-    Function *f = (Function*)calloc(1, sizeof(Function));
+    Function *f = (Function*)safeAlloc(sizeof(Function));
     return f;
 };
 
 // Generate new node object and returns it.  Members of kind, type, outerBlock,
 // and token are automatically set to valid value.
 static Node *newNode(NodeKind kind, TypeInfo *type) {
-    Node *n = calloc(1, sizeof(Node));
+    Node *n = safeAlloc(sizeof(Node));
     n->kind = kind;
     n->lhs  = NULL;
     n->rhs  = NULL;
@@ -507,13 +507,13 @@ static Node *newNodeFor() {
 
 static Node *newNodeFCall(TypeInfo *retType) {
     Node *n = newNode(NodeFCall, retType);
-    n->fcall = (FCall*)calloc(1, sizeof(FCall));
+    n->fcall = (FCall*)safeAlloc(sizeof(FCall));
     return n;
 }
 
 static Node *newNodeFunction() {
     Node *n = newNode(NodeFunction, &Types.None);
-    n->func = (Function *)calloc(1, sizeof(Function));
+    n->func = (Function *)safeAlloc(sizeof(Function));
     return n;
 }
 
@@ -557,7 +557,7 @@ Function *findFunction(const char *name, int len) {
 }
 
 static TypeInfo *newTypeInfo(TypeKind kind) {
-    TypeInfo *t = (TypeInfo *)calloc(1, sizeof(TypeInfo));
+    TypeInfo *t = (TypeInfo *)safeAlloc(sizeof(TypeInfo));
     t->type = kind;
     return t;
 }

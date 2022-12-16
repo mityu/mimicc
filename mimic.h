@@ -185,6 +185,7 @@ struct Globals {
 };
 extern Globals globals;
 
+void *safeAlloc(size_t size);
 void genCode(const Node *n);
 void genCodeGlobals();
 void error(const char *fmt, ...);
