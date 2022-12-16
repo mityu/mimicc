@@ -9,8 +9,8 @@ obj/%.o: %.c mimic.h
 	@[ -d ./obj ] || mkdir ./obj
 	gcc -o $@ -c $<
 
-test: $(TARGET)
-	./test.sh
+test: $(TARGET) test/Makefile
+	cd test && make
 
 clean:
 	rm -f $(TARGET) ./obj/*.o *~ tmp*

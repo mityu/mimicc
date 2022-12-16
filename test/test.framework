@@ -1,0 +1,36 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "test.h"
+
+static void *safeAlloc(size_t size) {
+    void *p = malloc(size);
+    if (p == NULL) {
+        fprintf(stderr, "safeAlloc(): malloc(%ld) failed", size);
+        exit(1);
+    }
+    memset(p, size, 0);
+    return p;
+}
+
+
+void assert(char *file, int linenr, int expected, int actual, char *code) {
+    if (expected == actual) {
+        printf("%s => %d\n", code, actual);
+    } else {
+        printf("%s:%d: %s\n  => %d expected, but got %d\n",
+                file, linenr, code, expected, actual);
+        exit(1);
+    }
+}
+
+int *allocInt4() {
+    int *p = (int *)safeAlloc(4 * sizeof(int));
+    p[0] = 1;
+    p[1] = 2;
+    p[2] = 3;
+    p[3] = 4;
+    return p;
+}
+
+// vim: set filetype=c:
