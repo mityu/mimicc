@@ -29,4 +29,7 @@ assert_fail 'int main() {void n;}'
 assert_fail 'void f(int, void);'
 assert_fail 'void f(void, int);'
 assert_fail 'void f(); int main(void) {int n; n = f();}'
-
+assert_fail 'int main() {int x[3], y[3]; x = y;}'
+assert_fail 'int main() {int x[3]; int *y; x = y;}'
+assert_fail 'int main() {void **p; int n; p = n;}'
+assert_fail 'int main() {void **p; int n; p == n;}'

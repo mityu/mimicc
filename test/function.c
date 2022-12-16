@@ -8,6 +8,20 @@ int fib(int n) {
         return fib(n - 1) + fib(n - 2);
 }
 
+// assert 97 'void *malloc(int); int sprintf(char *, char *, ...); int main(void) {}'
+// Function call with variadic arguments test
+int sprintf(char *, char *, ...);
+void testFuncCallWithVaArgs(void) {
+    char *s;
+    s = safeAlloc(4 * sizeof(char));
+    sprintf(s, "%s", "abc");
+    ASSERT('a', *s);
+    ASSERT('b', s[1]);
+    ASSERT('c', s[2]);
+    ASSERT('\0', s[3]);
+    free(s);
+}
+
 // Function declaration test
 int add(int, int);
 int add(int a, int b) {

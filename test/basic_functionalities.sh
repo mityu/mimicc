@@ -59,6 +59,3 @@ assert_fcall 8 \
   'int f(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) { return n8;}'
 assert 10 'int main(void) {return 10;} // comment'
 assert 10 'int main(void) {/* return 5; */ return 10;}'
-
-# Test for calling function with variadic arguments. TODO: Move to another file.
-assert 97 'char *malloc(int); int sprintf(char *, char *, ...); int main(void) {char *s; s = malloc(4 * sizeof(char)); sprintf(s, "%s", "abc"); return *s;}'

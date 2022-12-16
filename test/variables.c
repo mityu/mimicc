@@ -181,15 +181,16 @@ void test_local_variables() {
         ASSERT(100, c);
     }
     {
-        int *p;
+        int *p, *save;
         p = allocInt4();
+        save = p;
 
         ASSERT(1, p[0]);
         ASSERT(2, p[1]);
         ASSERT(3, p[2]);
         ASSERT(4, p[3]);
         ASSERT(2, *(++p));
-        // free(p);  // FIXME: Type mismatch error
+        free(save);
     }
     {
         int n, *p;
@@ -267,6 +268,19 @@ void test_local_variables() {
         ASSERT('d', *s);
         ASSERT('e', s[1]);
         ASSERT('f', s[2]);
+    }
+    {
+        void *p;
+        int n;
+        p = &n;
+        ASSERT(1, p == &n);
+    }
+    {
+        void *vp;
+        int n, *p;
+        p = &n;
+        vp = &p;
+        ASSERT(1, vp == &p);
     }
 }
 

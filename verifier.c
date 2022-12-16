@@ -217,10 +217,25 @@ static void verifyTypeFCall(Node *n) {
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
 static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
-    if (isWorkLikePointer(lhs)) {
+    if (lhs->type == TypePointer) {
+        TypeInfo *t;
+        // void* accepts any pointer/array type.
+        for (t = lhs->baseType; t->type == TypePointer; t = t->baseType);
+        if (t->type == TypeVoid)
+            return isWorkLikePointer(rhs);
+
+        // void* can be assigned to any pointer type.
+        if (rhs->type == TypePointer) {
+            for (t = rhs->baseType; t->type == TypePointer; t = t->baseType);
+            if (t->type == TypeVoid)
+                return 1;
+        }
+
         if (isWorkLikePointer(rhs)) {
             return checkAssignable(lhs->baseType, rhs->baseType);
         }
+        return 0;
+    } else if (lhs->type == TypeArray) {
         return 0;
     } else if (rhs->type == TypeNumber) {
         return lhs->type == TypeInt || lhs->type == TypeChar;
@@ -237,8 +252,18 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
     } else if (isWorkLikePointer(t1)) {
-        if (isWorkLikePointer(t2))
+        TypeInfo *t;
+        for (t = t1->baseType; t->type == TypePointer; t = t->baseType);
+        if (t->type == TypeVoid)
+            return isWorkLikePointer(t2);
+
+        for (t = t2->baseType; t->type == TypePointer; t = t->baseType);
+        if (t->type == TypeVoid)
+            return isWorkLikePointer(t1);
+
+        if (isWorkLikePointer(t2)) {
             return checkComparable(t1->baseType, t2->baseType);
+        }
         return 0;
     }
     return 0;

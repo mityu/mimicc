@@ -3,7 +3,7 @@
 #include <string.h>
 #include "test.h"
 
-static void *safeAlloc(size_t size) {
+void *safeAlloc(int size) {
     void *p = malloc(size);
     if (p == NULL) {
         fprintf(stderr, "safeAlloc(): malloc(%ld) failed", size);
