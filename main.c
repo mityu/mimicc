@@ -1,8 +1,38 @@
 #include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #include "mimic.h"
 
 Globals globals;
 
+static char *readFile(char *path) {
+    FILE *fp = fopen(path, "r");
+    char *buf = NULL;
+    size_t size;
+    if (!fp) {
+        error("File open failed: %s: %s\n", path, strerror(errno));
+    }
+
+    if (fseek(fp, 0, SEEK_END) == -1) {
+        fclose(fp);
+        error("%s: fseek: %s\n", path, strerror(errno));
+    }
+    size = ftell(fp);
+    if (fseek(fp, 0, SEEK_SET) == -1) {
+        fclose(fp);
+        error("%s: fseek: %s\n", path, strerror(errno));
+    }
+
+    buf = (char *)calloc(1, (size + 2) * sizeof(char));
+    fread(buf, size, 1, fp);
+    fclose(fp);
+
+    if (size == 0 || buf[size - 1] != '\n')
+        buf[size++] = '\n';
+    buf[size] = '\0';
+    return buf;
+}
 
 int main(int argc, char *argv[]) {
     int lvar_count = 0;
@@ -12,7 +42,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    globals.source = argv[1];
+    globals.sourceFile = argv[1];
+    globals.source = readFile(globals.sourceFile);
     globals.currentBlock = NULL;
     globals.currentFunction = NULL;
     globals.functions = NULL;

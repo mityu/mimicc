@@ -176,8 +176,9 @@ struct Globals {
     Function *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.
-    Token *token;              // Token currently watches
-    char *source;              // The source code (input)
+    Token *token;              // Token currently watches.
+    char *source;              // The source code (input).
+    char *sourceFile;          // The source file path.
 };
 extern Globals globals;
 

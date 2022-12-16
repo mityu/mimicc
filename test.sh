@@ -4,7 +4,8 @@ assert() {
   expected="$1"
   input="$2"
 
-  ./mimic "$input" > tmp.s
+  echo "$input" > tmp.c
+  ./mimic tmp.c > tmp.s
   cc -o tmp tmp.s
   ./tmp
   actual="$?"
@@ -22,7 +23,8 @@ assert_fcall() {
   input="$2"
   restcode="$3"
 
-  ./mimic "$input" > tmp1.s
+  echo "$input" > tmp1.c
+  ./mimic tmp1.c > tmp1.s
   gcc -c -o tmp1.o tmp1.s
   gcc -c -o tmp2.o -x c <(echo "$restcode")
   gcc -o tmp tmp1.o tmp2.o
@@ -38,8 +40,8 @@ assert_fcall() {
 }
 
 assert_fail() {
-  input="$1"
-  ./mimic "$1"
+  echo "$1" > tmp.c
+  ./mimic tmp.c
   if [ $? -ne 1 ]; then
     echo "Other than 1 returned."
     exit 1

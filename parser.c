@@ -54,11 +54,28 @@ void error(char *fmt, ...) {
 }
 
 void errorAt(char *loc, char *fmt, ...) {
-    int pos = loc - globals.source;
+    char *head = loc;  // Head of error line
+    char *tail = loc;  // Tail of error line
+    int linenr = 1;    // Line number of error line
+    int indent = 0;
+    int pos = 0;
     va_list ap;
     va_start(ap, fmt);
 
-    fprintf(stderr, "%s\n", globals.source);
+    // Search for line head and tail.
+    while (head > globals.source && head[-1] != '\n')
+        head--;
+    while (*tail != '\n')
+        tail++;
+
+    for (char *p = globals.source; p < head; ++p)
+        if (*p == '\n')
+            linenr++;
+
+    indent = fprintf(stderr, "%s:%d: ", globals.sourceFile, linenr);
+    fprintf(stderr, "%.*s\n", (int)(tail - head), head);
+
+    pos = loc - head + indent;
     if (pos) {
         fprintf(stderr, "%*s", pos, " ");
     }
