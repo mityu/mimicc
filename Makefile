@@ -13,7 +13,7 @@ test: $(TARGET)
 	./test.sh
 
 clean:
-	rm -f $(TARGET) *.o *~ tmp*
+	rm -f $(TARGET) ./obj/*.o *~ tmp*
 
 
 .PHONY: test clean
