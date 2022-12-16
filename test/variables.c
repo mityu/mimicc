@@ -91,6 +91,17 @@ void test_local_variables() {
         ASSERT(0, a > b);
     }
     {
+        int a = 5;
+        ASSERT(5, a);
+    }
+    {
+        int a = 5, b = 10;
+        int c = a + b;
+        ASSERT(5, a);
+        ASSERT(10, b);
+        ASSERT(15, c);
+    }
+    {
         int foo;
         foo = 10;
         ASSERT(10, foo);

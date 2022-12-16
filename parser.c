@@ -989,6 +989,7 @@ static Node *vardecl(){
     for (;;) {
         TypeInfo arrayTypeHead;
         TypeInfo *currentType = &arrayTypeHead;
+        Token *token = NULL;
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
@@ -1035,6 +1036,17 @@ static Node *vardecl(){
         }
 
         n->next = newNodeLVar(lvar->offset, lvar->type);
+
+        // Parse initialzier statement
+        token = globals.token;
+        if (consumeReserved("=")) {
+            // TODO: Support array initializer
+            Node *cur = n->next;
+            cur = newNodeBinary(NodeAssign, cur, expr(), cur->type);
+            cur->token = token;
+            n->next = cur;
+        }
+
         n = n->next;
 
         if (!consumeReserved(","))

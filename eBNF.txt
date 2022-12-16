@@ -10,7 +10,8 @@ stmt        = expr ";" |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |
                 "while" "(" expr ")" stmt |
                 "return" expr ";"
-vardecl     = type ident ("," pointertype ident)* ";"
+vardecl     = basetype vardeclbody ("," vardeclbody)* ";"
+vardeclbody = pointertype ident ("=" expr)
 expr        = assign
 assign      = equality (("=" | "+=" | "-=") assign)?
 equality    = relational ("==" relational | "!=" relational)*
