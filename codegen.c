@@ -115,7 +115,7 @@ static void printlen(const char* str, int len) {
         putchar(str[i]);
 }
 
-static int isExprNode(Node *n) {
+static int isExprNode(const Node *n) {
     switch (n->kind) {
     default:
         return 0;
@@ -146,7 +146,7 @@ static int isExprNode(Node *n) {
 // In concrate explanation, return
 // - sizeof(type) for "type *" and "type[]"
 // - 1 for integer.
-static int getAlternativeOfOneForType(TypeInfo *ti) {
+static int getAlternativeOfOneForType(const TypeInfo *ti) {
     if (ti->type == TypePointer || ti->type == TypeArray) {
         return sizeOf(ti->baseType);
     }
@@ -233,7 +233,7 @@ void genCodeGlobals() {
     }
 }
 
-static void genCodeLVal(Node *n) {
+static void genCodeLVal(const Node *n) {
     if (n->kind == NodeDeref) {
         genCode(n->rhs);
         // Address for variable must be on the top of the stack.
@@ -262,7 +262,7 @@ static void genCodeLVal(Node *n) {
 
 // Generate code dereferencing variables as rvalue.  If code for dereference as
 // lvalue, use genCodeLVal() instead.
-static void genCodeDeref(Node *n) {
+static void genCodeDeref(const Node *n) {
     genCodeLVal(n);
     puts("  mov rax, [rsp]");
     switch (sizeOf(n->type)) {
@@ -283,7 +283,7 @@ static void genCodeDeref(Node *n) {
     puts("  mov [rsp], rax");
 }
 
-static void genCodeAssign(Node *n) {
+static void genCodeAssign(const Node *n) {
     genCodeLVal(n->lhs);
     genCode(n->rhs);
 
@@ -320,7 +320,7 @@ static void genCodeAssign(Node *n) {
     puts("  push rdi");
 }
 
-static void genCodeReturn(Node *n) {
+static void genCodeReturn(const Node *n) {
     genCode(n->lhs);
     puts("  pop rax");
     puts("  mov rsp, rbp");
@@ -328,7 +328,7 @@ static void genCodeReturn(Node *n) {
     puts("  ret");
 }
 
-static void genCodeIf(Node *n) {
+static void genCodeIf(const Node *n) {
     int elseblockCount = 0;
     genCode(n->condition);
     puts("  pop rax");
@@ -366,7 +366,7 @@ static void genCodeIf(Node *n) {
     printf(".Lend%d:\n", n->blockID);
 }
 
-static void genCodeFor(Node *n) {
+static void genCodeFor(const Node *n) {
     if (n->initializer) {
         genCode(n->initializer);
         puts("  pop rax");
@@ -392,7 +392,7 @@ static void genCodeFor(Node *n) {
     printf(".Lend%d:\n", n->blockID);
 }
 
-static void genCodeFCall(Node *n) {
+static void genCodeFCall(const Node *n) {
     static int stackAlignState = -1;  // RSP % 16
     int stackAlignStateSave = 0;
     int stackVarSize = 0; // Size of local variables on stack.
@@ -458,7 +458,7 @@ static void genCodeFCall(Node *n) {
     puts("  push rax");
 }
 
-static void genCodeFunction(Node *n) {
+static void genCodeFunction(const Node *n) {
     int regargs = n->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
@@ -516,7 +516,7 @@ static void genCodeFunction(Node *n) {
     puts("  ret");
 }
 
-static void genCodeIncrement(Node *n, int prefix) {
+static void genCodeIncrement(const Node *n, int prefix) {
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
     puts("  pop rax");
@@ -577,7 +577,7 @@ static void genCodeIncrement(Node *n, int prefix) {
     }
 }
 
-static void genCodeDecrement(Node *n, int prefix) {
+static void genCodeDecrement(const Node *n, int prefix) {
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
     puts("  pop rax");
@@ -638,7 +638,7 @@ static void genCodeDecrement(Node *n, int prefix) {
     }
 }
 
-void genCode(Node *n) {
+void genCode(const Node *n) {
     if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
         return;

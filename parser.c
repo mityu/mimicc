@@ -39,13 +39,13 @@ static int isAlnum(char c) {
     return 0;
 }
 
-static int hasPrefix(char *s1, char *s2) {
+static int hasPrefix(const char *s1, const char *s2) {
     return strncmp(s1, s2, strlen(s2)) == 0;
 }
 
 
 // Print error message on stderr and exit.
-void error(char *fmt, ...) {
+void error(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
@@ -53,7 +53,7 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-void errorAt(char *loc, char *fmt, ...) {
+void errorAt(const char *loc, const char *fmt, ...) {
     char *head = loc;  // Head of error line
     char *tail = loc;  // Tail of error line
     int linenr = 1;    // Line number of error line
@@ -157,6 +157,12 @@ Token *tokenize() {
             current = newToken(TokenTypeName, current, p, 4);
             current->varType = TypeChar;
             p += 4;
+            continue;
+        }
+
+        if (isToken(p, "const")) {
+            // TODO: Create new token; Take into account when parsing.
+            p += 5;
             continue;
         }
 
@@ -542,7 +548,7 @@ static LVar *findLVar(char *name, int len) {
     return NULL;
 }
 
-Function *findFunction(char *name, int len) {
+Function *findFunction(const char *name, int len) {
     for (Function *f = globals.functions; f; f = f->next) {
         if (f->len == len && memcmp(f->name, name, (size_t)len) == 0)
             return f;
@@ -603,7 +609,7 @@ static TypeInfo *parsePointerType(TypeInfo *baseType) {
 }
 
 // Return size of given type.  If computing failed, exit program.
-int sizeOf(TypeInfo *ti) {
+int sizeOf(const TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
     } else if (ti->type == TypeChar || ti->type == TypeVoid) {

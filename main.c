@@ -6,7 +6,7 @@
 
 Globals globals;
 
-static char *readFile(char *path) {
+static char *readFile(const char *path) {
     FILE *fp = fopen(path, "r");
     char *buf = NULL;
     size_t size;

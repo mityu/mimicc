@@ -185,14 +185,14 @@ struct Globals {
 };
 extern Globals globals;
 
-void genCode(Node *n);
+void genCode(const Node *n);
 void genCodeGlobals();
-void error(char *fmt, ...);
-void errorAt(char *loc, char *fmt, ...);
+void error(const char *fmt, ...);
+void errorAt(const char *loc, const char *fmt, ...);
 Token *tokenize();
 void program();
-Function *findFunction(char *name, int len);
-int sizeOf(TypeInfo *ti);
-void verifyType(Node *n);
-int isWorkLikePointer(TypeInfo *t);
+Function *findFunction(const char *name, int len);
+int sizeOf(const TypeInfo *ti);
+void verifyType(const Node *n);
+int isWorkLikePointer(const TypeInfo *t);
 #endif // HEADER_MIMIC_H

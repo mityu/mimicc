@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include "mimic.h"
 
-static void verifyTypeFCall(Node *n);
-static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs);
-static int checkComparable(TypeInfo *t1, TypeInfo *t2);
-static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2);
-static int isIntegerType(TypeInfo *t);
-static int isArithmeticType(TypeInfo *t);
-static int isLvalue(Node *n);
+static void verifyTypeFCall(const Node *n);
+static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
+static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);
+static int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
+static int isIntegerType(const TypeInfo *t);
+static int isArithmeticType(const TypeInfo *t);
+static int isLvalue(const Node *n);
 
-void verifyType(Node *n) {
+void verifyType(const Node *n) {
     if (n->kind == NodeFunction) {
         verifyType(n->body);
     } else if (n->kind == NodeBlock) {
@@ -150,7 +150,7 @@ void verifyType(Node *n) {
 // Check called function exists, the number of argument matches, and all the
 // actual arguments are assignable to the formal parameters.  Exit program if
 // some does not match.
-static void verifyTypeFCall(Node *n) {
+static void verifyTypeFCall(const Node *n) {
 #define ARGS_BUFFER_SIZE    (10)
     Node *actualArgBuf[ARGS_BUFFER_SIZE];
     Node **actualArgs = actualArgBuf;
@@ -216,7 +216,7 @@ static void verifyTypeFCall(Node *n) {
 }
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
-static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
+static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
     if (lhs->type == TypePointer) {
         TypeInfo *t;
         // void* accepts any pointer/array type.
@@ -247,7 +247,7 @@ static int checkAssignable(TypeInfo *lhs, TypeInfo *rhs) {
     errorUnreachable();
 }
 
-static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
+static int checkComparable(const TypeInfo *t1, const TypeInfo *t2) {
     // What's real type?
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
@@ -270,7 +270,7 @@ static int checkComparable(TypeInfo *t1, TypeInfo *t2) {
 }
 
 // TODO: Support array
-static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
+static int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
     if (t1->type != t2->type) {
         return 0;
     } else if (t1->type == TypePointer) {
@@ -280,23 +280,23 @@ static int checkTypeEqual(TypeInfo *t1, TypeInfo *t2) {
 }
 
 // Return TRUE if given type is integer type.
-static int isIntegerType(TypeInfo *t) {
+static int isIntegerType(const TypeInfo *t) {
     return t->type == TypeInt || t->type == TypeNumber;
 }
 
 // Return TRUE if given type is arithmetic type.
-static int isArithmeticType(TypeInfo *t) {
+static int isArithmeticType(const TypeInfo *t) {
     return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber;
 }
 
 // Return TRUE is `n` is lvalue.
-static int isLvalue(Node *n) {
+static int isLvalue(const Node *n) {
     return n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeDeref;
 }
 
 // Return TRUE if given type can work like a pointer. Currently returns TRUE
 // when given type is pointer or array.
-int isWorkLikePointer(TypeInfo *t) {
+int isWorkLikePointer(const TypeInfo *t) {
     if (t->type == TypePointer || t->type == TypeArray)
         return 1;
     return 0;

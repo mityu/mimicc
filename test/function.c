@@ -10,7 +10,7 @@ int fib(int n) {
 
 // assert 97 'void *malloc(int); int sprintf(char *, char *, ...); int main(void) {}'
 // Function call with variadic arguments test
-int sprintf(char *, char *, ...);
+int sprintf(char *, const char *, ...);
 void testFuncCallWithVaArgs(void) {
     char *s;
     s = safeAlloc(4 * sizeof(char));

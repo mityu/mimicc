@@ -26,4 +26,4 @@ primary     = num |
                 primary ("++" | "--" | ("[" expr "]")*)
 type        = basetype pointertype
 pointertype = "*"*
-basetype    = "int"
+basetype    = "int" | "char" | "void"
