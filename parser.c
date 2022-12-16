@@ -606,7 +606,7 @@ static TypeInfo *parsePointerType(TypeInfo *baseType) {
 int sizeOf(TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
-    } else if (ti->type == TypeChar) {
+    } else if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
     } else if (ti->type == TypePointer) {
         return 8;
