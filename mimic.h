@@ -189,7 +189,7 @@ void *safeAlloc(size_t size);
 void genCode(const Node *n);
 void genCodeGlobals();
 void error(const char *fmt, ...);
-void errorAt(const char *loc, const char *fmt, ...);
+void errorAt(char *loc, const char *fmt, ...);
 Token *tokenize();
 void program();
 Function *findFunction(const char *name, int len);
