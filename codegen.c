@@ -265,7 +265,21 @@ static void genCodeLVal(Node *n) {
 static void genCodeDeref(Node *n) {
     genCodeLVal(n);
     puts("  mov rax, [rsp]");
-    puts("  mov rax, [rax]");
+    switch (sizeOf(n->type)) {
+    case 8:
+        puts("  mov rax, [rax]");
+        break;
+    case 4:
+        puts("  mov eax, DWORD PTR [rax]");
+        puts("  movsx rax, eax");
+        break;
+    case 1:
+        puts("  mov al, BYTE PTR [rax]");
+        puts("  movsx rax, al");
+        break;
+    default:
+        errorUnreachable();
+    }
     puts("  mov [rsp], rax");
 }
 
