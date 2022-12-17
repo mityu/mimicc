@@ -1110,6 +1110,12 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
 
             if (!consumeReserved(","))
                 break;
+
+            // In case of "{expr, expr, ..., expr,}"
+            if (consumeReserved("}")) {
+                globals.token = globals.token->prev;
+                break;
+            }
         }
         expectSign("}");
     } else {
@@ -1158,6 +1164,12 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                 (*elemCount)++;
                 if (!consumeReserved(","))
                     break;
+
+                // In case of "{expr, expr, ..., expr,}"
+                if (consumeReserved("}")) {
+                    globals.token = globals.token->prev;
+                    break;
+                }
             }
             expectSign("}");
         }

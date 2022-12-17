@@ -75,6 +75,12 @@ void test_init_local_variables(void) {
         ASSERT(2, x[1]);
         ASSERT(3, x[2]);
     }
+    {  // Allow "," after the last element.
+        int x[3] = {1, 2, 3,};
+        ASSERT(1, x[0]);
+        ASSERT(2, x[1]);
+        ASSERT(3, x[2]);
+    }
     {
         char x[3] = {'a', 'b', 'c'};
         ASSERT('a', x[0]);
@@ -84,7 +90,7 @@ void test_init_local_variables(void) {
     {
         int x[2][3] = {
             {1, 2, 3},
-            {4, 5, 6}
+            {4, 5, 6},
         };
         int i, j;
         for (i = 0; i < 2; ++i)
@@ -101,7 +107,7 @@ void test_init_local_variables(void) {
     {
         char x[2][4] = {
             "d\nf",
-            {'g', 'h', 'i', '\0'}
+            {'g', 'h', 'i', '\0'},
         };
         ASSERT('d', x[0][0]);
         ASSERT('\n', x[0][1]);
