@@ -384,6 +384,19 @@ static Token *consumeLiteralString() {
     return NULL;
 }
 
+static int consumeNumber(int *val) {
+    if (atEOF()) {
+        errorUnexpectedEOF();
+    }
+
+    if (globals.token->type == TokenNumber) {
+        *val = globals.token->val;
+        globals.token = globals.token->next;
+        return 1;
+    }
+    return 0;
+}
+
 // If the type of the current token is `type`, consume the token and returns
 // TRUE.
 static int consumeCertainTokenType(TokenType type) {
@@ -993,6 +1006,8 @@ static Node *vardecl(){
     for (;;) {
         TypeInfo arrayTypeHead;
         TypeInfo *currentType = &arrayTypeHead;
+        Node *varNode = NULL;
+        int arraySizeNeeded = 0;
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
@@ -1001,7 +1016,15 @@ static Node *vardecl(){
         }
 
         while (consumeReserved("[")) {
-            int arraySize = expectNumber();
+            int arraySize;
+            if (arraySizeNeeded) {
+                arraySize = expectNumber();
+            } else {
+                // Only the first [] can omit array size.
+                arraySizeNeeded = 1;
+                if (!consumeNumber(&arraySize))
+                    arraySize = -1;
+            }
             expectSign("]");
             currentType->baseType = newTypeInfo(TypeArray);
             currentType->baseType->arraySize = arraySize;
@@ -1024,29 +1047,24 @@ static Node *vardecl(){
             return NULL;
         }
 
-        currentVarSize = sizeOf(varType);
-        totalVarSize += currentVarSize;
-        globals.currentBlock->localVarSize += currentVarSize;
-
-        lvar = newLVar(ident, varType, totalVarSize);
-
-        // Register variable.
-        if (globals.currentBlock->localVars) {
-            lvar->next = globals.currentBlock->localVars;
-            globals.currentBlock->localVars = lvar;
-        } else {
-            globals.currentBlock->localVars = lvar;
-        }
+        // Variable size is not defined when array with size omitted, so do not
+        // compute variable offset here.  It will be computed after parsing
+        // initialzier statement.
+        varNode = newNodeLVar(-1, varType);
 
         // Parse initialzier statement
         if (consumeReserved("=")) {
             Token *tokenAssign = globals.token->prev;
-            Node *var = newNodeLVar(lvar->offset, lvar->type);
 
-            if (var->type->type == TypeArray) {
+            if (varType->type == TypeArray) {
                 int elemCount = 0;
-                int arraySize = var->type->arraySize;
-                n->next = arrayinit(var, var->type, &elemCount);
+                int arraySize = varType->arraySize;
+                n->next = arrayinit(varNode, varType, &elemCount);
+
+                if (arraySize == -1) {
+                    varType->arraySize = elemCount;
+                    arraySize = elemCount;
+                }
 
                 if (elemCount > arraySize) {
                     errorAt(
@@ -1059,11 +1077,30 @@ static Node *vardecl(){
                             "Clearing rest items with 0 is not implemented yet.");
                 }
             } else {
-                n->next = newNodeBinary(NodeAssign, var, expr(), var->type);
+                n->next = newNodeBinary(NodeAssign, varNode, expr(), varType);
             }
 
             n = n->next;
+        } else if (varType->type == TypeArray && varType->arraySize == -1) {
+            errorAt(globals.token->str, "Initializer list required.");
         }
+
+
+        currentVarSize = sizeOf(varType);
+        totalVarSize += currentVarSize;
+        globals.currentBlock->localVarSize += currentVarSize;
+
+        lvar = newLVar(ident, varType, totalVarSize);
+        varNode->offset = totalVarSize;
+
+        // Register variable.
+        if (globals.currentBlock->localVars) {
+            lvar->next = globals.currentBlock->localVars;
+            globals.currentBlock->localVars = lvar;
+        } else {
+            globals.currentBlock->localVars = lvar;
+        }
+
 
         if (!consumeReserved(","))
             break;
@@ -1097,6 +1134,8 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
             exprs = exprs->next;
             (*elemCount)++;
 
+            if (arraySize == -1) {
+            }
             if (childElemCount > arraySize) {
                 errorAt(
                         tokenValSet->str,

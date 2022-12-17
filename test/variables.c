@@ -118,6 +118,33 @@ void test_init_local_variables(void) {
         ASSERT('i', x[1][2]);
         ASSERT('\0', x[1][3]);
     }
+    {
+        int x[] = {2, 3, 4};
+        ASSERT(3, sizeof(x)/sizeof(x[0]));
+        ASSERT(2, x[0]);
+        ASSERT(3, x[1]);
+        ASSERT(4, x[2]);
+    }
+    {
+        int x[][3] = {{1, 2, 3}, {4, 5, 6}};
+        ASSERT(2, sizeof(x)/sizeof(x[0]));
+        ASSERT(1, x[0][0]);
+        ASSERT(2, x[0][1]);
+        ASSERT(3, x[0][2]);
+        ASSERT(4, x[1][0]);
+        ASSERT(5, x[1][1]);
+        ASSERT(6, x[1][2]);
+    }
+    {
+        char x[] = "abcd\n";
+        ASSERT(6, sizeof(x)/sizeof(x[0]));
+        ASSERT('a', x[0]);
+        ASSERT('b', x[1]);
+        ASSERT('c', x[2]);
+        ASSERT('d', x[3]);
+        ASSERT('\n', x[4]);
+        ASSERT('\0', x[5]);
+    }
 }
 
 void test_local_variables() {
