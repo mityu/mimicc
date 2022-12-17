@@ -100,11 +100,11 @@ void test_init_local_variables(void) {
     }
     {
         char x[2][4] = {
-            "def",
+            "d\nf",
             {'g', 'h', 'i', '\0'}
         };
         ASSERT('d', x[0][0]);
-        ASSERT('e', x[0][1]);
+        ASSERT('\n', x[0][1]);
         ASSERT('f', x[0][2]);
         ASSERT('\0', x[0][3]);
         ASSERT('g', x[1][0]);

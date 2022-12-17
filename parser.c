@@ -1118,19 +1118,33 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
         if (elemType->baseType->type == TypeChar && stringToken) {
             // String literal is given instead of {...}
             LiteralString *string = stringToken->literalStr;
+            int len = 0;
+            int elemIdx = 0;
             if (!string)
                 errorUnreachable();
 
             *elemCount = string->len;
-            for (int i = 0; i < string->len; ++i) {
+            len = strlen(string->string);
+            for (int i = 0; i < len; ++i) {
                 char c = string->string[i];
-                Node *ptradjust = newNodeBinary(
-                        NodeAdd, lvar, newNodeNum(i), elemType);
-                Node *elem = newNodeBinary(
+                Node *ptradjust = NULL;
+                Node *elem = NULL;
+
+                if (c == '\\') {
+                    char cc = 0;
+                    if (checkEscapeChar(string->string[++i], '"', &cc))
+                        c = cc;
+                    else
+                        --i;
+                }
+                ptradjust = newNodeBinary(
+                        NodeAdd, lvar, newNodeNum(elemIdx), elemType);
+                elem = newNodeBinary(
                         NodeDeref, NULL, ptradjust, elemType->baseType);
                 exprs->next = newNodeBinary(
                         NodeAssign, elem, newNodeNum((int)c), elem->type);
                 exprs = exprs->next;
+                elemIdx++;
             }
         } else {
             expectSign("{");
