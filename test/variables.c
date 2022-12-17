@@ -91,6 +91,27 @@ void test_init_local_variables(void) {
             for (j = 0; j < 3; ++j)
                 ASSERT(i*3 + j + 1, x[i][j]);
     }
+    {
+        char x[4] = "baz";
+        ASSERT('b', x[0]);
+        ASSERT('a', x[1]);
+        ASSERT('z', x[2]);
+        ASSERT('\0', x[3]);
+    }
+    {
+        char x[2][4] = {
+            "def",
+            {'g', 'h', 'i', '\0'}
+        };
+        ASSERT('d', x[0][0]);
+        ASSERT('e', x[0][1]);
+        ASSERT('f', x[0][2]);
+        ASSERT('\0', x[0][3]);
+        ASSERT('g', x[1][0]);
+        ASSERT('h', x[1][1]);
+        ASSERT('i', x[1][2]);
+        ASSERT('\0', x[1][3]);
+    }
 }
 
 void test_local_variables() {

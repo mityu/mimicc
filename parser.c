@@ -1082,9 +1082,9 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
     head.next = NULL;
     *elemCount = 0;
 
-    expectSign("{");
     if (elemType->baseType->type == TypeArray) {
         // Parse "{{...}, {...}, ...}"
+        expectSign("{");
         for (;;) {
             int childElemCount = 0;
             int arraySize = elemType->baseType->arraySize;  // Child array size
@@ -1111,21 +1111,43 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
             if (!consumeReserved(","))
                 break;
         }
+        expectSign("}");
     } else {
-        // Parse "{expr, expr, ...}"
-        for (;;) {
-            Node *ptradjust = newNodeBinary(
-                    NodeAdd, lvar, newNodeNum(*elemCount), elemType);
-            Node *elem = newNodeBinary(
-                    NodeDeref, NULL, ptradjust, elemType->baseType);
-            exprs->next = newNodeBinary(NodeAssign, elem, expr(), elem->type);
-            exprs = exprs->next;
-            (*elemCount)++;
-            if (!consumeReserved(","))
-                break;
+        // Parse "{expr, expr, ...}" (or string literal for char[])
+        Token *stringToken = consumeLiteralString();
+        if (elemType->baseType->type == TypeChar && stringToken) {
+            // String literal is given instead of {...}
+            LiteralString *string = stringToken->literalStr;
+            if (!string)
+                errorUnreachable();
+
+            *elemCount = string->len;
+            for (int i = 0; i < string->len; ++i) {
+                char c = string->string[i];
+                Node *ptradjust = newNodeBinary(
+                        NodeAdd, lvar, newNodeNum(i), elemType);
+                Node *elem = newNodeBinary(
+                        NodeDeref, NULL, ptradjust, elemType->baseType);
+                exprs->next = newNodeBinary(
+                        NodeAssign, elem, newNodeNum((int)c), elem->type);
+                exprs = exprs->next;
+            }
+        } else {
+            expectSign("{");
+            for (;;) {
+                Node *ptradjust = newNodeBinary(
+                        NodeAdd, lvar, newNodeNum(*elemCount), elemType);
+                Node *elem = newNodeBinary(
+                        NodeDeref, NULL, ptradjust, elemType->baseType);
+                exprs->next = newNodeBinary(NodeAssign, elem, expr(), elem->type);
+                exprs = exprs->next;
+                (*elemCount)++;
+                if (!consumeReserved(","))
+                    break;
+            }
+            expectSign("}");
         }
     }
-    expectSign("}");
 
     if (head.next) {
         Node *block = newNode(NodeBlock, &Types.None);

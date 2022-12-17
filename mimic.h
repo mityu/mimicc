@@ -165,7 +165,7 @@ struct Function {
 struct LiteralString {
     LiteralString *next;
     char *string;
-    int len;
+    int len;            // String length in program. (Not on text editor.)
     int id;
 };
 
