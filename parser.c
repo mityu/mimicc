@@ -1041,13 +1041,26 @@ static Node *vardecl(){
         // Parse initialzier statement
         if (consumeReserved("=")) {
             Token *tokenAssign = globals.token->prev;
-            int elemCount = 0;
             Node *var = newNodeLVar(lvar->offset, lvar->type);
 
-            if (var->type->type == TypeArray)
+            if (var->type->type == TypeArray) {
+                int elemCount = 0;
+                int arraySize = var->type->arraySize;
                 n->next = arrayinit(var, var->type, &elemCount);
-            else
+
+                if (elemCount > arraySize) {
+                    errorAt(
+                            tokenAssign->next->str,
+                            "%d items given to array sized %d.",
+                            elemCount,
+                            arraySize);
+                } else if (elemCount != arraySize) {
+                    errorAt(tokenAssign->next->str,
+                            "Clearing rest items with 0 is not implemented yet.");
+                }
+            } else {
                 n->next = newNodeBinary(NodeAssign, var, expr(), var->type);
+            }
 
             n = n->next;
         }
@@ -1065,7 +1078,6 @@ static Node *vardecl(){
 static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
     Node head;
     Node *exprs = &head;
-    Token *tokenValSet = globals.token;
 
     head.next = NULL;
     *elemCount = 0;
@@ -1075,9 +1087,10 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
         // Parse "{{...}, {...}, ...}"
         for (;;) {
             int childElemCount = 0;
-            int arraySize = lvar->type->baseType->arraySize;  // Child array size
+            int arraySize = elemType->baseType->arraySize;  // Child array size
             Node *elem = newNodeBinary(
                     NodeAdd, lvar, newNodeNum(*elemCount), elemType);
+            Token *tokenValSet = globals.token;
 
             exprs->next = arrayinit(elem, elemType->baseType, &childElemCount);
 
