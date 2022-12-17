@@ -978,6 +978,8 @@ static Node *vardecl(){
     TypeInfo *baseType = NULL;
     TypeInfo *varType = NULL;
 
+    headNode.next = NULL;
+
     baseType = parseBaseType();
     if (!baseType)
         return NULL;
@@ -1053,15 +1055,20 @@ static Node *vardecl(){
                 initexpr = arrayinit(&elemCount);
                 if (elemCount > varType->arraySize) {
                     errorAt(token->str, "Too much elements appears in initializer");
-                } else if (elemCount != elemIndex) {
+                } else if (elemCount != varType->arraySize) {
                     errorAt(token->str,
                             "Clearing rest items with 0 is not implemented yet.");
                 }
                 for (Node *e = initexpr; e; e = e->next) {
-                    Node *deref = newNodeBinary(
-                            NodeDeref,
+                    Node *ptradjust = newNodeBinary(
+                            NodeAdd,
                             refvar,
                             newNodeNum(elemIndex++),
+                            refvar->type);
+                    Node *deref = newNodeBinary(
+                            NodeDeref,
+                            NULL,
+                            ptradjust,
                             refvar->type->baseType);
                     n->next = newNodeBinary(
                             NodeAssign,
@@ -1075,10 +1082,12 @@ static Node *vardecl(){
                 Node *init = newNodeBinary(NodeAssign, refvar, expr(), refvar->type);
                 init->token = token;
                 n->next = init;
+                n = n->next;
             }
+        } else {
+            n = n->next;
         }
 
-        n = n->next;
 
         if (!consumeReserved(","))
             break;
@@ -1086,7 +1095,12 @@ static Node *vardecl(){
 
     expectSign(";");
 
-    return headNode.next;
+    if (headNode.next) {
+        Node *block = newNode(NodeBlock, &Types.None);
+        block->body = headNode.next;
+        return block;
+    }
+    return NULL;
 }
 
 static Node *arrayinit(int *elemCount) {
@@ -1096,6 +1110,7 @@ static Node *arrayinit(int *elemCount) {
     if (!consumeReserved("{"))
         errorUnreachable();
 
+    head.next = NULL;
     for (;;) {
         exprs->next = expr();
         exprs = exprs->next;
@@ -1104,7 +1119,7 @@ static Node *arrayinit(int *elemCount) {
             break;
     }
     expectSign("}");
-    return exprs;
+    return head.next;
 }
 
 static Node *expr() {

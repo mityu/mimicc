@@ -317,6 +317,7 @@ int local_var_independent() {
 }
 
 int main(void) {
+    test_init_local_variables();
     test_local_variables();
     test_global_variables();
     ASSERT(10, local_var_independent());
