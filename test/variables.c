@@ -57,6 +57,32 @@ void test_global_variables() {
     ASSERT(1000, *g_ptr);
 }
 
+void test_init_local_variables(void) {
+    {
+        int a = 5;
+        ASSERT(5, a);
+    }
+    {
+        int a = 5, b = 10;
+        int c = a + b;
+        ASSERT(5, a);
+        ASSERT(10, b);
+        ASSERT(15, c);
+    }
+    {
+        int x[3] = {1, 2, 3};
+        ASSERT(1, x[0]);
+        ASSERT(2, x[1]);
+        ASSERT(3, x[2]);
+    }
+    {
+        char x[3] = {'a', 'b', 'c'};
+        ASSERT('a', x[0]);
+        ASSERT('b', x[1]);
+        ASSERT('c', x[2]);
+    }
+}
+
 void test_local_variables() {
     {
         int a;
@@ -89,17 +115,6 @@ void test_local_variables() {
         ASSERT(30, a * b);
         ASSERT(1, a < b);
         ASSERT(0, a > b);
-    }
-    {
-        int a = 5;
-        ASSERT(5, a);
-    }
-    {
-        int a = 5, b = 10;
-        int c = a + b;
-        ASSERT(5, a);
-        ASSERT(10, b);
-        ASSERT(15, c);
     }
     {
         int foo;

@@ -12,6 +12,7 @@ static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
 static Node *stmt();
 static Node *vardecl();
+static Node *arrayinit(int *elemCount);
 static Node *expr();
 static Node *assign();
 static Node *equality();
@@ -1040,11 +1041,41 @@ static Node *vardecl(){
         // Parse initialzier statement
         token = globals.token;
         if (consumeReserved("=")) {
-            // TODO: Support array initializer
-            Node *cur = n->next;
-            cur = newNodeBinary(NodeAssign, cur, expr(), cur->type);
-            cur->token = token;
-            n->next = cur;
+            Node *refvar = n->next;
+            if (consumeReserved("{")) {
+                int elemCount = 0;
+                int elemIndex = 0;
+                Node *initexpr = NULL;
+                if (varType->type != TypeArray)
+                    errorAt(refvar->token->str, "Array type needed");
+
+                globals.token = globals.token->prev;
+                initexpr = arrayinit(&elemCount);
+                if (elemCount > varType->arraySize) {
+                    errorAt(token->str, "Too much elements appears in initializer");
+                } else if (elemCount != elemIndex) {
+                    errorAt(token->str,
+                            "Clearing rest items with 0 is not implemented yet.");
+                }
+                for (Node *e = initexpr; e; e = e->next) {
+                    Node *deref = newNodeBinary(
+                            NodeDeref,
+                            refvar,
+                            newNodeNum(elemIndex++),
+                            refvar->type->baseType);
+                    n->next = newNodeBinary(
+                            NodeAssign,
+                            deref,
+                            e,
+                            refvar->type->baseType);
+                    n->next->token = e->token;
+                    n = n->next;
+                }
+            } else {
+                Node *init = newNodeBinary(NodeAssign, refvar, expr(), refvar->type);
+                init->token = token;
+                n->next = init;
+            }
         }
 
         n = n->next;
@@ -1056,6 +1087,24 @@ static Node *vardecl(){
     expectSign(";");
 
     return headNode.next;
+}
+
+static Node *arrayinit(int *elemCount) {
+    Node head;
+    Node *exprs = &head;
+
+    if (!consumeReserved("{"))
+        errorUnreachable();
+
+    for (;;) {
+        exprs->next = expr();
+        exprs = exprs->next;
+        (*elemCount)++;
+        if (!consumeReserved(","))
+            break;
+    }
+    expectSign("}");
+    return exprs;
 }
 
 static Node *expr() {

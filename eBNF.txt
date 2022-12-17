@@ -11,7 +11,7 @@ stmt        = expr ";" |
                 "while" "(" expr ")" stmt |
                 "return" expr ";"
 vardecl     = basetype vardeclbody ("," vardeclbody)* ";"
-vardeclbody = pointertype ident ("=" expr)
+vardeclbody = pointertype ident ("=" (expr | "{" (expr ("," expr)*)? "}"))
 expr        = assign
 assign      = equality (("=" | "+=" | "-=") assign)?
 equality    = relational ("==" relational | "!=" relational)*
