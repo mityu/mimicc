@@ -657,6 +657,8 @@ void genCode(const Node *n) {
                 puts("  pop rax");
             }
         }
+        if (n->localVarSize)
+            printf("  add rsp, %d\n", n->localVarSize);
         return;
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
