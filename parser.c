@@ -12,7 +12,7 @@ static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
 static Node *stmt();
 static Node *vardecl();
-static Node *arrayinit(int *elemCount);
+static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr();
 static Node *assign();
 static Node *equality();
@@ -969,6 +969,7 @@ static Node *stmt() {
 // Parse local variable declaration. If there's no variable declaration,
 // returns NULL.
 static Node *vardecl(){
+    Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
     Token *ident = NULL;
@@ -992,7 +993,6 @@ static Node *vardecl(){
     for (;;) {
         TypeInfo arrayTypeHead;
         TypeInfo *currentType = &arrayTypeHead;
-        Token *token = NULL;
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
@@ -1038,56 +1038,19 @@ static Node *vardecl(){
             globals.currentBlock->localVars = lvar;
         }
 
-        n->next = newNodeLVar(lvar->offset, lvar->type);
-
         // Parse initialzier statement
-        token = globals.token;
         if (consumeReserved("=")) {
-            Node *refvar = n->next;
-            if (consumeReserved("{")) {
-                int elemCount = 0;
-                int elemIndex = 0;
-                Node *initexpr = NULL;
-                if (varType->type != TypeArray)
-                    errorAt(refvar->token->str, "Array type needed");
+            Token *tokenAssign = globals.token->prev;
+            int elemCount = 0;
+            Node *var = newNodeLVar(lvar->offset, lvar->type);
 
-                globals.token = globals.token->prev;
-                initexpr = arrayinit(&elemCount);
-                if (elemCount > varType->arraySize) {
-                    errorAt(token->str, "Too much elements appears in initializer");
-                } else if (elemCount != varType->arraySize) {
-                    errorAt(token->str,
-                            "Clearing rest items with 0 is not implemented yet.");
-                }
-                for (Node *e = initexpr; e; e = e->next) {
-                    Node *ptradjust = newNodeBinary(
-                            NodeAdd,
-                            refvar,
-                            newNodeNum(elemIndex++),
-                            refvar->type);
-                    Node *deref = newNodeBinary(
-                            NodeDeref,
-                            NULL,
-                            ptradjust,
-                            refvar->type->baseType);
-                    n->next = newNodeBinary(
-                            NodeAssign,
-                            deref,
-                            e,
-                            refvar->type->baseType);
-                    n->next->token = e->token;
-                    n = n->next;
-                }
-            } else {
-                Node *init = newNodeBinary(NodeAssign, refvar, expr(), refvar->type);
-                init->token = token;
-                n->next = init;
-                n = n->next;
-            }
-        } else {
+            if (var->type->type == TypeArray)
+                n->next = arrayinit(var, var->type, &elemCount);
+            else
+                n->next = newNodeBinary(NodeAssign, var, expr(), var->type);
+
             n = n->next;
         }
-
 
         if (!consumeReserved(","))
             break;
@@ -1095,31 +1058,69 @@ static Node *vardecl(){
 
     expectSign(";");
 
-    if (headNode.next) {
-        Node *block = newNode(NodeBlock, &Types.None);
-        block->body = headNode.next;
-        return block;
-    }
-    return NULL;
+    initblock->body = headNode.next;
+    return initblock;
 }
 
-static Node *arrayinit(int *elemCount) {
+static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
     Node head;
     Node *exprs = &head;
-
-    if (!consumeReserved("{"))
-        errorUnreachable();
+    Token *tokenValSet = globals.token;
 
     head.next = NULL;
-    for (;;) {
-        exprs->next = expr();
-        exprs = exprs->next;
-        (*elemCount)++;
-        if (!consumeReserved(","))
-            break;
+    *elemCount = 0;
+
+    expectSign("{");
+    if (elemType->baseType->type == TypeArray) {
+        // Parse "{{...}, {...}, ...}"
+        for (;;) {
+            int childElemCount = 0;
+            int arraySize = lvar->type->baseType->arraySize;  // Child array size
+            Node *elem = newNodeBinary(
+                    NodeAdd, lvar, newNodeNum(*elemCount), elemType);
+
+            exprs->next = arrayinit(elem, elemType->baseType, &childElemCount);
+
+            exprs = exprs->next;
+            (*elemCount)++;
+
+            if (childElemCount > arraySize) {
+                errorAt(
+                        tokenValSet->str,
+                        "%d items given to array sized %d.",
+                        childElemCount,
+                        arraySize);
+            } else if (childElemCount != arraySize) {
+                errorAt(tokenValSet->str,
+                        "Clearing rest items with 0 is not implemented yet.");
+            }
+
+            if (!consumeReserved(","))
+                break;
+        }
+    } else {
+        // Parse "{expr, expr, ...}"
+        for (;;) {
+            Node *ptradjust = newNodeBinary(
+                    NodeAdd, lvar, newNodeNum(*elemCount), elemType);
+            Node *elem = newNodeBinary(
+                    NodeDeref, NULL, ptradjust, elemType->baseType);
+            exprs->next = newNodeBinary(NodeAssign, elem, expr(), elem->type);
+            exprs = exprs->next;
+            (*elemCount)++;
+            if (!consumeReserved(","))
+                break;
+        }
     }
     expectSign("}");
-    return head.next;
+
+    if (head.next) {
+        Node *block = newNode(NodeBlock, &Types.None);
+        block->body = head.next;
+        return block;
+    }
+    errorUnreachable();
+    return NULL;
 }
 
 static Node *expr() {

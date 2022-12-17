@@ -81,6 +81,16 @@ void test_init_local_variables(void) {
         ASSERT('b', x[1]);
         ASSERT('c', x[2]);
     }
+    {
+        int x[2][3] = {
+            {1, 2, 3},
+            {4, 5, 6}
+        };
+        int i, j;
+        for (i = 0; i < 2; ++i)
+            for (j = 0; j < 3; ++j)
+                ASSERT(i*3 + j + 1, x[i][j]);
+    }
 }
 
 void test_local_variables() {

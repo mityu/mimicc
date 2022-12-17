@@ -4,14 +4,14 @@ finish
 program     = decl*
 decl        = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")* ";")
 stmt        = expr ";" |
-                type ident ("[" num "]")* ";" |
+                vardecl ";" |
                 "{" stmt* "}" |
                 "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
                 "for" "(" expr? ";" expr? ";" expr? ") stmt |
                 "while" "(" expr ")" stmt |
                 "return" expr ";"
 vardecl     = basetype vardeclbody ("," vardeclbody)* ";"
-vardeclbody = pointertype ident ("=" (expr | "{" (expr ("," expr)*)? "}"))
+vardeclbody = pointertype ident ("[" num "]")* ("=" (expr | "{" (expr ("," expr)*)? "}"))
 expr        = assign
 assign      = equality (("=" | "+=" | "-=") assign)?
 equality    = relational ("==" relational | "!=" relational)*
