@@ -116,10 +116,9 @@ static void printlen(const char* str, int len) {
 }
 
 static int isExprNode(const Node *n) {
+    // All cases in this switch uses fallthrough.
     switch (n->kind) {
-    default:
-        return 0;
-    case NodeAdd:  // All cases below are fallthrough.
+    case NodeAdd:
     case NodeSub:
     case NodeMul:
     case NodeDiv:
@@ -135,11 +134,24 @@ static int isExprNode(const Node *n) {
     case NodeAddress:
     case NodeDeref:
     case NodeNum:
+    case NodeLiteralString:
     case NodeLVar:
     case NodeAssign:
     case NodeFCall:
+    case NodeExprList:
+    case NodeGVar:
         return 1;
+    case NodeIf:
+    case NodeElseif:
+    case NodeElse:
+    case NodeFor:
+    case NodeBlock:
+    case NodeReturn:
+    case NodeFunction:
+        return 0;
     }
+    errorUnreachable();
+    return 0;
 }
 
 // Return an integer corresponding to 1 for given type.
@@ -638,13 +650,79 @@ static void genCodeDecrement(const Node *n, int prefix) {
     }
 }
 
+static void genCodeAdd(const Node *n) {
+    int altOne = getAlternativeOfOneForType(n->type);
+    genCode(n->lhs);
+    genCode(n->rhs);
+
+    if (isWorkLikePointer(n->lhs->type) || isWorkLikePointer(n->rhs->type)) {
+        // Load integer to RAX and pointer to RDI in either case.
+        if (isWorkLikePointer(n->lhs->type)) { // ptr + num
+            puts("  pop rax");
+            puts("  pop rdi");
+        } else {  // num + ptr
+            puts("  pop rdi");
+            puts("  pop rax");
+        }
+        printf("  mov rsi, %d\n", altOne);
+        puts("  imul rax, rsi");
+        puts("  add rax, rdi");
+        puts("  push rax");
+    } else {
+        puts("  pop rdi");
+        puts("  pop rax");
+        switch (sizeOf(n->lhs->type)) {
+        case 8:
+            puts("  add rax, rdi");
+            break;
+        case 4:
+            puts("  add eax, edi");
+            puts("  movsx rax, eax");
+            break;
+        case 1:
+            puts("  add al, dil");
+            puts("  movsx rax, al");
+            break;
+        default:
+            errorUnreachable();
+        }
+        puts("  push rax");
+    }
+}
+
+static void genCodeSub(const Node *n) {
+    int altOne = getAlternativeOfOneForType(n->type);
+    genCode(n->lhs);
+    genCode(n->rhs);
+
+    puts("  pop rdi");
+    puts("  pop rax");
+    if (altOne != 1) {
+        printf("  mov rsi, %d\n", altOne);
+        puts("  imul rdi, rsi");
+        puts("  sub rax, rdi");
+        puts("  push rax");
+    } else {
+        switch (sizeOf(n->type)) {
+        case 4:
+            puts("  sub eax, edi");
+            puts("  movsx rax, eax");
+            break;
+        case 1:
+            puts("  sub al, dil");
+            puts("  movsx rax, al");
+        default:
+            errorUnreachable();
+        }
+        puts("  push rax");
+    }
+}
+
 void genCode(const Node *n) {
     if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
-        return;
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
-        return;
     } else if (n->kind == NodeBlock) {
         if (n->localVarSize)
             printf("  sub rsp, %d\n", n->localVarSize);
@@ -659,14 +737,20 @@ void genCode(const Node *n) {
         }
         if (n->localVarSize)
             printf("  add rsp, %d\n", n->localVarSize);
-        return;
+    } else if (n->kind == NodeExprList) {
+        for (Node *c = n->body; c; c = c->next) {
+            genCode(c);
+            // Throw away values that expressions left on stack, but the last
+            // expression is the exception and its result value may be used in
+            // next statement.
+            if (isExprNode(c) && c->next)
+                puts("  pop rax");
+        }
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
-        return;
     } else if (n->kind == NodeLiteralString) {
         printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         puts("  push rax");
-        return;
     } else if (n->kind == NodeLVar || n->kind == NodeGVar) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
@@ -697,133 +781,62 @@ void genCode(const Node *n) {
         }
         puts("  push rax");
 
-        return;
     } else if (n->kind == NodeAssign) {
         genCodeAssign(n);
-        return;
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
-        return;
     } else if (n->kind == NodeIf) {
         genCodeIf(n);
-        return;
     } else if (n->kind == NodeFor) {
         genCodeFor(n);
-        return;
     } else if (n->kind == NodeFCall) {
         genCodeFCall(n);
-        return;
     } else if (n->kind == NodeFunction) {
         genCodeFunction(n);
-        return;
     } else if (n->kind == NodePreIncl || n->kind == NodePostIncl) {
         genCodeIncrement(n, n->kind == NodePreIncl);
-        return;
     } else if (n->kind == NodePreDecl || n->kind == NodePostDecl) {
         genCodeDecrement(n, n->kind == NodePreDecl);
-        return;
     } else if (n->kind == NodeAdd) {
-        int altOne = getAlternativeOfOneForType(n->type);
-        genCode(n->lhs);
-        genCode(n->rhs);
-
-        if (isWorkLikePointer(n->lhs->type) || isWorkLikePointer(n->rhs->type)) {
-            // Load integer to RAX and pointer to RDI in either case.
-            if (isWorkLikePointer(n->lhs->type)) { // ptr + num
-                puts("  pop rax");
-                puts("  pop rdi");
-            } else {  // num + ptr
-                puts("  pop rdi");
-                puts("  pop rax");
-            }
-            printf("  mov rsi, %d\n", altOne);
-            puts("  imul rax, rsi");
-            puts("  add rax, rdi");
-            puts("  push rax");
-        } else {
-            puts("  pop rdi");
-            puts("  pop rax");
-            switch (sizeOf(n->lhs->type)) {
-            case 8:
-                puts("  add rax, rdi");
-                break;
-            case 4:
-                puts("  add eax, edi");
-                puts("  movsx rax, eax");
-                break;
-            case 1:
-                puts("  add al, dil");
-                puts("  movsx rax, al");
-                break;
-            default:
-                errorUnreachable();
-            }
-            puts("  push rax");
-        }
-        return;
+        genCodeAdd(n);
     } else if (n->kind == NodeSub) {
-        int altOne = getAlternativeOfOneForType(n->type);
+        genCodeSub(n);
+    } else {
         genCode(n->lhs);
         genCode(n->rhs);
 
         puts("  pop rdi");
         puts("  pop rax");
-        if (altOne != 1) {
-            printf("  mov rsi, %d\n", altOne);
-            puts("  imul rdi, rsi");
-            puts("  sub rax, rdi");
-            puts("  push rax");
-        } else {
-            switch (sizeOf(n->type)) {
-            case 4:
-                puts("  sub eax, edi");
-                puts("  movsx rax, eax");
-                break;
-            case 1:
-                puts("  sub al, dil");
-                puts("  movsx rax, al");
-            default:
-                errorUnreachable();
-            }
-            puts("  push rax");
+
+        // Maybe these oprands should use only 8bytes registers.
+        if (n->kind == NodeMul) {
+            puts("  imul rax, rdi");
+        } else if (n->kind == NodeDiv) {
+            puts("  cqo");
+            puts("  idiv rdi");
+        } else if (n->kind == NodeDivRem) {
+            puts("  cqo");
+            puts("  idiv rdi");
+            puts("  push rdx");
+            return;
+        } else if (n->kind == NodeEq) {
+            puts("  cmp rax, rdi");
+            puts("  sete al");
+            puts("  movzb rax, al");
+        } else if (n->kind == NodeNeq) {
+            puts("  cmp rax, rdi");
+            puts("  setne al");
+            puts("  movzb rax, al");
+        } else if (n->kind == NodeLT) {
+            puts("  cmp rax, rdi");
+            puts("  setl al");
+            puts("  movzb rax, al");
+        } else if (n->kind == NodeLE) {
+            puts("  cmp rax, rdi");
+            puts("  setle al");
+            puts("  movzb rax, al");
         }
-        return;
+
+        puts("  push rax");
     }
-
-    genCode(n->lhs);
-    genCode(n->rhs);
-
-    puts("  pop rdi");
-    puts("  pop rax");
-
-    // Maybe these oprands should use only 8bytes registers.
-    if (n->kind == NodeMul) {
-        puts("  imul rax, rdi");
-    } else if (n->kind == NodeDiv) {
-        puts("  cqo");
-        puts("  idiv rdi");
-    } else if (n->kind == NodeDivRem) {
-        puts("  cqo");
-        puts("  idiv rdi");
-        puts("  push rdx");
-        return;
-    } else if (n->kind == NodeEq) {
-        puts("  cmp rax, rdi");
-        puts("  sete al");
-        puts("  movzb rax, al");
-    } else if (n->kind == NodeNeq) {
-        puts("  cmp rax, rdi");
-        puts("  setne al");
-        puts("  movzb rax, al");
-    } else if (n->kind == NodeLT) {
-        puts("  cmp rax, rdi");
-        puts("  setl al");
-        puts("  movzb rax, al");
-    } else if (n->kind == NodeLE) {
-        puts("  cmp rax, rdi");
-        puts("  setle al");
-        puts("  movzb rax, al");
-    }
-
-    puts("  push rax");
 }

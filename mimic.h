@@ -97,6 +97,7 @@ typedef enum {
     NodeElseif,
     NodeElse,
     NodeFor,
+    NodeExprList,      // Expressions concatenated by commas.
     NodeBlock,         // { ... }
     NodeReturn,        // return {expr};
     NodeFunction,

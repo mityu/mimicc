@@ -1084,7 +1084,7 @@ static Node *vardecl(){
                             "Clearing rest items with 0 is not implemented yet.");
                 }
             } else {
-                n->next = newNodeBinary(NodeAssign, varNode, expr(), varType);
+                n->next = newNodeBinary(NodeAssign, varNode, assign(), varType);
             }
 
             n = n->next;
@@ -1205,7 +1205,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                         NodeAdd, lvar, newNodeNum(*elemCount), elemType);
                 Node *elem = newNodeBinary(
                         NodeDeref, NULL, ptradjust, elemType->baseType);
-                exprs->next = newNodeBinary(NodeAssign, elem, expr(), elem->type);
+                exprs->next = newNodeBinary(NodeAssign, elem, assign(), elem->type);
                 exprs = exprs->next;
                 (*elemCount)++;
                 if (!consumeReserved(","))
@@ -1231,8 +1231,22 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
 }
 
 static Node *expr() {
+    Node *list = NULL;
     Node *n = assign();
-    return n;
+    if (consumeReserved(",")) {
+        list = newNode(NodeExprList, &Types.None);
+        list->body = n;
+        for (;;) {
+            n->next = assign();
+            n = n->next;
+            if (!consumeReserved(","))
+                break;
+        }
+        list->type = n->type;
+    } else {
+        list = n;
+    }
+    return list;
 }
 
 static Node *assign() {
@@ -1420,7 +1434,7 @@ static Node *primary() {
                 return n;
             }
             for (;;) {
-                arg = expr();
+                arg = assign();
                 arg->next = n->fcall->args;
                 n->fcall->args = arg;
                 ++n->fcall->argsCount;

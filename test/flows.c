@@ -149,6 +149,33 @@ int test_while_3(void) {
     return a;
 }
 
+// TODO: These should be in another file?
+int helper_always_1(void) {
+    return 1;
+}
+
+int helper_always_3(void) {
+    return 3;
+}
+
+void test_comma_1(void) {
+    int n[] = {5, 7, 11, 13, 17, 19};
+    int r;
+    r = n[helper_always_1(), helper_always_3()];
+    ASSERT(13, r);
+    r = n[helper_always_3(), helper_always_1()];
+    ASSERT(7, r);
+}
+
+void test_comma_2(void) {
+    int a = 3, b = 5;
+    int c;
+    c = a = 11, b = 13;
+    ASSERT(11, a);
+    ASSERT(13, b);
+    ASSERT(11, c);
+}
+
 int main(void) {
     ASSERT(42, test_if_return_1());
     ASSERT(42, test_if_return_2());
@@ -169,5 +196,7 @@ int main(void) {
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());
     ASSERT(20, test_while_3());
+    test_comma_1();
+    test_comma_2();
     return 0;
 }

@@ -1,30 +1,31 @@
 0;/\C\<Alith\>//^finish$/+1,$Alith \%(=.*\)\@<!=
 finish
 
-program     = decl*
-decl        = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")* ";")
-stmt        = expr ";" |
-                vardecl ";" |
-                "{" stmt* "}" |
-                "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
-                "for" "(" expr? ";" expr? ";" expr? ") stmt |
-                "while" "(" expr ")" stmt |
-                "return" expr ";"
-vardecl     = basetype vardeclbody ("," vardeclbody)* ";"
-vardeclbody = pointertype ident ("[" num "]")* ("=" (expr | "{" (expr ("," expr)*)? "}"))
-expr        = assign
-assign      = equality (("=" | "+=" | "-=") assign)?
-equality    = relational ("==" relational | "!=" relational)*
-relational  = add (">" add | "<" add | ">=" add | "<=" add)*
-add         = mul ("+" mul | "-" mul)*
-mul         = unary ("*" unary | "/" unary | "%" unary)*
-unary       = ("+" | "-")? primary |
-                ("++" | "--" | "&" | "*") unary |
-                "sizeof" unary
-primary     = num |
-                ident ("(" (expr ("," expr)*)? ")")? |
-                "(" expr ")" |
-                primary ("++" | "--" | ("[" expr "]")*)
-type        = basetype pointertype
-pointertype = "*"*
-basetype    = "int" | "char" | "void"
+program         = decl*
+decl            = type ident ("(" (type ident ("," type ident)*)? ")" ("{" stmt* "}" | ";") | ("[" num "]")* ";")
+stmt            = expr ";" |
+                    vardecl ";" |
+                    "{" stmt* "}" |
+                    "if" "(" expr ")" stmt ("else" "if" "(" expr ")" stmt)* ("else" stmt)? |
+                    "for" "(" expr? ";" expr? ";" expr? ") stmt |
+                    "while" "(" expr ")" stmt |
+                    "return" expr ";"
+vardecl         = basetype vardeclbody ("," vardeclbody)* ";"
+vardeclbody     = pointertype ident ("[" num "]")* var-initizlier?
+var-initializer = "=" (assign | "{" (assign ("," assign)*)? "}")
+expr            = assign ("," expr)*
+assign          = equality (("=" | "+=" | "-=") assign)?
+equality        = relational ("==" relational | "!=" relational)*
+relational      = add (">" add | "<" add | ">=" add | "<=" add)*
+add             = mul ("+" mul | "-" mul)*
+mul             = unary ("*" unary | "/" unary | "%" unary)*
+unary           = ("+" | "-")? primary |
+                    ("++" | "--" | "&" | "*") unary |
+                    "sizeof" unary
+primary         = num |
+                    ident ("(" (assign ("," assign)*)? ")")? |
+                    "(" expr ")" |
+                    primary ("++" | "--" | ("[" expr "]")*)
+type            = basetype pointertype
+pointertype     = "*"*
+basetype        = "int" | "char" | "void"
