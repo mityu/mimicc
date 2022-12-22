@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,47 @@ void *safeAlloc(size_t size) {
         error("Allocating memory failed.");
     memset(p, 0, size);
     return p;
+}
+
+// Print error message on stderr and exit.
+void error(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
+
+void errorAt(char *loc, const char *fmt, ...) {
+    char *head = loc;  // Head of error line
+    char *tail = loc;  // Tail of error line
+    int linenr = 1;    // Line number of error line
+    int indent = 0;
+    int pos = 0;
+    va_list ap;
+    va_start(ap, fmt);
+
+    // Search for line head and tail.
+    while (head > globals.source && head[-1] != '\n')
+        head--;
+    while (*tail != '\n')
+        tail++;
+
+    for (char *p = globals.source; p < head; ++p)
+        if (*p == '\n')
+            linenr++;
+
+    indent = fprintf(stderr, "%s:%d: ", globals.sourceFile, linenr);
+    fprintf(stderr, "%.*s\n", (int)(tail - head), head);
+
+    pos = loc - head + indent;
+    if (pos) {
+        fprintf(stderr, "%*s", pos, " ");
+    }
+    fprintf(stderr, "^ ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 static char *readFile(const char *path) {

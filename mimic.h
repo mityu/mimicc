@@ -186,15 +186,25 @@ struct Globals {
 };
 extern Globals globals;
 
+// main.c
 void *safeAlloc(size_t size);
-void genCode(const Node *n);
-void genCodeGlobals();
 void error(const char *fmt, ...);
 void errorAt(char *loc, const char *fmt, ...);
+
+// codegen.c
+void genCode(const Node *n);
+void genCodeGlobals();
+
+// tokenizer.c
 Token *tokenize();
+int checkEscapeChar(char c, char quote, char *decoded);
+
+// parser.c
 void program();
 Function *findFunction(const char *name, int len);
 int sizeOf(const TypeInfo *ti);
+
+// verifier.c
 void verifyType(const Node *n);
 int isWorkLikePointer(const TypeInfo *t);
 #endif // HEADER_MIMIC_H
