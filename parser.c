@@ -322,6 +322,19 @@ Token *tokenize() {
     return head.next;
 }
 
+// Check if current token matches `op` with type TokenReserved, and returns
+// TRUE if so.
+static int matchReserved(char *op) {
+    if (atEOF())
+        errorUnexpectedEOF();
+    if (globals.token->type == TokenReserved &&
+            strlen(op) == (size_t)globals.token->len &&
+            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
 // If the current token is the expected token, consume the token and returns
 // TRUE.
 static int consumeReserved(char *op) {
@@ -414,13 +427,7 @@ static int consumeCertainTokenType(TokenType type) {
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
 static void expectReserved(char *op) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return;
-    }
-    if (globals.token->type == TokenReserved &&
-            strlen(op) == (size_t)globals.token->len &&
-            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
+    if (matchReserved(op)) {
         globals.token = globals.token->next;
         return;
     }
@@ -443,20 +450,13 @@ static int expectNumber() {
     return 0;
 }
 
-// Check if next token matches op with type TypeReserved.  Returns TRUE if so,
-// and returns FALSE otherwise.
-static int assureReserved(char *op) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return 0;
-    }
-    if (globals.token->type == TokenReserved &&
-            strlen(op) == (size_t)globals.token->len &&
-            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
-        return 1;
-    }
+// Check if current token matches to the given token.  If so, do nothing, and
+// otherwise reports an error and exits program.  Note that this function does
+// not consume any tokens.
+static void assureReserved(char *op) {
+    if (matchReserved(op))
+            return;
     errorAt(globals.token->str, "'%s' is expected.", op);
-    return 0;
 }
 
 static int atEOF() {
@@ -1160,10 +1160,8 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
                 break;
 
             // In case of "{expr, expr, ..., expr,}"
-            if (consumeReserved("}")) {
-                globals.token = globals.token->prev;
+            if (matchReserved("}"))
                 break;
-            }
         }
         expectReserved("}");
     } else {
@@ -1214,10 +1212,8 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
                     break;
 
                 // In case of "{expr, expr, ..., expr,}"
-                if (consumeReserved("}")) {
-                    globals.token = globals.token->prev;
+                if (matchReserved("}"))
                     break;
-                }
             }
             expectReserved("}");
         }
