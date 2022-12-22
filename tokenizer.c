@@ -30,13 +30,19 @@ static int isToken(char *p, char *op) {
 
 // Check character after backslash builds an escape character.
 // If so, set the escape character to *decoded and returns TRUE.
-int checkEscapeChar(char c, char quote, char *decoded) {
+int checkEscapeChar(char c, char *decoded) {
     static const char table[][2] = {
+        {'\'', '\''},
+        {'"', '"'},
+        {'\\', '\\'},
+        {'?', '\?'},
+        {'a', '\a'},
+        {'b', '\b'},
+        {'f', '\f'},
         {'n', '\n'},
         {'r', '\r'},
         {'t', '\t'},
         {'v', '\v'},
-        {'\\', '\\'},
         {'0', '\0'},
     };
     for (int i = 0; i < (sizeof(table)/sizeof(table[0])); ++i) {
@@ -44,10 +50,6 @@ int checkEscapeChar(char c, char quote, char *decoded) {
             *decoded = table[i][1];
             return 1;
         }
-    }
-    if (c == quote) {
-        *decoded = quote;
-        return 1;
     }
     *decoded = c;
     return 0;
@@ -198,7 +200,7 @@ Token *tokenize() {
             } else if (*p == '\'') {
                 errorAt(q, "Empty character literal.");
             } else if (*p == '\\') {
-                if (!checkEscapeChar(*(++p), '\'', &c)) {
+                if (!checkEscapeChar(*(++p), &c)) {
                     errorAt(p - 1, "Invalid escape character.");
                 }
             } else {
@@ -232,7 +234,7 @@ Token *tokenize() {
                     if (*p == '\0') {
                         --literalLen;
                         break;
-                    } else if (!checkEscapeChar(*p, '"', &c)) {
+                    } else if (!checkEscapeChar(*p, &c)) {
                         errorAt(p - 1, "Invalid escape character.");
                     }
                 }

@@ -197,7 +197,7 @@ void genCodeGlobals();
 
 // tokenizer.c
 Token *tokenize();
-int checkEscapeChar(char c, char quote, char *decoded);
+int checkEscapeChar(char c, char *decoded);
 
 // parser.c
 void program();

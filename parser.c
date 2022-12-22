@@ -901,7 +901,7 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
 
                 if (c == '\\') {
                     char cc = 0;
-                    if (checkEscapeChar(string->string[++i], '"', &cc))
+                    if (checkEscapeChar(string->string[++i], &cc))
                         c = cc;
                     else
                         --i;
