@@ -672,6 +672,8 @@ void program() {
     globals.code->body = body.next;
 }
 
+// Parse declarations of global variables/functions, and definitions of
+// functions.
 static Node *decl() {
     TypeInfo *baseType = NULL;
     TypeInfo *type = NULL;
@@ -721,6 +723,11 @@ static Node *decl() {
                 if (currentType != &arrayTypeHead) {
                     currentType->baseType = type;
                     type = arrayTypeHead.baseType;
+                }
+
+                if (type->type == TypeVoid) {
+                    errorAt(ident->str,
+                            "Cannot declare variable with type \"void\"");
                 }
 
                 // Global variable doesn't have an offset.
