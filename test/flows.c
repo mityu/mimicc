@@ -120,6 +120,14 @@ int test_for_2(void) {
     return a;
 }
 
+int test_for_3(void) {
+    int sum = 0;
+    for (int i = 1; i <= 10; ++i) {
+        sum += i;
+    }
+    return sum;
+}
+
 int test_while_return_1(void) {
     while(1)
         return 10;
@@ -192,6 +200,7 @@ int main(void) {
     ASSERT(10, test_for_return_4());
     ASSERT(6, test_for_1());
     ASSERT(89, test_for_2());
+    ASSERT(55, test_for_3());
     ASSERT(10, test_while_return_1());
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());

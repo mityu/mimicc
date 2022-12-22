@@ -644,11 +644,38 @@ static Node *stmt() {
 
         return n;
     } else if (consumeCertainTokenType(TokenFor)) {
-        Node *n = newNodeFor();
+        // Creating new block here is to support variable declarations in
+        // for-statement's initializer.
+        // In detail, we compile the following code
+        //    for (int i = 0; i < 10; ++i) {...}
+        // like this:
+        //    {
+        //        int i = 0;
+        //        for (; i < 10; ++i) {...}
+        //    }
+        Node *block = newNode(NodeBlock, &Types.None);
+        Node *n;
+
+        // Dive into this `for` block.
+        globals.currentBlock = block;
+
+        n = newNodeFor();
+        block->body = n;
+
         expectReserved("(");
         if (!consumeReserved(";")) {
-            n->initializer = expr();
-            expectReserved(";");
+            Token *tokenSave = globals.token;
+            if (parseBaseType()) {
+                Node *block = newNode(NodeBlock, &Types.None);
+
+                globals.token = tokenSave;
+                block->body = varDeclaration();
+
+                n->initializer = block;
+            } else {
+                n->initializer = expr();
+                expectReserved(";");
+            }
         }
         if (!consumeReserved(";")) {
             n->condition = expr();
@@ -659,7 +686,11 @@ static Node *stmt() {
             expectReserved(")");
         }
         n->body = stmt();
-        return n;
+
+        // Escape this block.
+        globals.currentBlock = block->outerBlock;
+
+        return block;
     } else if (consumeCertainTokenType(TokenWhile)) {
         Node *n = newNodeFor();
         expectReserved("(");

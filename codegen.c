@@ -381,7 +381,11 @@ static void genCodeIf(const Node *n) {
 static void genCodeFor(const Node *n) {
     if (n->initializer) {
         genCode(n->initializer);
-        puts("  pop rax");
+
+        // Not always initializer statement left a value on stack.  E.g.
+        // Variable declarations won't left values on stack.
+        if (isExprNode(n->initializer))
+            puts("  pop rax");
     }
     printf(".Lbegin%d:\n", n->blockID);
     if (n->condition) {
