@@ -11,8 +11,8 @@ static TypeInfo *parseBaseType();
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl();
 static Node *stmt();
-static Node *vardecl();
-static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount);
+static Node *varDeclaration();
+static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr();
 static Node *assign();
 static Node *equality();
@@ -413,7 +413,7 @@ static int consumeCertainTokenType(TokenType type) {
 
 // If the current token is the expected sign, consume the token. Otherwise
 // reports an error.
-static void expectSign(char *op) {
+static void expectReserved(char *op) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return;
@@ -443,7 +443,9 @@ static int expectNumber() {
     return 0;
 }
 
-static int assureSign(char *op) {
+// Check if next token matches op with type TypeReserved.  Returns TRUE if so,
+// and returns FALSE otherwise.
+static int assureReserved(char *op) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return 0;
@@ -714,7 +716,7 @@ static Node *decl() {
 
                 while (consumeReserved("[")) {
                     int arraySize = expectNumber();
-                    expectSign("]");
+                    expectReserved("]");
                     currentType->baseType = newTypeInfo(TypeArray);
                     currentType->baseType->arraySize = arraySize;
                     currentType = currentType->baseType;
@@ -751,7 +753,7 @@ static Node *decl() {
                     return NULL;
                 }
             }
-            expectSign(";");
+            expectReserved(";");
             return NULL;
         }
 
@@ -815,7 +817,7 @@ static Node *decl() {
                 if (!consumeReserved(","))
                     break;
             }
-            expectSign(")");
+            expectReserved(")");
         }
         f->args = argHead.next;
         f->argsCount = argsCount;
@@ -888,7 +890,7 @@ static Node *decl() {
         }
 
         // Handle function body
-        assureSign("{");
+        assureReserved("{");
         n->body = stmt();
 
         // Escape from this block to the outer one.
@@ -901,7 +903,7 @@ static Node *decl() {
 }
 
 static Node *stmt() {
-    Node *varDeclNode = vardecl();
+    Node *varDeclNode = varDeclaration();
     if (varDeclNode)
         return varDeclNode;
 
@@ -920,7 +922,7 @@ static Node *stmt() {
         return n;
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
-        expectSign(";");
+        expectReserved(";");
         n = newNodeBinary(NodeReturn, n, NULL, n->type);
         n->token = n->token->prev;
         return n;
@@ -931,16 +933,16 @@ static Node *stmt() {
         elseblock.next = NULL;
         n->blockID = globals.blockCount++;
 
-        expectSign("(");
+        expectReserved("(");
         n->condition = expr();
-        expectSign(")");
+        expectReserved(")");
         n->body = stmt();
 
         while (consumeCertainTokenType(TokenElseif)) {
             Node *e = newNode(NodeElseif, &Types.None);
-            expectSign("(");
+            expectReserved("(");
             e->condition = expr();
-            expectSign(")");
+            expectReserved(")");
             e->body = stmt();
             lastElse->next = e;
             lastElse = lastElse->next;
@@ -957,38 +959,38 @@ static Node *stmt() {
         return n;
     } else if (consumeCertainTokenType(TokenFor)) {
         Node *n = newNodeFor();
-        expectSign("(");
+        expectReserved("(");
         if (!consumeReserved(";")) {
             n->initializer = expr();
-            expectSign(";");
+            expectReserved(";");
         }
         if (!consumeReserved(";")) {
             n->condition = expr();
-            expectSign(";");
+            expectReserved(";");
         }
         if (!consumeReserved(")")) {
             n->iterator = expr();
-            expectSign(")");
+            expectReserved(")");
         }
         n->body = stmt();
         return n;
     } else if (consumeCertainTokenType(TokenWhile)) {
         Node *n = newNodeFor();
-        expectSign("(");
+        expectReserved("(");
         n->condition = expr();
-        expectSign(")");
+        expectReserved(")");
         n->body = stmt();
         return n;
     } else {
         Node *n = expr();
-        expectSign(";");
+        expectReserved(";");
         return n;
     }
 }
 
 // Parse local variable declaration. If there's no variable declaration,
 // returns NULL.
-static Node *vardecl(){
+static Node *varDeclaration(){
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
@@ -1032,7 +1034,7 @@ static Node *vardecl(){
                 if (!consumeNumber(&arraySize))
                     arraySize = -1;
             }
-            expectSign("]");
+            expectReserved("]");
             currentType->baseType = newTypeInfo(TypeArray);
             currentType->baseType->arraySize = arraySize;
             currentType = currentType->baseType;
@@ -1066,7 +1068,7 @@ static Node *vardecl(){
             if (varType->type == TypeArray) {
                 int elemCount = 0;
                 int arraySize = varType->arraySize;
-                n->next = arrayinit(varNode, varType, &elemCount);
+                n->next = arrayInitializer(varNode, varType, &elemCount);
 
                 if (arraySize == -1) {
                     varType->arraySize = elemCount;
@@ -1113,13 +1115,13 @@ static Node *vardecl(){
             break;
     }
 
-    expectSign(";");
+    expectReserved(";");
 
     initblock->body = headNode.next;
     return initblock;
 }
 
-static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
+static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
     Node head;
     Node *exprs = &head;
 
@@ -1128,7 +1130,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
 
     if (elemType->baseType->type == TypeArray) {
         // Parse "{{...}, {...}, ...}"
-        expectSign("{");
+        expectReserved("{");
         for (;;) {
             int childElemCount = 0;
             int arraySize = elemType->baseType->arraySize;  // Child array size
@@ -1136,7 +1138,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                     NodeAdd, lvar, newNodeNum(*elemCount), elemType);
             Token *tokenValSet = globals.token;
 
-            exprs->next = arrayinit(elem, elemType->baseType, &childElemCount);
+            exprs->next = arrayInitializer(elem, elemType->baseType, &childElemCount);
 
             exprs = exprs->next;
             (*elemCount)++;
@@ -1163,7 +1165,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                 break;
             }
         }
-        expectSign("}");
+        expectReserved("}");
     } else {
         // Parse "{expr, expr, ...}" (or string literal for char[])
         Token *stringToken = consumeLiteralString();
@@ -1199,7 +1201,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                 elemIdx++;
             }
         } else {
-            expectSign("{");
+            expectReserved("{");
             for (;;) {
                 Node *ptradjust = newNodeBinary(
                         NodeAdd, lvar, newNodeNum(*elemCount), elemType);
@@ -1217,7 +1219,7 @@ static Node *arrayinit(Node *lvar, TypeInfo *elemType, int *elemCount) {
                     break;
                 }
             }
-            expectSign("}");
+            expectReserved("}");
         }
     }
 
@@ -1389,7 +1391,7 @@ static Node *unary() {
             type = parseBaseType();
             if (type) {
                 type = parsePointerType(type);
-                expectSign(")");
+                expectReserved(")");
             }
         }
 
@@ -1441,7 +1443,7 @@ static Node *primary() {
                 if (!consumeReserved(","))
                     break;
             }
-            expectSign(")");
+            expectReserved(")");
         } else { // Variable accessing.
             LVar *lvar = findLVar(ident->str, ident->len);
             LVar *gvar = NULL;
@@ -1457,7 +1459,7 @@ static Node *primary() {
         }
     } else if (consumeReserved("(")) {
         n = expr();
-        expectSign(")");
+        expectReserved(")");
     } else if ((string = consumeLiteralString())) {
         TypeInfo *type = newTypeInfo(TypeArray);
         type->arraySize = string->literalStr->len;
@@ -1479,7 +1481,7 @@ static Node *primary() {
             if (!isWorkLikePointer(exprType))
                 errorAt(globals.token->prev->str, "Array or pointer is needed.");
             ex = expr();
-            expectSign("]");
+            expectReserved("]");
             n = newNodeBinary(NodeAdd, n, ex, exprType);
             exprType = exprType->baseType;
             if (!consumeReserved("["))
