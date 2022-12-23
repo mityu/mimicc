@@ -105,6 +105,8 @@
 //                         .    (Local variables or tmp values exprs left)
 //                         .
 
+static int loopBlockID = 0;
+
 static void printn(const char* str) {
     for (; *str; ++str)
         putchar(*str);
@@ -146,6 +148,7 @@ static int isExprNode(const Node *n) {
     case NodeElse:
     case NodeFor:
     case NodeBlock:
+    case NodeBreak:
     case NodeReturn:
     case NodeFunction:
         return 0;
@@ -379,6 +382,8 @@ static void genCodeIf(const Node *n) {
 }
 
 static void genCodeFor(const Node *n) {
+    int loopBlockIDSave = loopBlockID;
+    loopBlockID = n->blockID;
     if (n->initializer) {
         genCode(n->initializer);
 
@@ -406,6 +411,7 @@ static void genCodeFor(const Node *n) {
     }
     printf("  jmp .Lbegin%d\n", n->blockID);
     printf(".Lend%d:\n", n->blockID);
+    loopBlockID = loopBlockIDSave;
 }
 
 static void genCodeFCall(const Node *n) {
@@ -787,6 +793,8 @@ void genCode(const Node *n) {
 
     } else if (n->kind == NodeAssign) {
         genCodeAssign(n);
+    } else if (n->kind == NodeBreak) {
+        printf("  jmp .Lend%d\n", loopBlockID);
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
     } else if (n->kind == NodeIf) {

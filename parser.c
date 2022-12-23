@@ -606,6 +606,10 @@ static Node *stmt() {
         n->body = body.next;
         globals.currentBlock = n->outerBlock;  // Escape from this block to the outer one.
         return n;
+    } else if (consumeCertainTokenType(TokenBreak)) {
+        Node *n = newNode(NodeBreak, &Types.None);
+        expectReserved(";");
+        return n;
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectReserved(";");

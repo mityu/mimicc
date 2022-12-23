@@ -128,6 +128,72 @@ int test_for_3(void) {
     return sum;
 }
 
+int test_for_break_1(void) {
+    int n = 7;
+    for (;;) {
+        break;
+        n = 5;
+    }
+    return n;
+}
+
+int test_for_break_2(void) {
+    int n = 7;
+    for (;;)
+        break;
+    n = 5;
+    return n;
+}
+
+int test_for_break_3(void) {
+    int n = 7;
+    for (;;) {
+        n++;
+        break;
+    }
+    return n;
+}
+
+int test_for_break_4(void) {
+    int n = 11;
+    for (int i = 0; i < 1; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            n = 7;
+            break;
+        }
+        n = 5;
+    }
+    return n;
+}
+
+int test_for_break_5(void) {
+    int n = 11;
+    if (1) {
+        for (;;) {
+            n = 7;
+            break;
+        }
+        n = 5;
+    }
+    return n;
+}
+
+int test_for_break_6(void) {
+    int n[3] = {1, 1, 1};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                ++n[2];
+            }
+            ++n[1];
+            break;
+        }
+        ++n[0];
+        break;
+    }
+    return n[0] * 10000 + n[1] * 100 + n[2];
+}
+
 int test_while_return_1(void) {
     while(1)
         return 10;
@@ -201,6 +267,12 @@ int main(void) {
     ASSERT(6, test_for_1());
     ASSERT(89, test_for_2());
     ASSERT(55, test_for_3());
+    ASSERT(7, test_for_break_1());
+    ASSERT(5, test_for_break_2());
+    ASSERT(8, test_for_break_3());
+    ASSERT(5, test_for_break_4());
+    ASSERT(5, test_for_break_5());
+    ASSERT(20204, test_for_break_6());
     ASSERT(10, test_while_return_1());
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());

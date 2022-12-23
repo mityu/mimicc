@@ -153,6 +153,12 @@ Token *tokenize() {
             continue;
         }
 
+        if (isToken(p, "break")) {
+            current = newToken(TokenBreak, current, p, 5);
+            p += 5;
+            continue;
+        }
+
         if (isToken(p, "return")) {
             current = newToken(TokenReturn, current, p, 6);
             p += 6;
