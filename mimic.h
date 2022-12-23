@@ -6,7 +6,13 @@
 #define REG_ARGS_MAX_COUNT  (6)
 #define ONE_WORD_BYTES  (8)
 #define errorUnreachable()  \
-    error("%s:%d: Internal error: unreachable", __FILE__, __LINE__);
+    error("%s:%d: Internal error: unreachable", __FILE__, __LINE__)
+#define runtimeAssert(expr)  \
+    do {\
+        if (!(expr)) \
+            error("%d:%d: Internal error: assert: %s", \
+                    __FILE__, __LINE__, #expr); \
+    } while (0)
 
 typedef struct LiteralString LiteralString;
 
@@ -207,6 +213,7 @@ Function *findFunction(const char *name, int len);
 int sizeOf(const TypeInfo *ti);
 
 // verifier.c
+void verifyFlow(const Node *n);
 void verifyType(const Node *n);
 int isWorkLikePointer(const TypeInfo *t);
 #endif // HEADER_MIMIC_H

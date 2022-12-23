@@ -11,6 +11,31 @@ static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
 static int isLvalue(const Node *n);
 
+void verifyFlow(const Node *n) {
+    static int loopDepth = 0;
+    if (n->kind == NodeFunction) {
+        verifyFlow(n->body);
+    } else if (n->kind == NodeBlock) {
+        for (Node *c = n->body; c; c = c->next) {
+            verifyFlow(c);
+        }
+    } else if (n->kind == NodeFor) {
+        loopDepth++;
+        verifyFlow(n->body);
+        loopDepth--;
+        runtimeAssert(loopDepth >= 0);
+    } else if (n->kind == NodeIf) {
+        verifyFlow(n->body);
+        for (Node *c = n->elseblock; c; c = c->next) {
+            verifyFlow(c->body);
+        }
+    } else if (n->kind == NodeBreak) {
+        if (loopDepth <= 0) {
+            errorAt(n->token->str, "break outside of loop");
+        }
+    }
+}
+
 void verifyType(const Node *n) {
     if (n->kind == NodeFunction) {
         verifyType(n->body);

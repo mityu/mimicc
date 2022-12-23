@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
     program();
 
     verifyType(globals.code);
+    verifyFlow(globals.code);
 
     puts(".intel_syntax noprefix");
     genCode(globals.code);
