@@ -34,8 +34,8 @@ void verifyType(const Node *n) {
         verifyType(n->body);
         for (Node *c = n->elseblock; c; c = c->next) {
             if (c->kind == NodeElseif)
-                verifyType(n->condition);
-            verifyType(n->body);
+                verifyType(c->condition);
+            verifyType(c->body);
         }
     } else if (n->kind == NodeReturn) {
         Node *funcNode = NULL;
