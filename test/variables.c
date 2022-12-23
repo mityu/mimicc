@@ -374,6 +374,18 @@ void test_local_variables() {
     }
 }
 
+void test_increment_or_decrement_array_element(void) {
+    int x[3] = {3, 5, 7};
+    x[2]++;
+    ASSERT(8, x[2]);
+    x[2]--;
+    ASSERT(7, x[2]);
+    ++x[2];
+    ASSERT(8, x[2]);
+    --x[2];
+    ASSERT(7, x[2]);
+}
+
 int local_var_independent() {
     int a[2];
     *a = 5;
@@ -383,6 +395,7 @@ int local_var_independent() {
 int main(void) {
     test_init_local_variables();
     test_local_variables();
+    test_increment_or_decrement_array_element();
     test_global_variables();
     ASSERT(10, local_var_independent());
     return 0;

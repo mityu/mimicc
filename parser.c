@@ -1187,11 +1187,7 @@ static Node *primary() {
         n = newNodeNum(expectNumber());
     }
 
-    if (consumeReserved("++")) {
-        n = newNodeBinary(NodePostIncl, n, NULL, n->type);
-    } else if (consumeReserved("--")) {
-        n = newNodeBinary(NodePostDecl, n, NULL, n->type);
-    } else  if (consumeReserved("[")) {
+    if (consumeReserved("[")) {
         Node *ex = NULL;
         TypeInfo *exprType = n->type;
         for (;;) {
@@ -1205,6 +1201,12 @@ static Node *primary() {
                 break;
         }
         n = newNodeBinary(NodeDeref, NULL, n, exprType);
+    }
+
+    if (consumeReserved("++")) {
+        n = newNodeBinary(NodePostIncl, n, NULL, n->type);
+    } else if (consumeReserved("--")) {
+        n = newNodeBinary(NodePostDecl, n, NULL, n->type);
     }
 
     return n;
