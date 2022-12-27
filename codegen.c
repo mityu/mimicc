@@ -149,6 +149,7 @@ static int isExprNode(const Node *n) {
     case NodeFor:
     case NodeBlock:
     case NodeBreak:
+    case NodeContinue:
     case NodeReturn:
     case NodeFunction:
         return 0;
@@ -405,6 +406,7 @@ static void genCodeFor(const Node *n) {
     if (isExprNode(n->body)) {
         puts("  pop rax");
     }
+    printf(".Literator%d:\n", n->blockID);
     if (n->iterator) {
         genCode(n->iterator);
         puts("  pop rax");
@@ -795,6 +797,8 @@ void genCode(const Node *n) {
         genCodeAssign(n);
     } else if (n->kind == NodeBreak) {
         printf("  jmp .Lend%d\n", loopBlockID);
+    } else if (n->kind == NodeContinue) {
+        printf("  jmp .Literator%d\n", loopBlockID);
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
     } else if (n->kind == NodeIf) {

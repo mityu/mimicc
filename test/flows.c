@@ -194,6 +194,47 @@ int test_for_break_6(void) {
     return n[0] * 10000 + n[1] * 100 + n[2];
 }
 
+void test_for_continue_1(void) {
+    int i, n;
+    n = 7;
+    for (i = 0; i < 5; ++i) {
+        continue;
+        n = 13;
+    }
+    ASSERT(5, i);
+    ASSERT(7, n);
+}
+
+void test_for_continue_2(void) {
+    int i, j, n;
+    n = 13;
+    for (i = 0; i < 3; ++i) {
+        for (j = 0; j < 5; ++j) {
+            continue;
+            n = 17;
+        }
+    }
+    ASSERT(13, n);
+    ASSERT(3, i);
+    ASSERT(5, j);
+}
+
+void test_for_continue_3(void) {
+    int i, j, n;
+    n = 13;
+    for (i = 0; i < 3; ++i) {
+        for (j = 0; j < 3; ++j) {
+            n = 17;
+            continue;
+            n = 19;
+        }
+    }
+
+    ASSERT(17, n);
+    ASSERT(3, i);
+    ASSERT(3, j);
+}
+
 int test_while_return_1(void) {
     while(1)
         return 10;
@@ -273,6 +314,9 @@ int main(void) {
     ASSERT(5, test_for_break_4());
     ASSERT(5, test_for_break_5());
     ASSERT(20204, test_for_break_6());
+    test_for_continue_1();
+    test_for_continue_2();
+    test_for_continue_3();
     ASSERT(10, test_while_return_1());
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());

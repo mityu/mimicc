@@ -610,6 +610,10 @@ static Node *stmt() {
         Node *n = newNode(NodeBreak, &Types.None);
         expectReserved(";");
         return n;
+    } else if (consumeCertainTokenType(TokenContinue)) {
+        Node *n = newNode(NodeContinue, &Types.None);
+        expectReserved(";");
+        return n;
     } else if (consumeCertainTokenType(TokenReturn)) {
         Node *n = expr();
         expectReserved(";");

@@ -60,6 +60,7 @@ typedef enum {
     TokenFor,
     TokenWhile,
     TokenBreak,
+    TokenContinue,
     TokenReturn,
     TokenSizeof,
     TokenLiteralString,
@@ -107,6 +108,7 @@ typedef enum {
     NodeExprList,      // Expressions concatenated by commas.
     NodeBlock,         // { ... }
     NodeBreak,         // break;
+    NodeContinue,      // continue;
     NodeReturn,        // return {expr};
     NodeFunction,
     NodeGVar,          // Global variable, work as lvar.

@@ -29,9 +29,10 @@ void verifyFlow(const Node *n) {
         for (Node *c = n->elseblock; c; c = c->next) {
             verifyFlow(c->body);
         }
-    } else if (n->kind == NodeBreak) {
+    } else if (n->kind == NodeBreak || n->kind == NodeContinue) {
         if (loopDepth <= 0) {
-            errorAt(n->token->str, "break outside of loop");
+            errorAt(n->token->str, "%s outside of loop",
+                    n->kind == NodeBreak ? "break" : "continue");
         }
     }
 }

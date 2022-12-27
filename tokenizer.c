@@ -159,6 +159,12 @@ Token *tokenize() {
             continue;
         }
 
+        if (isToken(p, "continue")) {
+            current = newToken(TokenContinue, current, p, 8);
+            p += 8;
+            continue;
+        }
+
         if (isToken(p, "return")) {
             current = newToken(TokenReturn, current, p, 6);
             p += 6;
