@@ -198,8 +198,8 @@ extern Globals globals;
 
 // main.c
 void *safeAlloc(size_t size);
-void error(const char *fmt, ...);
-void errorAt(char *loc, const char *fmt, ...);
+_Noreturn void error(const char *fmt, ...);
+_Noreturn void errorAt(char *loc, const char *fmt, ...);
 
 // codegen.c
 void genCode(const Node *n);

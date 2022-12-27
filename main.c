@@ -26,7 +26,7 @@ void error(const char *fmt, ...) {
     exit(1);
 }
 
-void errorAt(char *loc, const char *fmt, ...) {
+_Noreturn void errorAt(char *loc, const char *fmt, ...) {
     char *head = loc;  // Head of error line
     char *tail = loc;  // Tail of error line
     int linenr = 1;    // Line number of error line

@@ -3,6 +3,8 @@
 #include <string.h>
 #include "mimic.h"
 
+#define abortIfEOF()  do { if (atEOF()) errorUnexpectedEOF(); } while (0)
+
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static TypeInfo *parseBaseType(void);
@@ -21,23 +23,22 @@ static Node *unary(void);
 static Node *primary(void);
 
 
-static void errorIdentExpected(void) {
+_Noreturn static void errorIdentExpected(void) {
     errorAt(globals.token->str, "An identifier is expected");
 }
 
-static void errorTypeExpected(void) {
+_Noreturn static void errorTypeExpected(void) {
     errorAt(globals.token->str, "An type is expected");
 }
 
-static void errorUnexpectedEOF(void) {
+_Noreturn static void errorUnexpectedEOF(void) {
     errorAt(globals.token->str, "Unexpected EOF");
 }
 
 // Check if current token matches `op` with type TokenReserved, and returns
 // TRUE if so.
 static int matchReserved(char *op) {
-    if (atEOF())
-        errorUnexpectedEOF();
+    abortIfEOF();
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
@@ -49,10 +50,7 @@ static int matchReserved(char *op) {
 // If the current token is the expected token, consume the token and returns
 // TRUE.
 static int consumeReserved(char *op) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return 0;
-    }
+    abortIfEOF();
     if (globals.token->type == TokenReserved &&
             strlen(op) == (size_t)globals.token->len &&
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
@@ -65,10 +63,7 @@ static int consumeReserved(char *op) {
 // If the current token is TokenTypeName, consume the token and return the
 // pointer to the token structure. Return NULL otherwise.
 static Token *consumeTypeName(void) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return NULL;
-    }
+    abortIfEOF();
     if (globals.token->type == TokenTypeName) {
         Token *t = globals.token;
         globals.token = globals.token->next;
@@ -80,10 +75,7 @@ static Token *consumeTypeName(void) {
 // If the type of the current token is TokenIdent, consume the token and
 // returns the pointer to token structure.  If not, returns NULL instead.
 static Token *consumeIdent(void) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return NULL;
-    }
+    abortIfEOF();
     if (globals.token->type == TokenIdent) {
         Token *t = globals.token;
         globals.token = globals.token->next;
@@ -96,10 +88,7 @@ static Token *consumeIdent(void) {
 // and returns the pointer to the token structure.  If not, returns NULL
 // instead.
 static Token *consumeLiteralString(void) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return NULL;
-    }
+    abortIfEOF();
     if (globals.token->type == TokenLiteralString) {
         Token *t = globals.token;
         globals.token = globals.token->next;
@@ -109,9 +98,7 @@ static Token *consumeLiteralString(void) {
 }
 
 static int consumeNumber(int *val) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-    }
+    abortIfEOF();
 
     if (globals.token->type == TokenNumber) {
         *val = globals.token->val;
@@ -124,10 +111,7 @@ static int consumeNumber(int *val) {
 // If the type of the current token is `type`, consume the token and returns
 // TRUE.
 static int consumeCertainTokenType(TokenType type) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return 0;
-    }
+    abortIfEOF();
     if (globals.token->type == type) {
         globals.token = globals.token->next;
         return 1;
@@ -148,10 +132,7 @@ static void expectReserved(char *op) {
 // If the current token is the number token, consume the token and returns the
 // value. Otherwise reports an error.
 static int expectNumber(void) {
-    if (atEOF()) {
-        errorUnexpectedEOF();
-        return 0;
-    }
+    abortIfEOF();
     if (globals.token->type == TokenNumber) {
         int val = globals.token->val;
         globals.token = globals.token->next;
@@ -322,7 +303,6 @@ int sizeOf(const TypeInfo *ti) {
         return sizeOf(ti->baseType) * ti->arraySize;
     }
     errorUnreachable();
-    return -1;
 }
 
 // Determine the type of expression result for arithmetic operands.
@@ -342,7 +322,6 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
         return rhs;
     }
     errorUnreachable();
-    return NULL;
 }
 
 void program(void) {
@@ -370,7 +349,6 @@ static Node *decl(void) {
     baseType = parseBaseType();
     if (!baseType) {
         errorTypeExpected();
-        return NULL;
     }
     type = parsePointerType(baseType);
 
@@ -397,7 +375,6 @@ static Node *decl(void) {
 
                 if (findGlobalVar(ident->str, ident->len)) {
                     errorAt(ident->str, "Redefinition of variable.");
-                    return NULL;
                 }
 
                 while (consumeReserved("[")) {
@@ -436,7 +413,6 @@ static Node *decl(void) {
                 ident = consumeIdent();
                 if (!ident) {
                     errorIdentExpected();
-                    return NULL;
                 }
             }
             expectReserved(";");
@@ -467,7 +443,6 @@ static Node *decl(void) {
                         break;
                     }
                     errorTypeExpected();
-                    return NULL;
                 }
                 typeInfo = parsePointerType(typeInfo);
 
@@ -477,7 +452,6 @@ static Node *decl(void) {
                                 typeToken->str,
                                 "Function parameter must be only one if \"void\" appears."
                                 );
-                        return NULL;
                     }
                     break;
                 }
@@ -746,7 +720,6 @@ static Node *varDeclaration(void){
         ident = consumeIdent();
         if (!ident) {
             errorIdentExpected();
-            return NULL;
         }
 
         while (consumeReserved("[")) {
@@ -772,13 +745,11 @@ static Node *varDeclaration(void){
 
         if (varType->type == TypeVoid) {
             errorAt(ident->str, "Cannot declare variable with type \"void\"");
-            return NULL;
         }
 
         lvar = findLVar(ident->str, ident->len);
         if (lvar) {
             errorAt(ident->str, "Redefinition of variable");
-            return NULL;
         }
 
         // Variable size is not defined when array with size omitted, so do not
@@ -950,7 +921,6 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
         return block;
     }
     errorUnreachable();
-    return NULL;
 }
 
 static Node *expr(void) {
@@ -1174,7 +1144,6 @@ static Node *primary(void) {
                 n = newNode(NodeGVar, gvar->type);
             } else {
                 errorAt(ident->str, "Undefined variable");
-                return NULL;
             }
             n->token = ident;
         }

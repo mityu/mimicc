@@ -185,7 +185,6 @@ static void verifyTypeFCall(const Node *n) {
 
     if (n->kind != NodeFCall) {
         error("Internal error: Not a NodeFCall node is given.");
-        return;
     }
     Function *f = findFunction(n->fcall->name, n->fcall->len);
     if (!f) {
