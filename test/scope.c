@@ -1,6 +1,6 @@
 #include "test.h"
 
-void test_find_var_in_outer_scope() {
+void test_find_var_in_outer_scope(void) {
     int n;
     n = 5;
     ASSERT(5, n);
@@ -23,7 +23,7 @@ void test_find_var_in_outer_scope() {
     ASSERT(30, n);
 }
 
-void test_inner_scope_independent() {
+void test_inner_scope_independent(void) {
     int n;
     n = 5;
     ASSERT(5, n);

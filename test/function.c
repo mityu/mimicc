@@ -38,7 +38,7 @@ int funcRefArgs(int a, int b) {
 void funcPtrArg(int *n) {
     *n = 12345;
 }
-void testFunPtrArg() {
+void testFunPtrArg(void) {
     int n;
     n = 25;
     ASSERT(25, n);
@@ -52,7 +52,7 @@ int funcArg7(int n1, int n2, int n3, int n4, int n5, int n6, int n7) {
     a = 25;
     return n7 + a;
 }
-void testFuncArg7() {
+void testFuncArg7(void) {
     funcArg7(1, 2, 3, 4, 5, 6, 7);
     ASSERT(32, funcArg7(1, 2, 3, 4, 5, 6, 7));
 }
@@ -60,7 +60,7 @@ void testFuncArg7() {
 int funcArg8(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8) {
     return n8;
 }
-void testFuncArg8() {
+void testFuncArg8(void) {
     ASSERT(8, funcArg8(1, 2, 3, 4, 5, 6, 7, 8));
     ASSERT(42, funcArg8(1, 2, 3, 4, 5, 6, funcArg8(1, 2, 3, 4, 5, 6, 7, 8), 42));
 }

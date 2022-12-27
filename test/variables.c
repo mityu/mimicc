@@ -3,7 +3,7 @@
 int g_num1;
 int *g_ptr, g_array[3], g_marray1[2][3], g_marray2[2][3][4], g_num2;
 
-void test_global_variables() {
+void test_global_variables(void) {
     int i, j;
 
     g_num1 = 10;
@@ -147,7 +147,7 @@ void test_init_local_variables(void) {
     }
 }
 
-void test_local_variables() {
+void test_local_variables(void) {
     {
         int a;
         a = 10;
@@ -386,7 +386,7 @@ void test_increment_or_decrement_array_element(void) {
     ASSERT(7, x[2]);
 }
 
-int local_var_independent() {
+int local_var_independent(void) {
     int a[2];
     *a = 5;
     return 10;
