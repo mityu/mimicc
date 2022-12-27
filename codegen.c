@@ -234,7 +234,7 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
     RDI, RSI, RDX, RCX, R8, R9
 };
 
-void genCodeGlobals() {
+void genCodeGlobals(void) {
     if (globals.vars == NULL && globals.strings == NULL)
         return;
     puts("\n.data");

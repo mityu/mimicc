@@ -66,7 +66,7 @@ static Token *newToken(TokenType type, Token *current, char *str, int len) {
     return t;
 }
 
-Token *tokenize() {
+Token *tokenize(void) {
     char *p = globals.source;
     Token head;
     head.next = NULL;

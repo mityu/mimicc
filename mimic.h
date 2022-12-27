@@ -203,10 +203,10 @@ void errorAt(char *loc, const char *fmt, ...);
 
 // codegen.c
 void genCode(const Node *n);
-void genCodeGlobals();
+void genCodeGlobals(void);
 
 // tokenizer.c
-Token *tokenize();
+Token *tokenize(void);
 int checkEscapeChar(char c, char *decoded);
 
 // parser.c

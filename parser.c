@@ -4,32 +4,32 @@
 #include "mimic.h"
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
-static int atEOF();
-static TypeInfo *parseBaseType();
+static int atEOF(void);
+static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
-static Node *decl();
-static Node *stmt();
-static Node *varDeclaration();
+static Node *decl(void);
+static Node *stmt(void);
+static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
-static Node *expr();
-static Node *assign();
-static Node *equality();
-static Node *relational();
-static Node *add();
-static Node *mul();
-static Node *unary();
-static Node *primary();
+static Node *expr(void);
+static Node *assign(void);
+static Node *equality(void);
+static Node *relational(void);
+static Node *add(void);
+static Node *mul(void);
+static Node *unary(void);
+static Node *primary(void);
 
 
-static void errorIdentExpected() {
+static void errorIdentExpected(void) {
     errorAt(globals.token->str, "An identifier is expected");
 }
 
-static void errorTypeExpected() {
+static void errorTypeExpected(void) {
     errorAt(globals.token->str, "An type is expected");
 }
 
-static void errorUnexpectedEOF() {
+static void errorUnexpectedEOF(void) {
     errorAt(globals.token->str, "Unexpected EOF");
 }
 
@@ -64,7 +64,7 @@ static int consumeReserved(char *op) {
 
 // If the current token is TokenTypeName, consume the token and return the
 // pointer to the token structure. Return NULL otherwise.
-static Token *consumeTypeName() {
+static Token *consumeTypeName(void) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return NULL;
@@ -79,7 +79,7 @@ static Token *consumeTypeName() {
 
 // If the type of the current token is TokenIdent, consume the token and
 // returns the pointer to token structure.  If not, returns NULL instead.
-static Token *consumeIdent() {
+static Token *consumeIdent(void) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return NULL;
@@ -95,7 +95,7 @@ static Token *consumeIdent() {
 // If the type of the current token is TokenLiteralString, consume the token
 // and returns the pointer to the token structure.  If not, returns NULL
 // instead.
-static Token *consumeLiteralString() {
+static Token *consumeLiteralString(void) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return NULL;
@@ -147,7 +147,7 @@ static void expectReserved(char *op) {
 
 // If the current token is the number token, consume the token and returns the
 // value. Otherwise reports an error.
-static int expectNumber() {
+static int expectNumber(void) {
     if (atEOF()) {
         errorUnexpectedEOF();
         return 0;
@@ -170,7 +170,7 @@ static void assureReserved(char *op) {
     errorAt(globals.token->str, "'%s' is expected.", op);
 }
 
-static int atEOF() {
+static int atEOF(void) {
     return globals.token->type == TokenEOF;
 }
 
@@ -184,7 +184,7 @@ static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
-struct Function *newFunction() {
+struct Function *newFunction(void) {
     Function *f = (Function*)safeAlloc(sizeof(Function));
     return f;
 };
@@ -223,7 +223,7 @@ static Node *newNodeLVar(int offset, TypeInfo *type) {
     return n;
 }
 
-static Node *newNodeFor() {
+static Node *newNodeFor(void) {
     Node *n = newNode(NodeFor, &Types.None);
     n->initializer = NULL;
     n->condition = NULL;
@@ -238,7 +238,7 @@ static Node *newNodeFCall(TypeInfo *retType) {
     return n;
 }
 
-static Node *newNodeFunction() {
+static Node *newNodeFunction(void) {
     Node *n = newNode(NodeFunction, &Types.None);
     n->func = (Function *)safeAlloc(sizeof(Function));
     return n;
@@ -291,7 +291,7 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
 
 // Parse base of declared type and return its information.  Return NULL if type
 // doesn't appear.
-static TypeInfo *parseBaseType() {
+static TypeInfo *parseBaseType(void) {
     Token *type = consumeTypeName();
     if (!type) {
         return NULL;
@@ -345,7 +345,7 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
     return NULL;
 }
 
-void program() {
+void program(void) {
     Node body;
     Node *last = &body;
     body.next = NULL;
@@ -362,7 +362,7 @@ void program() {
 
 // Parse declarations of global variables/functions, and definitions of
 // functions.
-static Node *decl() {
+static Node *decl(void) {
     TypeInfo *baseType = NULL;
     TypeInfo *type = NULL;
     Token *ident = NULL;
@@ -588,7 +588,7 @@ static Node *decl() {
     return NULL;
 }
 
-static Node *stmt() {
+static Node *stmt(void) {
     Node *varDeclNode = varDeclaration();
     if (varDeclNode)
         return varDeclNode;
@@ -715,7 +715,7 @@ static Node *stmt() {
 
 // Parse local variable declaration. If there's no variable declaration,
 // returns NULL.
-static Node *varDeclaration(){
+static Node *varDeclaration(void){
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
@@ -953,7 +953,7 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
     return NULL;
 }
 
-static Node *expr() {
+static Node *expr(void) {
     Node *list = NULL;
     Node *n = assign();
     if (consumeReserved(",")) {
@@ -972,7 +972,7 @@ static Node *expr() {
     return list;
 }
 
-static Node *assign() {
+static Node *assign(void) {
     Node *n = equality();
     Token *t = globals.token;
     if (consumeReserved("=")) {
@@ -998,7 +998,7 @@ static Node *assign() {
     return n;
 }
 
-static Node *equality() {
+static Node *equality(void) {
     Node *n = relational();
     for (;;) {
         Token *t = globals.token;
@@ -1013,7 +1013,7 @@ static Node *equality() {
     }
 }
 
-static Node *relational() {
+static Node *relational(void) {
     Node *n = add();
     for (;;) {
         Token *t = globals.token;
@@ -1032,7 +1032,7 @@ static Node *relational() {
     }
 }
 
-static Node *add() {
+static Node *add(void) {
     Node *n = mul();
     for (;;) {
         Token *t = globals.token;
@@ -1051,7 +1051,7 @@ static Node *add() {
     }
 }
 
-static Node *mul() {
+static Node *mul(void) {
     Node *n = unary();
     for (;;) {
         Token *t = globals.token;
@@ -1074,7 +1074,7 @@ static Node *mul() {
     }
 }
 
-static Node *unary() {
+static Node *unary(void) {
     Token *tokenOperator = globals.token;
     Node *n = NULL;
     if (consumeReserved("+")) {
@@ -1131,7 +1131,7 @@ static Node *unary() {
     return n;
 }
 
-static Node *primary() {
+static Node *primary(void) {
     Node *n = NULL;
     Token *ident = NULL;
     Token *string = NULL;
