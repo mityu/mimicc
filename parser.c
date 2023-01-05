@@ -9,6 +9,7 @@ static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
+static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
 static void structDeclaration(void);
@@ -342,6 +343,22 @@ int sizeOf(const TypeInfo *ti) {
     errorUnreachable();
 }
 
+// Return align of given type.  If computing failed, exit program.
+static int alignOf(const TypeInfo *ti) {
+    if (ti->type == TypeChar || ti->type == TypeVoid) {
+        return 1;
+    } else if (ti->type == TypeInt || ti->type == TypeNumber) {
+        return 4;
+    } else if (ti->type == TypePointer) {
+        return 8;
+    } else if (ti->type == TypeArray) {
+        return alignOf(ti->baseType);
+    } else if (ti->type == TypeStruct) {
+        return 4; // TODO: implement
+    }
+    errorUnreachable();
+}
+
 // Determine the type of expression result for arithmetic operands.
 // For the details, see the "6.3.1 Arithmetic operands" chapter (P.68) in this
 // C11 draft PDF:
@@ -616,6 +633,7 @@ static Node *stmt(void) {
         Node *n = newNode(NodeBlock, &Types.None);
         Node body;
         Node *last = &body;
+
         body.next = NULL;
         globals.currentBlock = n;  // Dive into the new block.
         while (!consumeReserved("}")) {
@@ -814,6 +832,8 @@ static Node *varDeclaration(void) {
         TypeInfo *currentType = &arrayTypeHead;
         Node *varNode = NULL;
         int arraySizeNeeded = 0;
+        int varPadding = 0;
+        int varAlignment = 0;
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
@@ -890,8 +910,13 @@ static Node *varDeclaration(void) {
 
 
         currentVarSize = sizeOf(varType);
-        totalVarSize += currentVarSize;
-        globals.currentBlock->localVarSize += currentVarSize;
+        varAlignment = alignOf(varType);
+        varPadding = (totalVarSize + currentVarSize) % varAlignment;
+        if (varPadding)
+            varPadding = varAlignment - varPadding;
+
+        totalVarSize += varPadding + currentVarSize;
+        globals.currentBlock->localVarSize += varPadding + currentVarSize;
 
         lvar = newLVar(ident, varType, totalVarSize);
         varNode->offset = totalVarSize;
