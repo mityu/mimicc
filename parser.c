@@ -11,7 +11,8 @@ static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl(void);
 static Node *stmt(void);
-static Node *structDeclaration(void);
+static void structDeclaration(void);
+static void structBody(void);
 static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr(void);
@@ -731,22 +732,23 @@ static Node *stmt(void) {
     }
 }
 
-static Node *structDeclaration(void) {
+// Parse struct declaration if exists.
+static void structDeclaration(void) {
     Token *tokenSave = globals.token;
     Token *tagName = NULL;
     Struct *s = NULL;
 
     if (!consumeCertainTokenType(TokenStruct)) {
-        return NULL;
+        return;
     }
 
     tagName = consumeIdent();
 
-    if (!consumeReserved("{")) {
+    if (!matchReserved("{")) {
         globals.token = tokenSave;
-        return NULL;
+        return;
     }
-    expectReserved("}");
+    structBody();
     expectReserved(";");
 
     s = findStruct(tagName->str, tagName->len);
@@ -760,7 +762,27 @@ static Node *structDeclaration(void) {
 
     globals.structs = s;
 
-    return NULL;
+    return;
+}
+
+static void structBody(void) {
+    // TODO: Accept members not only with primitive types
+    expectReserved("{");
+    while (matchCertainTokenType(TokenTypeName)) {
+        TypeInfo *baseType = parseBaseType();
+        for (;;) {
+            parsePointerType(baseType);
+            consumeIdent();
+            while (consumeReserved("[")) {
+                expectNumber();  // TODO: Accept expr
+                expectReserved("]");
+            }
+            if (!consumeReserved(","))
+                break;
+        }
+        expectReserved(";");
+    }
+    expectReserved("}");
 }
 
 // Parse local variable declaration. If there's no variable declaration,

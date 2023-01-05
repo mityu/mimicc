@@ -8,7 +8,10 @@ void test_decl_global_struct_var(void) {
 }
 
 void test_decl_local_struct_var(void) {
-    struct LStruct {};
+    struct LStruct {
+        int n;
+        int array[1][2][3], *p, **pp;
+    };
     struct LStruct obj;
 }
 
