@@ -92,15 +92,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    memset(&globals, 0, sizeof(globals));
     globals.sourceFile = argv[1];
     globals.source = readFile(globals.sourceFile);
-    globals.currentBlock = NULL;
-    globals.currentFunction = NULL;
-    globals.functions = NULL;
-    globals.vars = NULL;
-    globals.strings = NULL;
-    globals.blockCount = 0;
-    globals.literalStringCount = 0;
     globals.token = tokenize();
     program();
 
