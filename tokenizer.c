@@ -114,6 +114,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "struct")) {
+            current = newToken(TokenStruct, current, p, 6);
+            p += 6;
+            continue;
+        }
+
         if (isToken(p, "const")) {
             // TODO: Create new token; Take into account when parsing.
             p += 5;
@@ -271,7 +277,7 @@ Token *tokenize(void) {
             continue;
         }
 
-        if ('a' <= *p && *p <= 'z' || *p == '_') {
+        if ('a' <= *p && *p <= 'z' || 'A' <= *p && *p <= 'Z' || *p == '_') {
             char *q = p;
             while (isAlnum(*p))
                 ++p;

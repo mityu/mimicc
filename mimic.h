@@ -15,6 +15,7 @@
     } while (0)
 
 typedef struct LiteralString LiteralString;
+typedef struct Struct Struct;
 
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
@@ -24,6 +25,7 @@ typedef enum {
     TypeNumber, // Literal number
     TypeArray,
     TypePointer,
+    TypeStruct, // Struct
 } TypeKind;
 
 typedef struct TypeInfo TypeInfo;
@@ -31,6 +33,7 @@ struct TypeInfo {
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
+    Struct *structEntity; // Valid when type is TypeStruct
 };
 
 #define PrimitiveType(type) (TypeInfo){type, NULL, 0}
@@ -64,6 +67,7 @@ typedef enum {
     TokenReturn,
     TokenSizeof,
     TokenLiteralString,
+    TokenStruct,
     TokenEOF,
 } TokenType;
 
@@ -180,12 +184,18 @@ struct LiteralString {
     int id;
 };
 
+struct Struct {
+    Struct *next;
+    Token *tagName;
+};
+
 typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
     Function *functions;       // Declared function list.
     LVar *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
+    Struct *structs;           // Declared struct list.
     Node *currentBlock;        // Current block.
     Function *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.

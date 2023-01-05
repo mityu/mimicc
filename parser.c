@@ -11,6 +11,7 @@ static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static Node *decl(void);
 static Node *stmt(void);
+static Node *structDeclaration(void);
 static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr(void);
@@ -44,6 +45,14 @@ static int matchReserved(char *op) {
             memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
         return 1;
     }
+    return 0;
+}
+
+// Check if type of current token equals to given type.  Returns TRUE if so.
+static int matchCertainTokenType(TokenType type) {
+    abortIfEOF();
+    if (globals.token->type == type)
+        return 1;
     return 0;
 }
 
@@ -165,10 +174,14 @@ static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
-struct Function *newFunction(void) {
+static Function *newFunction(void) {
     Function *f = (Function*)safeAlloc(sizeof(Function));
     return f;
 };
+
+static Struct *newStruct(void) {
+    return (Struct *)safeAlloc(sizeof(Struct));
+}
 
 // Generate new node object and returns it.  Members of kind, type, outerBlock,
 // and token are automatically set to valid value.
@@ -264,6 +277,15 @@ Function *findFunction(const char *name, int len) {
     return NULL;
 }
 
+static Struct *findStruct(const char *name, int len) {
+    for (Struct *s = globals.structs; s; s = s->next) {
+        if (s->tagName->len == len &&
+                memcmp(s->tagName->str, name, (size_t)len) == 0)
+            return s;
+    }
+    return NULL;
+}
+
 static TypeInfo *newTypeInfo(TypeKind kind) {
     TypeInfo *t = (TypeInfo *)safeAlloc(sizeof(TypeInfo));
     t->type = kind;
@@ -274,10 +296,22 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
 // doesn't appear.
 static TypeInfo *parseBaseType(void) {
     Token *type = consumeTypeName();
-    if (!type) {
-        return NULL;
+    if (type)
+        return newTypeInfo(type->varType);
+
+    if (consumeCertainTokenType(TokenStruct)) {
+        Token *tagName = consumeIdent();
+        Struct *s = findStruct(tagName->str, tagName->len);
+        TypeInfo *typeInfo = NULL;
+        if (!s)
+            errorAt(tagName->str, "Unknown struct");
+
+        typeInfo = newTypeInfo(TypeStruct);
+        typeInfo->structEntity = s;
+        return typeInfo;
     }
-    return newTypeInfo(type->varType);
+
+    return NULL;
 }
 
 // Parse pointer declarations.
@@ -301,6 +335,8 @@ int sizeOf(const TypeInfo *ti) {
         return 8;
     } else if (ti->type == TypeArray) {
         return sizeOf(ti->baseType) * ti->arraySize;
+    } else if (ti->type == TypeStruct) {
+        return 4;  // TODO: Implement
     }
     errorUnreachable();
 }
@@ -345,6 +381,9 @@ static Node *decl(void) {
     TypeInfo *baseType = NULL;
     TypeInfo *type = NULL;
     Token *ident = NULL;
+
+    // Parse and skip struct declarations
+    structDeclaration();
 
     baseType = parseBaseType();
     if (!baseType) {
@@ -563,7 +602,12 @@ static Node *decl(void) {
 }
 
 static Node *stmt(void) {
-    Node *varDeclNode = varDeclaration();
+    Node *varDeclNode = NULL;
+
+    // Parse and skip struct declarations
+    structDeclaration();
+
+    varDeclNode = varDeclaration();
     if (varDeclNode)
         return varDeclNode;
 
@@ -687,9 +731,41 @@ static Node *stmt(void) {
     }
 }
 
+static Node *structDeclaration(void) {
+    Token *tokenSave = globals.token;
+    Token *tagName = NULL;
+    Struct *s = NULL;
+
+    if (!consumeCertainTokenType(TokenStruct)) {
+        return NULL;
+    }
+
+    tagName = consumeIdent();
+
+    if (!consumeReserved("{")) {
+        globals.token = tokenSave;
+        return NULL;
+    }
+    expectReserved("}");
+    expectReserved(";");
+
+    s = findStruct(tagName->str, tagName->len);
+    if (s)
+        errorAt(tagName->str, "Redefinition of struct");
+
+
+    s = newStruct();
+    s->tagName = tagName;
+    s->next = globals.structs;
+
+    globals.structs = s;
+
+    return NULL;
+}
+
 // Parse local variable declaration. If there's no variable declaration,
 // returns NULL.
-static Node *varDeclaration(void){
+static Node *varDeclaration(void) {
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
