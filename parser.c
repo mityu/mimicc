@@ -12,8 +12,8 @@ static TypeInfo *parsePointerType(TypeInfo *baseType);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
-static void structDeclaration(void);
-static void structBody(void);
+static int structDeclaration(void);
+static void structBody(Struct *s);
 static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr(void);
@@ -182,7 +182,15 @@ static Function *newFunction(void) {
 };
 
 static Struct *newStruct(void) {
-    return (Struct *)safeAlloc(sizeof(Struct));
+    Struct *s = (Struct *)safeAlloc(sizeof(Struct));
+    s->totalSize = -1;
+    return s;
+}
+
+static StructMember *newStructMember(void) {
+    StructMember *m = (StructMember *)safeAlloc(sizeof(StructMember));
+    m->offset = -1;
+    return m;
 }
 
 // Generate new node object and returns it.  Members of kind, type, outerBlock,
@@ -279,11 +287,21 @@ Function *findFunction(const char *name, int len) {
     return NULL;
 }
 
+// Look up structure and return it.  If structure didn't found, returns NULL.
 static Struct *findStruct(const char *name, int len) {
     for (Struct *s = globals.structs; s; s = s->next) {
         if (s->tagName->len == len &&
                 memcmp(s->tagName->str, name, (size_t)len) == 0)
             return s;
+    }
+    return NULL;
+}
+
+// Search member in struct.  Returns the member if found, otherwise NULL.
+static StructMember *findStructMember(const Struct *s, const char *name, int len) {
+    for (StructMember *m = s->members; m; m = m->next) {
+        if (m->len == len && memcmp(m->name, name, (size_t)len) == 0)
+            return m;
     }
     return NULL;
 }
@@ -338,12 +356,14 @@ int sizeOf(const TypeInfo *ti) {
     } else if (ti->type == TypeArray) {
         return sizeOf(ti->baseType) * ti->arraySize;
     } else if (ti->type == TypeStruct) {
-        return 4;  // TODO: Implement
+        return ti->structEntity->totalSize;
     }
     errorUnreachable();
 }
 
-// Return align of given type.  If computing failed, exit program.
+// Return alignment of given type.  If computing failed, exit program.
+// The except is struct.  If it's not able to compute alignment of the struct
+// now, returns -1.
 static int alignOf(const TypeInfo *ti) {
     if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
@@ -354,7 +374,19 @@ static int alignOf(const TypeInfo *ti) {
     } else if (ti->type == TypeArray) {
         return alignOf(ti->baseType);
     } else if (ti->type == TypeStruct) {
-        return 4; // TODO: implement
+        int align;
+
+        // Alignment of struct with no members is 1.
+        if (ti->structEntity->members == NULL)
+            return 1;
+
+        align = -1;
+        for (StructMember *m = ti->structEntity->members; m; m = m->next) {
+            int a = alignOf(m->type);
+            if (a > align)
+                align = a;
+        }
+        return align;
     }
     errorUnreachable();
 }
@@ -401,7 +433,8 @@ static Node *decl(void) {
     Token *ident = NULL;
 
     // Parse and skip struct declarations
-    structDeclaration();
+    if (structDeclaration())
+        return NULL;
 
     baseType = parseBaseType();
     if (!baseType) {
@@ -623,7 +656,8 @@ static Node *stmt(void) {
     Node *varDeclNode = NULL;
 
     // Parse and skip struct declarations
-    structDeclaration();
+    if (structDeclaration())
+        return NULL;
 
     varDeclNode = varDeclaration();
     if (varDeclNode)
@@ -638,7 +672,8 @@ static Node *stmt(void) {
         globals.currentBlock = n;  // Dive into the new block.
         while (!consumeReserved("}")) {
             last->next = stmt();
-            last = last->next;
+            if (last->next)
+                last = last->next;
         }
         n->body = body.next;
         globals.currentBlock = n->outerBlock;  // Escape from this block to the outer one.
@@ -750,57 +785,101 @@ static Node *stmt(void) {
     }
 }
 
-// Parse struct declaration if exists.
-static void structDeclaration(void) {
+// Parse struct declaration.  Returns TRUE if there's a struct declaration,
+// otherwise FALSE.
+static int structDeclaration(void) {
     Token *tokenSave = globals.token;
     Token *tagName = NULL;
     Struct *s = NULL;
 
     if (!consumeCertainTokenType(TokenStruct)) {
-        return;
+        return 0;
     }
 
     tagName = consumeIdent();
 
     if (!matchReserved("{")) {
         globals.token = tokenSave;
-        return;
+        return 0;
     }
-    structBody();
-    expectReserved(";");
 
     s = findStruct(tagName->str, tagName->len);
     if (s)
         errorAt(tagName->str, "Redefinition of struct");
 
-
     s = newStruct();
     s->tagName = tagName;
     s->next = globals.structs;
+    structBody(s);
+
+    expectReserved(";");
 
     globals.structs = s;
-
-    return;
+    return 1;
 }
 
-static void structBody(void) {
+static void structBody(Struct *s) {
     // TODO: Accept members not only with primitive types
+    StructMember memberHead;
+    StructMember *members = &memberHead;
+    int structAlign = 1;
+    memberHead.next = NULL;
     expectReserved("{");
     while (matchCertainTokenType(TokenTypeName)) {
         TypeInfo *baseType = parseBaseType();
         for (;;) {
-            parsePointerType(baseType);
-            consumeIdent();
-            while (consumeReserved("[")) {
-                expectNumber();  // TODO: Accept expr
-                expectReserved("]");
+            TypeInfo *type = parsePointerType(baseType);
+            Token *token = consumeIdent();
+            if (matchReserved("[")) {
+                TypeInfo typeHead;
+                TypeInfo *curType = &typeHead;
+                int size;
+                while (consumeReserved("[")) {
+                    size = expectNumber();
+                    expectReserved("]");
+                    curType->baseType = newTypeInfo(TypeArray);
+                    curType->baseType->arraySize = size;
+                    curType = curType->baseType;
+                }
+                curType->baseType = type;
+                type = typeHead.baseType;
             }
+
+            members->next = newStructMember();
+            members = members->next;
+            members->name = token->str;
+            members->len = token->len;
+            members->type = type;
+
             if (!consumeReserved(","))
                 break;
         }
         expectReserved(";");
     }
     expectReserved("}");
+
+    s->members = memberHead.next;
+
+    s->totalSize = 0;
+    for (StructMember *m = s->members; m; m = m->next) {
+        int size = sizeOf(m->type);
+        int align, padding;
+        if (size < 0)
+            errorAt(m->name, "Cannot determine size of this.");
+        align = alignOf(m->type);
+        padding = s->totalSize % align;
+        if (padding)
+            padding = align - padding;
+        m->offset = s->totalSize + padding;
+        s->totalSize += padding + size;
+
+        if (align > structAlign)
+            structAlign = align;
+    }
+
+    // Add padding.
+    if (s->totalSize)
+        s->totalSize = (((s->totalSize - 1) / structAlign) + 1) * structAlign;
 }
 
 // Parse local variable declaration. If there's no variable declaration,

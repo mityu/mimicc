@@ -13,6 +13,10 @@ static int isLvalue(const Node *n);
 
 void verifyFlow(const Node *n) {
     static int loopDepth = 0;
+
+    if (n == NULL)
+        return;
+
     if (n->kind == NodeFunction) {
         verifyFlow(n->body);
     } else if (n->kind == NodeBlock) {
@@ -38,6 +42,9 @@ void verifyFlow(const Node *n) {
 }
 
 void verifyType(const Node *n) {
+    if (n == NULL)
+        return;
+
     if (n->kind == NodeFunction) {
         verifyType(n->body);
     } else if (n->kind == NodeBlock) {

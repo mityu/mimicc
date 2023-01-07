@@ -250,6 +250,9 @@ void genCodeGlobals(void) {
 }
 
 static void genCodeLVal(const Node *n) {
+    if (!n)
+        return;
+
     if (n->kind == NodeDeref) {
         genCode(n->rhs);
         // Address for variable must be on the top of the stack.
@@ -279,6 +282,9 @@ static void genCodeLVal(const Node *n) {
 // Generate code dereferencing variables as rvalue.  If code for dereference as
 // lvalue, use genCodeLVal() instead.
 static void genCodeDeref(const Node *n) {
+    if (!n)
+        return;
+
     genCodeLVal(n);
     puts("  mov rax, [rsp]");
     switch (sizeOf(n->type)) {
@@ -300,6 +306,9 @@ static void genCodeDeref(const Node *n) {
 }
 
 static void genCodeAssign(const Node *n) {
+    if (!n)
+        return;
+
     genCodeLVal(n->lhs);
     genCode(n->rhs);
 
@@ -337,6 +346,9 @@ static void genCodeAssign(const Node *n) {
 }
 
 static void genCodeReturn(const Node *n) {
+    if (!n)
+        return;
+
     genCode(n->lhs);
     puts("  pop rax");
     puts("  mov rsp, rbp");
@@ -345,6 +357,9 @@ static void genCodeReturn(const Node *n) {
 }
 
 static void genCodeIf(const Node *n) {
+    if (!n)
+        return;
+
     int elseblockCount = 0;
     genCode(n->condition);
     puts("  pop rax");
@@ -383,6 +398,9 @@ static void genCodeIf(const Node *n) {
 }
 
 static void genCodeFor(const Node *n) {
+    if (!n)
+        return;
+
     int loopBlockIDSave = loopBlockID;
     loopBlockID = n->blockID;
     if (n->initializer) {
@@ -417,6 +435,9 @@ static void genCodeFor(const Node *n) {
 }
 
 static void genCodeFCall(const Node *n) {
+    if (!n)
+        return;
+
     static int stackAlignState = -1;  // RSP % 16
     int stackAlignStateSave = 0;
     int stackVarSize = 0; // Size of local variables on stack.
@@ -483,6 +504,9 @@ static void genCodeFCall(const Node *n) {
 }
 
 static void genCodeFunction(const Node *n) {
+    if (!n)
+        return;
+
     int regargs = n->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
@@ -541,6 +565,9 @@ static void genCodeFunction(const Node *n) {
 }
 
 static void genCodeIncrement(const Node *n, int prefix) {
+    if (!n)
+        return;
+
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
     puts("  pop rax");
@@ -602,6 +629,9 @@ static void genCodeIncrement(const Node *n, int prefix) {
 }
 
 static void genCodeDecrement(const Node *n, int prefix) {
+    if (!n)
+        return;
+
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
     puts("  pop rax");
@@ -663,6 +693,9 @@ static void genCodeDecrement(const Node *n, int prefix) {
 }
 
 static void genCodeAdd(const Node *n) {
+    if (!n)
+        return;
+
     int altOne = getAlternativeOfOneForType(n->type);
     genCode(n->lhs);
     genCode(n->rhs);
@@ -703,6 +736,9 @@ static void genCodeAdd(const Node *n) {
 }
 
 static void genCodeSub(const Node *n) {
+    if (!n)
+        return;
+
     int altOne = getAlternativeOfOneForType(n->type);
     genCode(n->lhs);
     genCode(n->rhs);
@@ -731,6 +767,9 @@ static void genCodeSub(const Node *n) {
 }
 
 void genCode(const Node *n) {
+    if (!n)
+        return;
+
     if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {
