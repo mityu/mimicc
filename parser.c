@@ -27,6 +27,8 @@ static Node *relational(void);
 static Node *add(void);
 static Node *mul(void);
 static Node *unary(void);
+static Node *postfix(void);
+static FCall *funcArgList(void);
 static Node *primary(void);
 
 
@@ -1257,10 +1259,10 @@ static Node *unary(void) {
     Token *tokenOperator = globals.token;
     Node *n = NULL;
     if (consumeReserved("+")) {
-        Node *rhs = primary();
+        Node *rhs = postfix();
         n = newNodeBinary(NodeAdd, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("-")) {
-        Node *rhs = primary();
+        Node *rhs = postfix();
         n = newNodeBinary(NodeSub, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("&")) {
         Node *rhs = unary();
@@ -1305,58 +1307,108 @@ static Node *unary(void) {
 
         n = newNodeNum(sizeOf(type));
     } else {
-        return primary();
+        return postfix();
     }
     n->token = tokenOperator;
     return n;
+}
+
+static Node *postfix(void) {
+    Token *tokenSave = globals.token;
+    Token *ident = consumeIdent();
+    Node *n;
+
+    if (ident && matchReserved("(")) {
+        FCall *arg;
+        Function *f;
+
+        f = findFunction(ident->str, ident->len);
+        if (!f) {
+            errorAt(ident->str, "No such function.");
+        }
+
+        n = newNodeFCall(f->retType);
+        arg = funcArgList();
+
+        n->fcall->name = ident->str;
+        n->fcall->len = ident->len;
+        n->fcall->args = arg->args;
+        n->fcall->argsCount = arg->argsCount;
+        n->token = ident;
+
+        safeFree(arg);  // Do NOT free its members! They've been used!
+    } else {
+        globals.token = tokenSave;
+        n = primary();
+    }
+
+    for (;;) {
+        if (consumeReserved("[")) {
+            Node *ex = NULL;
+            TypeInfo *exprType = n->type;
+            for (;;) {
+                if (!isWorkLikePointer(exprType))
+                    errorAt(globals.token->prev->str, "Array or pointer is needed.");
+                ex = expr();
+                expectReserved("]");
+                n = newNodeBinary(NodeAdd, n, ex, exprType);
+                exprType = exprType->baseType;
+                if (!consumeReserved("["))
+                    break;
+            }
+            n = newNodeBinary(NodeDeref, NULL, n, exprType);
+        } else if (matchReserved("(")) {
+            errorAt(globals.token->str,
+                    "Calling returned function object is not supported yet.");
+        } else if (consumeReserved("++")) {
+            n = newNodeBinary(NodePostIncl, n, NULL, n->type);
+        } else if (consumeReserved("--")) {
+            n = newNodeBinary(NodePostDecl, n, NULL, n->type);
+        } else {
+            break;
+        }
+    }
+
+    return n;
+}
+
+static FCall *funcArgList(void) {
+    FCall *fcall = (FCall *)safeAlloc(sizeof(FCall));
+    Node *arg = NULL;
+
+    expectReserved("(");
+    if (!matchReserved(")")) {
+        for (;;) {
+            arg = assign();
+            arg->next = fcall->args;
+            fcall->args = arg;
+            ++fcall->argsCount;
+            if (!consumeReserved(","))
+                break;
+        }
+    }
+    expectReserved(")");
+
+    return fcall;
 }
 
 static Node *primary(void) {
     Node *n = NULL;
     Token *ident = NULL;
     Token *string = NULL;
-    Token *type = NULL;
 
     ident = consumeIdent();
     if (ident) {
-        if (consumeReserved("(")) { // Function call.
-            Node *arg;
-            Function *f;
-
-            f = findFunction(ident->str, ident->len);
-            if (!f) {
-                errorAt(ident->str, "No such function.");
-            }
-
-            n = newNodeFCall(f->retType);
-            n->fcall->name = ident->str;
-            n->fcall->len = ident->len;
-            n->token = ident;
-
-            if (consumeReserved(")")) {
-                return n;
-            }
-            for (;;) {
-                arg = assign();
-                arg->next = n->fcall->args;
-                n->fcall->args = arg;
-                ++n->fcall->argsCount;
-                if (!consumeReserved(","))
-                    break;
-            }
-            expectReserved(")");
-        } else { // Variable accessing.
-            LVar *lvar = findLVar(ident->str, ident->len);
-            LVar *gvar = NULL;
-            if (lvar) {
-                n = newNodeLVar(lvar->offset, lvar->type);
-            } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
-                n = newNode(NodeGVar, gvar->type);
-            } else {
-                errorAt(ident->str, "Undefined variable");
-            }
-            n->token = ident;
+        LVar *lvar = findLVar(ident->str, ident->len);
+        LVar *gvar = NULL;
+        if (lvar) {
+            n = newNodeLVar(lvar->offset, lvar->type);
+        } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
+            n = newNode(NodeGVar, gvar->type);
+        } else {
+            errorAt(ident->str, "Undefined variable");
         }
+        n->token = ident;
     } else if (consumeReserved("(")) {
         n = expr();
         expectReserved(")");
@@ -1368,28 +1420,6 @@ static Node *primary(void) {
         n = newNode(NodeLiteralString, type);
     } else {
         n = newNodeNum(expectNumber());
-    }
-
-    if (consumeReserved("[")) {
-        Node *ex = NULL;
-        TypeInfo *exprType = n->type;
-        for (;;) {
-            if (!isWorkLikePointer(exprType))
-                errorAt(globals.token->prev->str, "Array or pointer is needed.");
-            ex = expr();
-            expectReserved("]");
-            n = newNodeBinary(NodeAdd, n, ex, exprType);
-            exprType = exprType->baseType;
-            if (!consumeReserved("["))
-                break;
-        }
-        n = newNodeBinary(NodeDeref, NULL, n, exprType);
-    }
-
-    if (consumeReserved("++")) {
-        n = newNodeBinary(NodePostIncl, n, NULL, n->type);
-    } else if (consumeReserved("--")) {
-        n = newNodeBinary(NodePostDecl, n, NULL, n->type);
     }
 
     return n;

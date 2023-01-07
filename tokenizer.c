@@ -197,7 +197,7 @@ Token *tokenize(void) {
             p += 2;
             continue;
         }
-        if (strchr("+-*/%()=;[]<>{},&", *p)) {
+        if (strchr("+-*/%()=;[]<>{},&.", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }

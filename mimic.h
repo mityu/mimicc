@@ -13,6 +13,13 @@
             error("%d:%d: Internal error: assert: %s", \
                     __FILE__, __LINE__, #expr); \
     } while (0)
+#define safeFree(p) \
+    do {\
+        if (p) { \
+            free(p); \
+            p = NULL; \
+        } \
+    } while (0)
 
 typedef struct LiteralString LiteralString;
 typedef struct Struct Struct;

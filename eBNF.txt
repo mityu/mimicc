@@ -22,10 +22,12 @@ mul             = unary ("*" unary | "/" unary | "%" unary)*
 unary           = ("+" | "-")? primary |
                     ("++" | "--" | "&" | "*") unary |
                     "sizeof" unary
-primary         = num |
-                    ident ("(" (assign ("," assign)*)? ")")? |
-                    "(" expr ")" |
-                    primary ("++" | "--" | ("[" expr "]")*)
+postfix			= ident "(" func-arg-list ")" postfix-tail* |
+                    primary postfix-tail*
+postfix-tail    = "[" expr "]" | "(" func-arg-list ")" | "." ident | "->" ident
+                  "++" | "--"
+func-arg-list   = expr ("," expr)*
+primary         = num | ident | string-literal | "(" expr ")"
 type            = basetype pointertype
 pointertype     = "*"*
 basetype        = "int" | "char" | "void"
