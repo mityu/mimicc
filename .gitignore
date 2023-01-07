@@ -5,6 +5,8 @@ test/Xtmp/
 *~
 tmp*
 a.out
-devtools/
+devtools/*
 !devtools/disass
+sandbox/*
+!sandbox/Makefile
 !.gitignore
