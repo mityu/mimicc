@@ -1281,6 +1281,7 @@ static Node *unary(void) {
             type = parseBaseType();
             if (type) {
                 type = parsePointerType(type);
+                type = parseArrayType(type, 0);
                 expectReserved(")");
             }
         }

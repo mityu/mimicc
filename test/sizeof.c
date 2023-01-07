@@ -19,6 +19,9 @@ int main(void) {
     ASSERT(4, sizeof(int));
     ASSERT(8, sizeof(int *));
     ASSERT(8, sizeof(int **));
+    ASSERT(12, sizeof(int[3]));
+    ASSERT(24, sizeof(int*[3]));
+    ASSERT(24, sizeof(int**[3]));
     ASSERT(1, sizeof(char));
     ASSERT(8, sizeof(char *));
     ASSERT(8, sizeof(char **));
