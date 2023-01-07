@@ -154,6 +154,7 @@ struct Node {
                        // Variable adress is calculated as "RBP - offset."
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax.
+    Struct *structs;   // Declared struct list local to block.
 };
 
 struct FCall {

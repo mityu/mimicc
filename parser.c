@@ -16,7 +16,7 @@ static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
-static int structDeclaration(void);
+static Struct *structDeclaration(void);
 static void structBody(Struct *s);
 static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
@@ -303,6 +303,13 @@ Function *findFunction(const char *name, int len) {
 
 // Look up structure and return it.  If structure didn't found, returns NULL.
 static Struct *findStruct(const char *name, int len) {
+    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
+        for (Struct *s = block->structs; s; s = s->next) {
+            if (s->tagName->len == len &&
+                    memcmp(s->tagName->str, name, (size_t)len) == 0)
+                return s;
+        }
+    }
     for (Struct *s = globals.structs; s; s = s->next) {
         if (s->tagName->len == len &&
                 memcmp(s->tagName->str, name, (size_t)len) == 0)
@@ -478,10 +485,15 @@ static Node *decl(void) {
     TypeInfo *baseType = NULL;
     TypeInfo *type = NULL;
     Token *ident = NULL;
+    Struct *s = NULL;
 
     // Parse and skip struct declarations
-    if (structDeclaration())
+    s = structDeclaration();
+    if (s) {
+        s->next = globals.structs;
+        globals.structs = s;
         return NULL;
+    }
 
     baseType = parseBaseType();
     if (!baseType) {
@@ -690,10 +702,15 @@ static Node *decl(void) {
 
 static Node *stmt(void) {
     Node *varDeclNode = NULL;
+    Struct *s = NULL;
 
     // Parse and skip struct declarations
-    if (structDeclaration())
+    s = structDeclaration();
+    if (s) {
+        s->next = globals.currentBlock->structs;
+        globals.currentBlock->structs = s;
         return NULL;
+    }
 
     varDeclNode = varDeclaration();
     if (varDeclNode)
@@ -823,20 +840,20 @@ static Node *stmt(void) {
 
 // Parse struct declaration.  Returns TRUE if there's a struct declaration,
 // otherwise FALSE.
-static int structDeclaration(void) {
+static Struct *structDeclaration(void) {
     Token *tokenSave = globals.token;
     Token *tagName = NULL;
     Struct *s = NULL;
 
     if (!consumeCertainTokenType(TokenStruct)) {
-        return 0;
+        return NULL;
     }
 
     tagName = consumeIdent();
 
     if (!matchReserved("{")) {
         globals.token = tokenSave;
-        return 0;
+        return NULL;
     }
 
     s = findStruct(tagName->str, tagName->len);
@@ -845,13 +862,11 @@ static int structDeclaration(void) {
 
     s = newStruct();
     s->tagName = tagName;
-    s->next = globals.structs;
-    globals.structs = s;
 
     structBody(s);
 
     expectReserved(";");
-    return 1;
+    return s;
 }
 
 static void structBody(Struct *s) {
