@@ -323,7 +323,8 @@ static int isArithmeticType(const TypeInfo *t) {
 
 // Return TRUE is `n` is lvalue.
 static int isLvalue(const Node *n) {
-    return n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeDeref;
+    return n->kind == NodeLVar || n->kind == NodeGVar ||
+        n->kind == NodeDeref || n->kind == NodeMemberAccess;
 }
 
 // Return TRUE if given type can work like a pointer. Currently returns TRUE

@@ -319,7 +319,7 @@ static Struct *findStruct(const char *name, int len) {
 }
 
 // Search member in struct.  Returns the member if found, otherwise NULL.
-static StructMember *findStructMember(const Struct *s, const char *name, int len) {
+StructMember *findStructMember(const Struct *s, const char *name, int len) {
     for (StructMember *m = s->members; m; m = m->next) {
         if (m->len == len && memcmp(m->name, name, (size_t)len) == 0)
             return m;
@@ -1379,6 +1379,19 @@ static Node *postfix(void) {
             n = newNodeBinary(NodePostIncl, n, NULL, n->type);
         } else if (consumeReserved("--")) {
             n = newNodeBinary(NodePostDecl, n, NULL, n->type);
+        } else if (consumeReserved(".")) {
+            Token *ident;
+            StructMember *member;
+
+            if (n->type->type != TypeStruct)
+                errorAt(n->token->str, "Struct expected.");
+
+            ident = expectIdent();
+            member = findStructMember(n->type->structEntity, ident->str, ident->len);
+            if (!member)
+                errorAt(ident->str, "No such struct member.");
+
+            n = newNodeBinary(NodeMemberAccess, n, NULL, member->type);
         } else {
             break;
         }

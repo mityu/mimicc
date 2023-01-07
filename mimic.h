@@ -105,6 +105,7 @@ typedef enum {
     NodePreDecl,       // --{var}
     NodePostIncl,      // {var}++
     NodePostDecl,      // {var}--
+    NodeMemberAccess,  // Struct member accessing (struct.member)
     NodeAddress,       // &{var}
     NodeDeref,         // *{ptr}
     NodeNum,           // Integer
@@ -242,6 +243,7 @@ int checkEscapeChar(char c, char *decoded);
 // parser.c
 void program();
 Function *findFunction(const char *name, int len);
+StructMember *findStructMember(const Struct *s, const char *name, int len);
 int sizeOf(const TypeInfo *ti);
 
 // verifier.c

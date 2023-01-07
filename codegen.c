@@ -133,6 +133,7 @@ static int isExprNode(const Node *n) {
     case NodePreDecl:
     case NodePostIncl:
     case NodePostDecl:
+    case NodeMemberAccess:
     case NodeAddress:
     case NodeDeref:
     case NodeNum:
@@ -257,7 +258,8 @@ static void genCodeLVal(const Node *n) {
         genCode(n->rhs);
         // Address for variable must be on the top of the stack.
         return;
-    } else if (!(n->kind == NodeLVar || n->kind == NodeGVar)) {
+    } else if (!(n->kind == NodeLVar || n->kind == NodeGVar ||
+                n->kind == NodeMemberAccess)) {
         error("Lhs of assignment is not a variable.");
     }
 
@@ -774,6 +776,12 @@ void genCode(const Node *n) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
+    } else if (n->kind == NodeMemberAccess) {
+        StructMember *m = findStructMember(
+                n->lhs->type->structEntity, n->token->str, n->token->len);
+        puts("  pop rax");
+        printf("  add rax, %d\n", m->offset);
+        puts("  push rax");
     } else if (n->kind == NodeBlock) {
         if (n->localVarSize)
             printf("  sub rsp, %d\n", n->localVarSize);
