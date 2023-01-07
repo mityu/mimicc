@@ -192,7 +192,8 @@ Token *tokenize(void) {
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
                 hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
-                hasPrefix(p, "++") || hasPrefix(p, "--")) {
+                hasPrefix(p, "++") || hasPrefix(p, "--") ||
+                hasPrefix(p, "->")) {
             current = newToken(TokenReserved, current, p, 2);
             p += 2;
             continue;

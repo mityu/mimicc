@@ -93,6 +93,8 @@ void test_struct_member_access(void) {
     ASSERT(31, (*s3.ps2).s1.c);
     ASSERT(37, (*s3.ps2).s1.o);
     ASSERT(41, (*s3.ps2).m);
+    ASSERT(19, s3.ps2->n);
+    ASSERT(23, s3.ps2->s1.n);
 }
 
 int main(void) {

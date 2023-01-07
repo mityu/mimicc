@@ -1379,12 +1379,19 @@ static Node *postfix(void) {
             n = newNodeBinary(NodePostIncl, n, NULL, n->type);
         } else if (consumeReserved("--")) {
             n = newNodeBinary(NodePostDecl, n, NULL, n->type);
-        } else if (consumeReserved(".")) {
+        } else if (consumeReserved(".") || consumeReserved("->")) {
             Token *ident;
             StructMember *member;
 
+            if (globals.token->prev->str[0] == '-') {
+                if (n->type->type != TypePointer ||
+                        n->type->baseType->type != TypeStruct)
+                    errorAt(n->token->str, "Pointer for struct required.");
+                n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
+            }
+
             if (n->type->type != TypeStruct)
-                errorAt(n->token->str, "Struct expected.");
+                errorAt(n->token->str, "Struct required.");
 
             ident = expectIdent();
             member = findStructMember(n->type->structEntity, ident->str, ident->len);
