@@ -9,6 +9,7 @@ static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
+static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
@@ -150,7 +151,15 @@ static int expectNumber(void) {
         return val;
     }
     errorAt(globals.token->str, "Non number appears.");
-    return 0;
+}
+
+// If the current token is ident token, consume the token and returns it.
+// Otherwise exit anyway.
+static Token *expectIdent(void) {
+    Token *token = consumeIdent();
+    if (token)
+        return token;
+    errorIdentExpected();
 }
 
 // Check if current token matches to the given token.  If so, do nothing, and
@@ -345,6 +354,39 @@ static TypeInfo *parsePointerType(TypeInfo *baseType) {
     return typeInfo;
 }
 
+// Parse array declarations.
+static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType) {
+    TypeInfo head;
+    TypeInfo *curType;
+    int size, needSize;
+
+    if (!matchReserved("["))
+        return baseType;
+
+    head.baseType = NULL;
+    curType = &head;
+    needSize = 0;
+    if (!allowIncompleteType)
+        needSize = 1;
+
+    while (consumeReserved("[")) {
+        if (needSize) {
+            size = expectNumber();
+        } else if (!consumeNumber(&size)) {
+            size = -1;
+        }
+        expectReserved("]");
+        needSize = 1;  // Only the first [] can omit array size.
+        curType->baseType = newTypeInfo(TypeArray);
+        curType->baseType->arraySize = size;
+        curType = curType->baseType;
+    }
+
+    curType->baseType = baseType;
+
+    return head.baseType;
+}
+
 // Return size of given type.  If computing failed, exit program.
 int sizeOf(const TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
@@ -467,18 +509,7 @@ static Node *decl(void) {
                     errorAt(ident->str, "Redefinition of variable.");
                 }
 
-                while (consumeReserved("[")) {
-                    int arraySize = expectNumber();
-                    expectReserved("]");
-                    currentType->baseType = newTypeInfo(TypeArray);
-                    currentType->baseType->arraySize = arraySize;
-                    currentType = currentType->baseType;
-                }
-
-                if (currentType != &arrayTypeHead) {
-                    currentType->baseType = type;
-                    type = arrayTypeHead.baseType;
-                }
+                type = parseArrayType(type, 1);
 
                 if (type->type == TypeVoid) {
                     errorAt(ident->str,
@@ -829,21 +860,8 @@ static void structBody(Struct *s) {
         TypeInfo *baseType = parseBaseType();
         for (;;) {
             TypeInfo *type = parsePointerType(baseType);
-            Token *token = consumeIdent();
-            if (matchReserved("[")) {
-                TypeInfo typeHead;
-                TypeInfo *curType = &typeHead;
-                int size;
-                while (consumeReserved("[")) {
-                    size = expectNumber();
-                    expectReserved("]");
-                    curType->baseType = newTypeInfo(TypeArray);
-                    curType->baseType->arraySize = size;
-                    curType = curType->baseType;
-                }
-                curType->baseType = type;
-                type = typeHead.baseType;
-            }
+            Token *token = expectIdent();
+            type = parseArrayType(type, 0);
 
             members->next = newStructMember();
             members = members->next;
@@ -907,38 +925,17 @@ static Node *varDeclaration(void) {
 
 
     for (;;) {
-        TypeInfo arrayTypeHead;
-        TypeInfo *currentType = &arrayTypeHead;
         Node *varNode = NULL;
-        int arraySizeNeeded = 0;
         int varPadding = 0;
         int varAlignment = 0;
+
         varType = parsePointerType(baseType);
         ident = consumeIdent();
         if (!ident) {
             errorIdentExpected();
         }
 
-        while (consumeReserved("[")) {
-            int arraySize;
-            if (arraySizeNeeded) {
-                arraySize = expectNumber();
-            } else {
-                // Only the first [] can omit array size.
-                arraySizeNeeded = 1;
-                if (!consumeNumber(&arraySize))
-                    arraySize = -1;
-            }
-            expectReserved("]");
-            currentType->baseType = newTypeInfo(TypeArray);
-            currentType->baseType->arraySize = arraySize;
-            currentType = currentType->baseType;
-        }
-
-        if (currentType != &arrayTypeHead) {
-            currentType->baseType = varType;
-            varType = arrayTypeHead.baseType;
-        }
+        varType = parseArrayType(varType, 1);
 
         if (varType->type == TypeVoid) {
             errorAt(ident->str, "Cannot declare variable with type \"void\"");
