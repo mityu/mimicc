@@ -24,16 +24,15 @@ void test_sizeof_struct(void) {
         char c;
         int n;
     };
-    // TODO: Make work this
-    // struct S3 {
-    //     struct S2 s2;
-    //     char c;
-    // };
+    struct S3 {
+        struct S2 s2;
+        char c;
+    };
 
     ASSERT(0, sizeof(struct S0));
     ASSERT(4, sizeof(struct S1));
     ASSERT(8, sizeof(struct S2));
-    // ASSERT(16, sizeof(struct S3));
+    ASSERT(12, sizeof(struct S3));
 }
 
 int main(void) {

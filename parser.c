@@ -3,6 +3,9 @@
 #include <string.h>
 #include "mimic.h"
 
+// TODO: Accept using pointer to unknown type in struct member: e.g.:
+//   struct A { struct B *obj };
+
 #define abortIfEOF()  do { if (atEOF()) errorUnexpectedEOF(); } while (0)
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
@@ -841,26 +844,33 @@ static int structDeclaration(void) {
     s = newStruct();
     s->tagName = tagName;
     s->next = globals.structs;
+    globals.structs = s;
+
     structBody(s);
 
     expectReserved(";");
-
-    globals.structs = s;
     return 1;
 }
 
 static void structBody(Struct *s) {
-    // TODO: Accept members not only with primitive types
     StructMember memberHead;
     StructMember *members = &memberHead;
     int structAlign = 1;
     memberHead.next = NULL;
     expectReserved("{");
-    while (matchCertainTokenType(TokenTypeName)) {
+    for (;;) {
         TypeInfo *baseType = parseBaseType();
+        if (!baseType)
+            break;
+
         for (;;) {
             TypeInfo *type = parsePointerType(baseType);
             Token *token = expectIdent();
+
+            if (type->type == TypeStruct && type->structEntity == s)
+                errorAt(globals.token->prev->prev->str,
+                        "Cannot use self struct for member type.");
+
             type = parseArrayType(type, 0);
 
             members->next = newStructMember();
