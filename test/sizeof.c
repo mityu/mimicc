@@ -16,10 +16,12 @@ int main(void) {
     ASSERT(4, sizeof(sizeof(n)));
     ASSERT(8, sizeof(p));
     ASSERT(8, sizeof p);
+    ASSERT(4, sizeof(*p));
     ASSERT(4, sizeof(int));
     ASSERT(8, sizeof(int *));
     ASSERT(8, sizeof(int **));
     ASSERT(12, sizeof(int[3]));
+    ASSERT(60, sizeof(int[3][5]));
     ASSERT(24, sizeof(int*[3]));
     ASSERT(24, sizeof(int**[3]));
     ASSERT(1, sizeof(char));
