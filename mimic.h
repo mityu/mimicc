@@ -108,6 +108,7 @@ typedef enum {
     NodeMemberAccess,  // Struct member accessing (struct.member)
     NodeAddress,       // &{var}
     NodeDeref,         // *{ptr}
+    NodeNot,           // !
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)

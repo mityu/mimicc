@@ -1299,6 +1299,9 @@ static Node *unary(void) {
     } else if (consumeReserved("--")) {
         Node *rhs = unary();
         n = newNodeBinary(NodePreDecl, NULL, rhs, rhs->type);
+    } else if (consumeReserved("!")) {
+        Node *rhs = unary();
+        n = newNodeBinary(NodeNot, NULL, rhs, rhs->type);
     } else if (consumeCertainTokenType(TokenSizeof)) {
         Token *token_save = globals.token;
         TypeInfo *type = NULL;

@@ -291,6 +291,28 @@ void test_comma_2(void) {
     ASSERT(11, c);
 }
 
+void test_cond_not(void) {
+    int a = 3;
+    int n = 7;
+
+    ASSERT(3, a);
+    if (!a) {
+        n = 11;
+    } else {
+        n = 13;
+    }
+    ASSERT(13, n);
+
+    a = 0;
+    ASSERT(0, a);
+    if (!a) {
+        n = 17;
+    } else {
+        n = 19;
+    }
+    ASSERT(17, n);
+}
+
 int main(void) {
     ASSERT(42, test_if_return_1());
     ASSERT(42, test_if_return_2());

@@ -136,6 +136,7 @@ static int isExprNode(const Node *n) {
     case NodeMemberAccess:
     case NodeAddress:
     case NodeDeref:
+    case NodeNot:
     case NodeNum:
     case NodeLiteralString:
     case NodeLVar:
@@ -805,6 +806,13 @@ void genCode(const Node *n) {
             if (isExprNode(c) && c->next)
                 puts("  pop rax");
         }
+    } else if (n->kind == NodeNot) {
+        // TODO: Make sure n->rhs lefts a value on stack
+        genCode(n->rhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        puts("  sete al");
+        puts("  movzb rax, al");
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
     } else if (n->kind == NodeLiteralString) {

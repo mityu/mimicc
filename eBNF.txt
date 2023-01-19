@@ -19,9 +19,9 @@ equality        = relational ("==" relational | "!=" relational)*
 relational      = add (">" add | "<" add | ">=" add | "<=" add)*
 add             = mul ("+" mul | "-" mul)*
 mul             = unary ("*" unary | "/" unary | "%" unary)*
-unary           = ("+" | "-")? primary |
-                    ("++" | "--" | "&" | "*") unary |
-                    "sizeof" unary
+unary           = ("+" | "-")? postfix |
+                    ("++" | "--" | "&" | "*" | "!") unary |
+                    "sizeof" unary | "sizeof" "(" type ")"
 postfix			= ident "(" func-arg-list ")" postfix-tail* |
                     primary postfix-tail*
 postfix-tail    = "[" expr "]" | "(" func-arg-list ")" | "." ident | "->" ident
