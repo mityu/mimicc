@@ -815,6 +815,7 @@ void genCode(const Node *n) {
         puts("  cmp rax, 0");
         puts("  sete al");
         puts("  movzb rax, al");
+        puts("  push rax");
     } else if (n->kind == NodeLogicalAND) {
         // TODO: Make sure n->rhs lefts a value on stack
         genCode(n->lhs);

@@ -313,6 +313,13 @@ void test_cond_not(void) {
     ASSERT(17, n);
 }
 
+// Not operator didn't push result to stack and this function got SEGV.
+void test_not(void) {
+    int p = 3;
+    if (!0 && !0 && !0) p = 5;
+    ASSERT(5, p);
+}
+
 int main(void) {
     ASSERT(42, test_if_return_1());
     ASSERT(42, test_if_return_2());
