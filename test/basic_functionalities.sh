@@ -45,6 +45,7 @@ assert 42 'int main(void){ return 42;}'
 assert 42 'int main(void){ return 42; return 10;}'
 assert 42 'int main(void) { if (35 == 35) { return 42;} else { return 10;} return 35;}'
 assert 42 'int main(void) { if (0 == 35) { return 10;} else { return 42;} return 35;}'
+assert 17 'int main(void) {int n = 13; do {n = 17;} while(0); return n;}'
 assert_fcall 42 \
   'int f(void); int main(void) {return f();}' \
   'int f(void) {return 42;}'

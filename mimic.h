@@ -61,6 +61,7 @@ typedef enum {
     TokenElse,
     TokenFor,
     TokenWhile,
+    TokenDo,
     TokenBreak,
     TokenContinue,
     TokenReturn,
@@ -112,6 +113,7 @@ typedef enum {
     NodeElseif,
     NodeElse,
     NodeFor,
+    NodeDoWhile,
     NodeExprList,      // Expressions concatenated by commas.
     NodeBlock,         // { ... }
     NodeBreak,         // break;

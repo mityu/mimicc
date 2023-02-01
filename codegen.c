@@ -151,6 +151,7 @@ static int isExprNode(const Node *n) {
     case NodeElseif:
     case NodeElse:
     case NodeFor:
+    case NodeDoWhile:
     case NodeBlock:
     case NodeBreak:
     case NodeContinue:
@@ -436,6 +437,29 @@ static void genCodeFor(const Node *n) {
     }
     printf("  jmp .Lbegin%d\n", n->blockID);
     printf(".Lend%d:\n", n->blockID);
+    loopBlockID = loopBlockIDSave;
+}
+
+static void genCodeDoWhile(const Node *n) {
+    int loopBlockIDSave = loopBlockID;
+    if (!n)
+        return;
+
+    loopBlockID = n->blockID;
+    printf(".Lbegin%d:\n", n->blockID);
+    // "continue" statement needs iterator label.
+    printf(".Literator%d:\n", n->blockID);
+
+    genCode(n->body);
+    if (isExprNode(n->body)) {
+        puts("  pop rax");
+    }
+    genCode(n->condition);
+    puts("  pop rax");
+    puts("  cmp rax, 0");
+    printf("  jne .Lbegin%d\n", n->blockID);
+    printf(".Lend%d:\n", n->blockID);
+
     loopBlockID = loopBlockIDSave;
 }
 
@@ -888,6 +912,8 @@ void genCode(const Node *n) {
         genCodeIf(n);
     } else if (n->kind == NodeFor) {
         genCodeFor(n);
+    } else if (n->kind == NodeDoWhile) {
+        genCodeDoWhile(n);
     } else if (n->kind == NodeFCall) {
         genCodeFCall(n);
     } else if (n->kind == NodeFunction) {

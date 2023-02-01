@@ -834,6 +834,18 @@ static Node *stmt(void) {
         expectReserved(")");
         n->body = stmt();
         return n;
+    } else if (consumeCertainTokenType(TokenDo)) {
+        Node *n = newNodeFor();
+        n->kind = NodeDoWhile;
+        n->body = stmt();
+        if (!consumeCertainTokenType(TokenWhile)) {
+            errorAt(globals.token->prev->str, "\"while\" expected.");
+        }
+        expectReserved("(");
+        n->condition = expr();
+        expectReserved(")");
+        expectReserved(";");
+        return n;
     } else {
         Node *n = expr();
         expectReserved(";");

@@ -28,6 +28,11 @@ void verifyFlow(const Node *n) {
         verifyFlow(n->body);
         loopDepth--;
         runtimeAssert(loopDepth >= 0);
+    } else if (n->kind == NodeDoWhile) {
+        loopDepth++;
+        verifyFlow(n->body);
+        loopDepth--;
+        runtimeAssert(loopDepth >= 0);
     } else if (n->kind == NodeIf) {
         verifyFlow(n->body);
         for (Node *c = n->elseblock; c; c = c->next) {
@@ -61,6 +66,9 @@ void verifyType(const Node *n) {
         if (n->iterator) {
             verifyType(n->iterator);
         }
+        verifyType(n->body);
+    } else if (n->kind == NodeDoWhile) {
+        verifyType(n->condition);
         verifyType(n->body);
     } else if (n->kind == NodeIf) {
         verifyType(n->condition);

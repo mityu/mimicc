@@ -159,6 +159,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "do")) {
+            current = newToken(TokenDo, current, p, 2);
+            p += 2;
+            continue;
+        }
+
         if (isToken(p, "break")) {
             current = newToken(TokenBreak, current, p, 5);
             p += 5;

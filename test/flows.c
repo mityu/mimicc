@@ -264,6 +264,41 @@ int test_while_3(void) {
     return a;
 }
 
+void test_do_while(void) {
+    int n = 5;
+    ASSERT(5, n);
+    do {
+        n += 2;
+    } while(0);
+    ASSERT(7, n);
+}
+
+void test_do_while_break(void) {
+    int n = 5;
+    ASSERT(5, n);
+    do {
+        break;
+        n += 2;
+    } while(0);
+    ASSERT(5, n);
+}
+
+void test_do_while_continue(void) {
+    int n = 5, m = 13;
+    int count = 0;
+    ASSERT(5, n);
+    do {
+        count++;
+        if (count <= 2)
+            continue;
+        m += 5;
+        break;
+        n += 2;
+    } while(0);
+    ASSERT(5, n);
+    ASSERT(18, m);
+}
+
 // TODO: These should be in another file?
 int helper_always_1(void) {
     return 1;
@@ -350,6 +385,9 @@ int main(void) {
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());
     ASSERT(20, test_while_3());
+    test_do_while();
+    test_do_while_break();
+    test_do_while_continue();
     test_comma_1();
     test_comma_2();
     return 0;
