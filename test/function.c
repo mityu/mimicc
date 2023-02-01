@@ -65,6 +65,16 @@ void testFuncArg8(void) {
     ASSERT(42, funcArg8(1, 2, 3, 4, 5, 6, funcArg8(1, 2, 3, 4, 5, 6, 7, 8), 42));
 }
 
+// Stack adress was conflicted between function argument and stack variables
+int funcArgConflict(int N) {
+    int i;
+    i = 5;
+    return N;
+}
+void testFuncArgConflictOnStack(void) {
+    ASSERT(3, funcArgConflict(3));
+}
+
 
 int main(void) {
     ASSERT(10, add(3, 7));
@@ -72,5 +82,6 @@ int main(void) {
     ASSERT(23, funcRefArgs(5, 4));
     testFuncArg7();
     testFuncArg8();
+    testFuncArgConflictOnStack();
     return 0;
 }

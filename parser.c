@@ -683,6 +683,7 @@ static Node *decl(void) {
             } else {
                 argOffset += sizeOf(v->type);
                 v->offset = argOffset;
+                n->localVarSize = argOffset;
                 if (argNum == REG_ARGS_MAX_COUNT) {
                     argOffset = -ONE_WORD_BYTES;
                 }
