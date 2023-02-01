@@ -5,6 +5,7 @@
 #include <string.h>
 #include "mimic.h"
 
+struct Types Types;
 Globals globals;
 
 // Allocate memory and return it with entirely 0 cleared.  If allocating memory
@@ -91,6 +92,14 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Invalid arguments\n");
         return 1;
     }
+
+#define PrimitiveType(type) (TypeInfo){type, NULL, 0}
+    Types.None   = PrimitiveType(TypeNone),
+    Types.Void   = PrimitiveType(TypeVoid),
+    Types.Int    = PrimitiveType(TypeInt),
+    Types.Char   = PrimitiveType(TypeChar),
+    Types.Number = PrimitiveType(TypeNumber),
+#undef PrimitiveType
 
     memset(&globals, 0, sizeof(globals));
     globals.sourceFile = argv[1];

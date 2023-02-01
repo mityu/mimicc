@@ -43,21 +43,13 @@ struct TypeInfo {
     Struct *structEntity; // Valid when type is TypeStruct
 };
 
-#define PrimitiveType(type) (TypeInfo){type, NULL, 0}
-static struct Types {
+extern struct Types {
     TypeInfo None;
     TypeInfo Void;
     TypeInfo Int;
     TypeInfo Char;
     TypeInfo Number;
-} Types = {
-    .None   = PrimitiveType(TypeNone),
-    .Void   = PrimitiveType(TypeVoid),
-    .Int    = PrimitiveType(TypeInt),
-    .Char   = PrimitiveType(TypeChar),
-    .Number = PrimitiveType(TypeNumber),
-};
-#undef PrimitiveType
+} Types;
 
 typedef enum {
     TokenReserved,
