@@ -137,6 +137,8 @@ static int isExprNode(const Node *n) {
     case NodeAddress:
     case NodeDeref:
     case NodeNot:
+    case NodeLogicalAND:
+    case NodeLogicalOR:
     case NodeNum:
     case NodeLiteralString:
     case NodeLVar:
@@ -813,6 +815,31 @@ void genCode(const Node *n) {
         puts("  cmp rax, 0");
         puts("  sete al");
         puts("  movzb rax, al");
+    } else if (n->kind == NodeLogicalAND) {
+        // TODO: Make sure n->rhs lefts a value on stack
+        genCode(n->lhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf("  je .Llogicaland%d\n", n->blockID);
+        genCode(n->rhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf(".Llogicaland%d:\n", n->blockID);
+        puts("  setne al");
+        puts("  movzb rax, al");
+        puts("  push rax");
+    } else if (n->kind == NodeLogicalOR) {
+        genCode(n->lhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf("  jne .Llogicalor%d\n", n->blockID);
+        genCode(n->rhs);
+        puts("  pop rax");
+        puts("  cmp rax, 0");
+        printf(".Llogicalor%d:\n", n->blockID);
+        puts("  setne al");
+        puts("  movzb rax, al");
+        puts("  push rax");
     } else if (n->kind == NodeNum) {
         printf("  push %d\n", n->val);
     } else if (n->kind == NodeLiteralString) {

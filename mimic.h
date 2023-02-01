@@ -109,6 +109,8 @@ typedef enum {
     NodeAddress,       // &{var}
     NodeDeref,         // *{ptr}
     NodeNot,           // !
+    NodeLogicalOR,     // ||
+    NodeLogicalAND,    // &&
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)
@@ -155,7 +157,7 @@ struct Node {
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
                        // Variable adress is calculated as "RBP - offset."
     int blockID;       // Unique ID for jump labels. Valid only when the node
-                       // is control syntax.
+                       // is control syntax, logical AND, and logical OR.
     Struct *structs;   // Declared struct list local to block.
 };
 

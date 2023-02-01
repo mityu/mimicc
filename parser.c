@@ -22,6 +22,8 @@ static Node *varDeclaration(void);
 static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
 static Node *expr(void);
 static Node *assign(void);
+static Node *logicalOR(void);
+static Node *logicalAND(void);
 static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
@@ -1169,7 +1171,7 @@ static Node *expr(void) {
 }
 
 static Node *assign(void) {
-    Node *n = equality();
+    Node *n = logicalOR();
     Token *t = globals.token;
     if (consumeReserved("=")) {
         n = newNodeBinary(NodeAssign, n, assign(), n->type);
@@ -1190,6 +1192,24 @@ static Node *assign(void) {
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
+    }
+    return n;
+}
+
+static Node *logicalOR(void) {
+    Node *n = logicalAND();
+    while (consumeReserved("||")) {
+        n = newNodeBinary(NodeLogicalOR, n, logicalAND(), &Types.Number);
+        n->blockID = globals.blockCount++;
+    }
+    return n;
+}
+
+static Node *logicalAND(void) {
+    Node *n = equality();
+    while (consumeReserved("&&")) {
+        n = newNodeBinary(NodeLogicalAND, n, equality(), &Types.Number);
+        n->blockID = globals.blockCount++;
     }
     return n;
 }
