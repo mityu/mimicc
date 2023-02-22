@@ -615,7 +615,7 @@ static Node *decl(void) {
     for (;;) {
         Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(&baseType, 1);
-        if (!obj->token->str) {
+        if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
         if (obj->type->type == TypeFunction && matchReserved("{")) {
@@ -705,6 +705,7 @@ static Node *decl(void) {
 
             // Escape from this function block to the outer one.
             globals.currentBlock = n->outerBlock;
+
             return n;
         } else if (obj->type->type == TypeFunction) {
             // Function declaration
