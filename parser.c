@@ -10,11 +10,11 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
-static Obj *parseEntireDeclaration(void);
+static Obj *parseEntireDeclaration(int allowTentativeArray);
 static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
-static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType);
+static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType, int allowTentativeArray);
 static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
@@ -404,13 +404,13 @@ static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType) {
     return head.baseType;
 }
 
-static Obj *parseEntireDeclaration(void) {
+static Obj *parseEntireDeclaration(int allowTentativeArray) {
     TypeInfo *baseType = parseBaseType();
-    Obj *obj = parseAdvancedTypeDeclaration(&baseType);
+    Obj *obj = parseAdvancedTypeDeclaration(&baseType, allowTentativeArray);
     return obj;
 }
 
-static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType) {
+static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType, int allowTentativeArray) {
     Obj *obj = NULL;
     TypeInfo *tmp = NULL;
     Token *ident = NULL;
@@ -427,7 +427,7 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType) {
     if (ident) {
         obj->token = ident;
     } else if (consumeReserved("(")) {
-        obj->type = parseAdvancedTypeDeclaration(baseType)->type;
+        obj->type = parseAdvancedTypeDeclaration(baseType, 0)->type;
         expectReserved(")");
     }
     // TODO: Give error "ident expected" here?
@@ -435,15 +435,21 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType) {
     if (matchReserved("[")) {
         TypeInfo *arrayType = NULL;
         TypeInfo **curType = &arrayType;
+        int needSize = !allowTentativeArray;
         while (consumeReserved("[")) {
             int arraySize = -1;
+            if (needSize) {
+                arraySize = expectNumber();
+            } else {
+                consumeNumber(&arraySize);
+            }
+            expectReserved("]");
+
             *curType = newTypeInfo(TypeArray);
-            consumeNumber(&arraySize);
             (*curType)->arraySize = arraySize;
             curType = &(*curType)->baseType;
-            expectReserved("]");
+            needSize = 1;
         }
-        // TODO: Is this right?
         *curType = newTypeInfo((*baseType)->type);
         **curType = **baseType;
         baseType = &arrayType;
@@ -483,7 +489,7 @@ static Function *parseFuncArgDeclaration(void) {
                 (*arg)->type->next = (*arg)->next->type;
             arg = &(*arg)->next;
         }
-        (*arg) = parseEntireDeclaration();
+        (*arg) = parseEntireDeclaration(1);
         if (!(*arg) || (*arg)->type->type == TypeVoid) {
             if (*arg && func->argsCount) {
                 errorAt(tokenSave->str,
@@ -606,7 +612,7 @@ static Node *decl(void) {
     }
     for (;;) {
         Token *token = globals.token;
-        obj = parseAdvancedTypeDeclaration(&baseType);
+        obj = parseAdvancedTypeDeclaration(&baseType, 1);
         if (!obj->token->str) {
             errorAt(token->str, "Missing variable/function name.");
         }
