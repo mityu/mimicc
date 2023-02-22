@@ -243,7 +243,7 @@ int checkEscapeChar(char c, char *decoded);
 
 // parser.c
 void program();
-Function *findFunction(const char *name, int len);
+Obj *findFunction(const char *name, int len);
 StructMember *findStructMember(const Struct *s, const char *name, int len);
 int sizeOf(const TypeInfo *ti);
 

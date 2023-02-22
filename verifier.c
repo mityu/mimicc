@@ -201,45 +201,45 @@ static void verifyTypeFCall(const Node *n) {
     if (n->kind != NodeFCall) {
         error("Internal error: Not a NodeFCall node is given.");
     }
-    Function *f = findFunction(n->fcall->name, n->fcall->len);
+    Obj *f = findFunction(n->fcall->name, n->fcall->len);
     if (!f) {
         errorUnreachable();
     }
-    if (n->fcall->argsCount != f->argsCount && !f->haveVaArgs) {
+    if (n->fcall->argsCount != f->func->argsCount && !f->func->haveVaArgs) {
         errorAt(
                 n->token->str,
                 "%d arguments are expected, but got %d.",
-                f->argsCount,
+                f->func->argsCount,
                 n->fcall->argsCount
                 );
-    } else if (n->fcall->argsCount < f->argsCount && f->haveVaArgs) {
+    } else if (n->fcall->argsCount < f->func->argsCount && f->func->haveVaArgs) {
         errorAt(
                 n->token->str,
                 "At least %d arguments are expected, but got just %d.",
-                f->argsCount,
+                f->func->argsCount,
                 n->fcall->argsCount
                 );
     }
 
-    if (f->argsCount > ARGS_BUFFER_SIZE) {
+    if (f->func->argsCount > ARGS_BUFFER_SIZE) {
         actualArgs =
-            (Node **)safeAlloc(f->argsCount * sizeof(Node *));
+            (Node **)safeAlloc(f->func->argsCount * sizeof(Node *));
     }
 
-    if (f->argsCount == 0)
+    if (f->func->argsCount == 0)
         return;
 
     arg = n->fcall->args;
     // Skip args in variadic arguments area
-    for (int i = 0; i < n->fcall->argsCount - f->argsCount; ++i)
+    for (int i = 0; i < n->fcall->argsCount - f->func->argsCount; ++i)
         arg = arg->next;
-    for (Node **store = &actualArgs[f->argsCount-1]; arg; arg = arg->next) {
+    for (Node **store = &actualArgs[f->func->argsCount-1]; arg; arg = arg->next) {
         *store = arg;
         --store;
     }
 
-    formalArg = f->args;
-    for (int i = 0; i < f->argsCount; ++i) {
+    formalArg = f->func->args;
+    for (int i = 0; i < f->func->argsCount; ++i) {
         if (!checkAssignable(formalArg->type, actualArgs[i]->type)) {
             errorAt(
                     actualArgs[i]->token->str,
@@ -248,7 +248,7 @@ static void verifyTypeFCall(const Node *n) {
         }
         formalArg = formalArg->next;
     }
-    if (f->argsCount > ARGS_BUFFER_SIZE) {
+    if (f->func->argsCount > ARGS_BUFFER_SIZE) {
         free(actualArgs);
         actualArgs = NULL;
     }

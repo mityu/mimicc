@@ -192,17 +192,13 @@ static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
-// static Obj *newObjFunction(Token *t) {
-//     Obj *obj = newObj(t, NULL, 0);
-//     return obj;
-// }
-
-static Function *newFunction(Token *t) {
-    Function *f = (Function*)safeAlloc(sizeof(Function));
-    f->name = t->str;
-    f->len = t->len;
-    return f;
-};
+static Obj *newObjFunction(Token *t) {
+    Obj *obj = newObj(t, NULL, 0);
+    obj->func = (Function *)safeAlloc(sizeof(Function));
+    obj->func->name = t->str;
+    obj->func->len = t->len;
+    return obj;
+}
 
 static Struct *newStruct(void) {
     Struct *s = (Struct *)safeAlloc(sizeof(Struct));
@@ -302,10 +298,10 @@ static Obj *findLVar(char *name, int len) {
     return NULL;
 }
 
-Function *findFunction(const char *name, int len) {
+Obj *findFunction(const char *name, int len) {
     for (Obj *obj = globals.functions; obj; obj = obj->next) {
         if (obj->len == len && memcmp(obj->name, name, (size_t)len) == 0)
-            return obj->func;
+            return obj;
     }
     return NULL;
 }
@@ -514,9 +510,8 @@ static Node *decl(void) {
     ident = consumeIdent();
     if (ident) {
         Node *n = NULL;
-        Function *f = NULL;
         Obj *obj = NULL;
-        Function *funcFound = NULL;
+        Obj *funcFound = NULL;
         int argsCount = 0;
         int argNum = 0;
         int argOffset = 0;
@@ -569,10 +564,7 @@ static Node *decl(void) {
         }
 
         argHead.next = NULL;
-        obj = newObj(ident, NULL, 0);
-        f = newFunction(ident);
-        f->retType = type;
-        obj->func = f;
+        obj = newObjFunction(ident);
 
 
         if (!consumeReserved(")")) {
@@ -588,7 +580,7 @@ static Node *decl(void) {
                     if (consumeReserved("...")) {
                         // Once variadic arguments found, it must be the end of
                         // function arguments.
-                        f->haveVaArgs = 1;
+                        obj->func->haveVaArgs = 1;
                         break;
                     }
                     errorTypeExpected();
@@ -628,8 +620,8 @@ static Node *decl(void) {
             }
             expectReserved(")");
         }
-        f->args = argHead.next;
-        f->argsCount = argsCount;
+        obj->func->args = argHead.next;
+        obj->func->argsCount = argsCount;
 
         if (consumeReserved(";")) {
             justDeclaring = 1;
@@ -645,10 +637,10 @@ static Node *decl(void) {
             return NULL;
         }
 
-        funcFound = findFunction(f->name, f->len);
+        funcFound = findFunction(obj->func->name, obj->func->len);
         if (funcFound) {
             if (!justDeclaring) {
-                if (funcFound->haveImpl) {
+                if (funcFound->func->haveImpl) {
                     errorAt(ident->str, "Function is defined twice");
                 } else {
                     // Argument name may be omitted with function declaration.
@@ -656,8 +648,8 @@ static Node *decl(void) {
                     // replace it to make sure argument name can be found.
                     // TODO: Check if arguments are same.
                     // TODO: Free funcFound->args
-                    funcFound->args = f->args;
-                    funcFound->haveImpl = 1;
+                    funcFound->func->args = obj->func->args;
+                    funcFound->func->haveImpl = 1;
                 }
             }
         } else {
@@ -672,7 +664,7 @@ static Node *decl(void) {
 
 
         n = newNodeFunction();
-        n->func = f;
+        n->func = obj->func;
         n->token = ident;
 
         // Dive into the new block.
@@ -684,7 +676,7 @@ static Node *decl(void) {
         // function.
         argOffset = 0;
         argNum = 0;
-        for (Obj *v = f->args; v; v = v->next) {
+        for (Obj *v = obj->func->args; v; v = v->next) {
             ++argNum;
             if (argNum > REG_ARGS_MAX_COUNT) {
                 argOffset -= ONE_WORD_BYTES;
@@ -1380,14 +1372,14 @@ static Node *postfix(void) {
 
     if (ident && matchReserved("(")) {
         FCall *arg;
-        Function *f;
+        Obj *f;
 
         f = findFunction(ident->str, ident->len);
         if (!f) {
             errorAt(ident->str, "No such function.");
         }
 
-        n = newNodeFCall(f->retType);
+        n = newNodeFCall(f->func->retType);
         arg = funcArgList();
 
         n->fcall->name = ident->str;
