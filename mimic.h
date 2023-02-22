@@ -170,9 +170,8 @@ struct Obj {
     Obj     *next;
     char     *name;
     int      len;     // Length of name.
-    TypeInfo *type;   // Type of variable.
+    TypeInfo *type;   // Type of object.
     int      offset;  // Offset from rbp.  Variable adress is calculated as
-                      // "RBP - offset."
 };
 
 struct Function {

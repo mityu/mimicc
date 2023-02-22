@@ -182,7 +182,7 @@ static int atEOF(void) {
     return globals.token->type == TokenEOF;
 }
 
-static Obj *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
+static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     Obj *v = (Obj *)safeAlloc(sizeof(Obj));
     v->next = NULL;
     v->name = t->str;
@@ -192,8 +192,10 @@ static Obj *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
-static Function *newFunction(void) {
+static Function *newFunction(Token *t) {
     Function *f = (Function*)safeAlloc(sizeof(Function));
+    f->name = t->str;
+    f->len = t->len;
     return f;
 };
 
@@ -537,7 +539,7 @@ static Node *decl(void) {
                 }
 
                 // Global variable doesn't have an offset.
-                gvar = newLVar(ident, type, -1);
+                gvar = newObj(ident, type, -1);
 
                 // Register variable.
                 if (globals.vars) {
@@ -561,9 +563,7 @@ static Node *decl(void) {
         }
 
         argHead.next = NULL;
-        f = newFunction();
-        f->name = ident->str;
-        f->len = ident->len;
+        f = newFunction(ident);
         f->retType = type;
 
 
@@ -613,7 +613,7 @@ static Node *decl(void) {
                 argsCount++;
                 // Temporally, set offset to 0 here.  It's computed later if
                 // needed.
-                args->next = newLVar(argToken, typeInfo, 0);
+                args->next = newObj(argToken, typeInfo, 0);
                 args = args->next;
                 if (!consumeReserved(","))
                     break;
@@ -1037,7 +1037,7 @@ static Node *varDeclaration(void) {
         totalVarSize += varPadding + currentVarSize;
         globals.currentBlock->localVarSize += varPadding + currentVarSize;
 
-        lvar = newLVar(ident, varType, totalVarSize);
+        lvar = newObj(ident, varType, totalVarSize);
         varNode->offset = totalVarSize;
 
         // Register variable.
