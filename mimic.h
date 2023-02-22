@@ -124,7 +124,7 @@ typedef enum {
 } NodeKind;
 
 typedef struct Function Function;
-typedef struct LVar LVar;
+typedef struct Obj Obj;
 typedef struct FCall FCall;
 typedef struct Node Node;
 struct Node {
@@ -140,7 +140,7 @@ struct Node {
                        // statement doesn't exist.
     TypeInfo *type;    // Type of this node's result value.
     Token *token;      // Token which gave this node.
-    LVar *localVars;   // List of variables local to block. (func, block, for, ...)
+    Obj *localVars;   // List of variables local to block. (func, block, for, ...)
                        // Stored in reversed appearing order for an
                        // implementation reason.
     int localVarSize;   // The size of local variables (not includes inner blocks').
@@ -162,8 +162,8 @@ struct FCall {
     Node *args;    // Function arguments in reversed order.
 };
 
-struct LVar {
-    LVar     *next;
+struct Obj {
+    Obj     *next;
     char     *name;
     int      len;     // Length of name.
     TypeInfo *type;   // Type of variable.
@@ -177,7 +177,7 @@ struct Function {
     int len;
     int argsCount;
     int haveVaArgs;    // TRUE if function have variadic arguments
-    LVar *args;        // Function arguments.  NOT IN REVERSED ORDER.
+    Obj *args;        // Function arguments.  NOT IN REVERSED ORDER.
     TypeInfo *retType; // Type of return value.
     int haveImpl;      // TRUE when implementation is given.  FALSE if
                        // only declaration is given.
@@ -211,7 +211,7 @@ typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
     Function *functions;       // Declared function list.
-    LVar *vars;                // Global variables.
+    Obj *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
     Struct *structs;           // Declared struct list.
     Node *currentBlock;        // Current block.

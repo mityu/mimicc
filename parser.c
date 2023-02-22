@@ -182,8 +182,8 @@ static int atEOF(void) {
     return globals.token->type == TokenEOF;
 }
 
-static LVar *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
-    LVar *v = (LVar *)safeAlloc(sizeof(LVar));
+static Obj *newLVar(Token *t, TypeInfo *typeInfo, int offset) {
+    Obj *v = (Obj *)safeAlloc(sizeof(Obj));
     v->next = NULL;
     v->name = t->str;
     v->len = t->len;
@@ -266,8 +266,8 @@ static Node *newNodeFunction(void) {
 
 // Find global variable by name. Return LVar* when variable is found. Returns
 // NULL when not.
-static LVar *findGlobalVar(char *name, int len) {
-    for (LVar *v = globals.vars; v; v = v->next) {
+static Obj *findGlobalVar(char *name, int len) {
+    for (Obj *v = globals.vars; v; v = v->next) {
         if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
             return v;
     }
@@ -277,10 +277,10 @@ static LVar *findGlobalVar(char *name, int len) {
 // Find local variable in current block by name. Return LVar* when variable
 // found. When not, returns NULL.
 // Note that this function does NOT search global variables.
-static LVar *findLVar(char *name, int len) {
+static Obj *findLVar(char *name, int len) {
     Node *block = globals.currentBlock;
     for (;;) {
-        for (LVar *v = block->localVars; v; v = v->next) {
+        for (Obj *v = block->localVars; v; v = v->next) {
             if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
                 return v;
         }
@@ -288,7 +288,7 @@ static LVar *findLVar(char *name, int len) {
         if (!block)
             break;
     }
-    for (LVar *v = globals.currentFunction->args; v; v = v->next) {
+    for (Obj *v = globals.currentFunction->args; v; v = v->next) {
         if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
             return v;
     }
@@ -452,6 +452,7 @@ static int alignOf(const TypeInfo *ti) {
 // C11 draft PDF:
 // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1548.pdf
 static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
+    // TODO: Suport missing types: e.g. pointer
     if (lhs->type == rhs->type) {
         return lhs;
     } else if (lhs->type == TypeNumber) {
@@ -512,15 +513,15 @@ static Node *decl(void) {
         int argNum = 0;
         int argOffset = 0;
         int justDeclaring = 0;
-        LVar argHead;
-        LVar *args = &argHead;
+        Obj argHead;
+        Obj *args = &argHead;
         Token *missingIdentOfArg = NULL;
 
         if (!consumeReserved("(")) {
             // Opening bracket isn't found. Must be global variable
             // declaration.
             for (;;) {
-                LVar *gvar = NULL;
+                Obj *gvar = NULL;
                 TypeInfo arrayTypeHead;
                 TypeInfo *currentType = &arrayTypeHead;
 
@@ -675,7 +676,7 @@ static Node *decl(void) {
         // function.
         argOffset = 0;
         argNum = 0;
-        for (LVar *v = f->args; v; v = v->next) {
+        for (Obj *v = f->args; v; v = v->next) {
             ++argNum;
             if (argNum > REG_ARGS_MAX_COUNT) {
                 argOffset -= ONE_WORD_BYTES;
@@ -949,7 +950,7 @@ static Node *varDeclaration(void) {
     Node headNode;
     Node *n = &headNode;
     Token *ident = NULL;
-    LVar *lvar = NULL;
+    Obj *lvar = NULL;
     int totalVarSize = 0;
     int currentVarSize = 0;
     TypeInfo *baseType = NULL;
@@ -1470,8 +1471,8 @@ static Node *primary(void) {
 
     ident = consumeIdent();
     if (ident) {
-        LVar *lvar = findLVar(ident->str, ident->len);
-        LVar *gvar = NULL;
+        Obj *lvar = findLVar(ident->str, ident->len);
+        Obj *gvar = NULL;
         if (lvar) {
             n = newNodeLVar(lvar->offset, lvar->type);
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {

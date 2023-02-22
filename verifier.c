@@ -196,7 +196,7 @@ static void verifyTypeFCall(const Node *n) {
     Node *actualArgBuf[ARGS_BUFFER_SIZE];
     Node **actualArgs = actualArgBuf;
     Node *arg = NULL;
-    LVar *formalArg = NULL;
+    Obj *formalArg = NULL;
 
     if (n->kind != NodeFCall) {
         error("Internal error: Not a NodeFCall node is given.");

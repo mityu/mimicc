@@ -247,7 +247,7 @@ void genCodeGlobals(void) {
         printf(".LiteralString%d:\n", s->id);
         printf("  .string  \"%s\"\n", s->string);
     }
-    for (LVar *v = globals.vars; v; v = v->next) {
+    for (Obj *v = globals.vars; v; v = v->next) {
         printlen(v->name, v->len);
         puts(":");
         printf("  .zero %d\n", sizeOf(v->type));
@@ -556,7 +556,7 @@ static void genCodeFunction(const Node *n) {
         int offsets[REG_ARGS_MAX_COUNT] = {};
         int size[REG_ARGS_MAX_COUNT] = {};
         int totalOffset = 0;
-        LVar *arg = n->func->args;
+        Obj *arg = n->func->args;
 
         for (int i = 0; i < regargs; ++i) {
             size[i] = sizeOf(arg->type);
