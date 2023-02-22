@@ -192,6 +192,11 @@ static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     return v;
 }
 
+// static Obj *newObjFunction(Token *t) {
+//     Obj *obj = newObj(t, NULL, 0);
+//     return obj;
+// }
+
 static Function *newFunction(Token *t) {
     Function *f = (Function*)safeAlloc(sizeof(Function));
     f->name = t->str;
@@ -298,9 +303,9 @@ static Obj *findLVar(char *name, int len) {
 }
 
 Function *findFunction(const char *name, int len) {
-    for (Function *f = globals.functions; f; f = f->next) {
-        if (f->len == len && memcmp(f->name, name, (size_t)len) == 0)
-            return f;
+    for (Obj *obj = globals.functions; obj; obj = obj->next) {
+        if (obj->len == len && memcmp(obj->name, name, (size_t)len) == 0)
+            return obj->func;
     }
     return NULL;
 }
@@ -510,6 +515,7 @@ static Node *decl(void) {
     if (ident) {
         Node *n = NULL;
         Function *f = NULL;
+        Obj *obj = NULL;
         Function *funcFound = NULL;
         int argsCount = 0;
         int argNum = 0;
@@ -563,8 +569,10 @@ static Node *decl(void) {
         }
 
         argHead.next = NULL;
+        obj = newObj(ident, NULL, 0);
         f = newFunction(ident);
         f->retType = type;
+        obj->func = f;
 
 
         if (!consumeReserved(")")) {
@@ -654,8 +662,8 @@ static Node *decl(void) {
             }
         } else {
             // Register function.
-            f->next = globals.functions;
-            globals.functions = f;
+            obj->next = globals.functions;
+            globals.functions = obj;
         }
 
         if (justDeclaring) {

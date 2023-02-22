@@ -172,6 +172,7 @@ struct Obj {
     int      len;     // Length of name.
     TypeInfo *type;   // Type of object.
     int      offset;  // Offset from rbp.  Variable adress is calculated as
+    Function *func;   // Valid when object holds function
 };
 
 struct Function {
@@ -213,7 +214,7 @@ struct StructMember {
 typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
-    Function *functions;       // Declared function list.
+    Obj *functions;       // Declared function list.
     Obj *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
     Struct *structs;           // Declared struct list.
