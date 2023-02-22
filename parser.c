@@ -10,9 +10,12 @@
 
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
+static Obj *parseEntireDeclaration(void);
 static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
+static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType);
+static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
@@ -185,8 +188,7 @@ static int atEOF(void) {
 static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     Obj *v = (Obj *)safeAlloc(sizeof(Obj));
     v->next = NULL;
-    v->name = t->str;
-    v->len = t->len;
+    v->token = t;
     v->type = typeInfo;
     v->offset = offset;
     return v;
@@ -269,7 +271,7 @@ static Node *newNodeFunction(Token *t) {
 // NULL when not.
 static Obj *findGlobalVar(char *name, int len) {
     for (Obj *v = globals.vars; v; v = v->next) {
-        if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+        if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
             return v;
     }
     return NULL;
@@ -282,7 +284,7 @@ static Obj *findLVar(char *name, int len) {
     Node *block = globals.currentBlock;
     for (;;) {
         for (Obj *v = block->localVars; v; v = v->next) {
-            if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+            if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
                 return v;
         }
         block = block->outerBlock;
@@ -290,7 +292,7 @@ static Obj *findLVar(char *name, int len) {
             break;
     }
     for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
-        if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
+        if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
             return v;
     }
     return NULL;
@@ -298,7 +300,7 @@ static Obj *findLVar(char *name, int len) {
 
 Obj *findFunction(const char *name, int len) {
     for (Obj *obj = globals.functions; obj; obj = obj->next) {
-        if (obj->len == len && memcmp(obj->name, name, (size_t)len) == 0)
+        if (obj->token->len == len && memcmp(obj->token->str, name, (size_t)len) == 0)
             return obj;
     }
     return NULL;
@@ -402,6 +404,105 @@ static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType) {
     return head.baseType;
 }
 
+static Obj *parseEntireDeclaration(void) {
+    TypeInfo *baseType = parseBaseType();
+    Obj *obj = parseAdvancedTypeDeclaration(&baseType);
+    return obj;
+}
+
+static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType) {
+    Obj *obj = NULL;
+    TypeInfo *tmp = NULL;
+    Token *ident = NULL;
+
+    obj = (Obj *)safeAlloc(sizeof(Obj));
+
+    while (consumeReserved("*")) {
+        tmp = newTypeInfo(TypePointer);
+        tmp->baseType = *baseType;
+        baseType = &tmp;
+    }
+
+    ident = consumeIdent();
+    if (ident) {
+        obj->token = ident;
+    } else if (consumeReserved("(")) {
+        obj->type = parseAdvancedTypeDeclaration(baseType)->type;
+        expectReserved(")");
+    }
+    // TODO: Give error "ident expected" here?
+
+    if (matchReserved("[")) {
+        TypeInfo *arrayType = NULL;
+        TypeInfo **curType = &arrayType;
+        while (consumeReserved("[")) {
+            int arraySize = -1;
+            *curType = newTypeInfo(TypeArray);
+            consumeNumber(&arraySize);
+            (*curType)->arraySize = arraySize;
+            curType = &(*curType)->baseType;
+            expectReserved("]");
+        }
+        // TODO: Is this right?
+        *curType = newTypeInfo((*baseType)->type);
+        **curType = **baseType;
+        baseType = &arrayType;
+    } else if (matchReserved("(")) {
+        TypeInfo *funcType = NULL;
+
+        obj->func = parseFuncArgDeclaration();
+        obj->func->retType = *baseType;
+
+        funcType = newTypeInfo(TypeFunction);
+        funcType->retType = *baseType;
+        if (obj->func->args)
+            funcType->argTypes = obj->func->args->type;
+        baseType = &funcType;
+    }
+    if (!obj->type)
+        obj->type = *baseType;
+    return obj;
+}
+
+static Function *parseFuncArgDeclaration(void) {
+    Function *func = (Function *)safeAlloc(sizeof(Function));
+    Obj **arg = &func->args;
+
+    expectReserved("(");
+    if (consumeReserved(")"))
+        return func;
+
+    for (;;) {
+        Token *tokenSave = globals.token;
+        if (consumeReserved("...")) {
+            func->haveVaArgs = 1;
+            break;
+        }
+        if (*arg) {
+            if ((*arg)->next)
+                (*arg)->type->next = (*arg)->next->type;
+            arg = &(*arg)->next;
+        }
+        (*arg) = parseEntireDeclaration();
+        if (!(*arg) || (*arg)->type->type == TypeVoid) {
+            if (*arg && func->argsCount) {
+                errorAt(tokenSave->str,
+                        "Function parameter must be only one if \"void\" appears.");
+            }
+            *arg = NULL;
+            break;
+        }
+
+        func->argsCount++;
+
+        if (!consumeReserved(","))
+            break;
+    }
+
+    expectReserved(")");
+    return func;
+}
+
 // Return size of given type.  If computing failed, exit program.
 int sizeOf(const TypeInfo *ti) {
     if (ti->type == TypeInt || ti->type == TypeNumber) {
@@ -483,13 +584,13 @@ void program(void) {
     globals.code->body = body.next;
 }
 
-// Parse declarations of global variables/functions, and definitions of
+// Parse declarations of global variables/functions/structs and definitions of
 // functions.
 static Node *decl(void) {
     TypeInfo *baseType = NULL;
-    TypeInfo *type = NULL;
-    Token *ident = NULL;
     Struct *s = NULL;
+    Obj *obj = NULL;
+    int acceptFuncDefinition = 1;
 
     // Parse and skip struct declarations
     s = structDeclaration();
@@ -503,203 +604,114 @@ static Node *decl(void) {
     if (!baseType) {
         errorTypeExpected();
     }
-    type = parsePointerType(baseType);
+    for (;;) {
+        Token *token = globals.token;
+        obj = parseAdvancedTypeDeclaration(&baseType);
+        if (!obj->token->str) {
+            errorAt(token->str, "Missing variable/function name.");
+        }
+        if (obj->type->type == TypeFunction && matchReserved("{")) {
+            // Function definition.
+            Obj *funcFound = NULL;
+            Node *n = NULL;
+            int argOffset = 0;
+            int argNum = 0;
 
-    ident = consumeIdent();
-    if (ident) {
-        Node *n = NULL;
-        Obj *obj = NULL;
-        Obj *funcFound = NULL;
-        int argsCount = 0;
-        int argNum = 0;
-        int argOffset = 0;
-        int justDeclaring = 0;
-        Obj argHead;
-        Obj *args = &argHead;
-        Token *missingIdentOfArg = NULL;
-
-        if (!consumeReserved("(")) {
-            // Opening bracket isn't found. Must be global variable
-            // declaration.
-            for (;;) {
-                Obj *gvar = NULL;
-                TypeInfo arrayTypeHead;
-                TypeInfo *currentType = &arrayTypeHead;
-
-                if (findGlobalVar(ident->str, ident->len)) {
-                    errorAt(ident->str, "Redefinition of variable.");
-                }
-
-                type = parseArrayType(type, 1);
-
-                if (type->type == TypeVoid) {
-                    errorAt(ident->str,
-                            "Cannot declare variable with type \"void\"");
-                }
-
-                // Global variable doesn't have an offset.
-                gvar = newObj(ident, type, -1);
-
-                // Register variable.
-                if (globals.vars) {
-                    gvar->next = globals.vars;
-                    globals.vars = gvar;
-                } else {
-                    globals.vars = gvar;
-                }
-
-                if (!consumeReserved(","))
-                    break;
-
-                type = parsePointerType(baseType);
-                ident = consumeIdent();
-                if (!ident) {
-                    errorIdentExpected();
-                }
+            if (!acceptFuncDefinition) {
+                errorAt(globals.token->str, "Function definition is not expected here.");
             }
-            expectReserved(";");
-            return NULL;
-        }
 
-        argHead.next = NULL;
-        obj = newObjFunction(ident);
-        obj->func->retType = type;
-
-
-        if (!consumeReserved(")")) {
-            // ")" doesn't follows just after "(", arguments must exist.
-            // Parse arguments in this loop.
-            for (;;) {
-                TypeInfo *typeInfo = NULL;
-                Token *argToken = NULL;
-                Token *typeToken = globals.token;
-
-                typeInfo = parseBaseType();
-                if (!typeInfo) {
-                    if (consumeReserved("...")) {
-                        // Once variadic arguments found, it must be the end of
-                        // function arguments.
-                        obj->func->haveVaArgs = 1;
-                        break;
-                    }
-                    errorTypeExpected();
-                }
-                typeInfo = parsePointerType(typeInfo);
-
-                if (typeInfo->type == TypeVoid) {
-                    if (argsCount != 0) {
-                        errorAt(
-                                typeToken->str,
-                                "Function parameter must be only one if \"void\" appears."
-                                );
-                    }
-                    break;
-                }
-
-                argToken = consumeIdent();
-                if (!argToken) {
-                    // Argumnent name is omitted.  If omitting is OK is checked
-                    // later.  Just do remember where argument name is missing
-                    // here.
-                    if (!missingIdentOfArg) {
-                        // Remember the first argument whose name is omitted.
-                        // Don't overwrite if any arguments' name is omitted
-                        // before.
-                        missingIdentOfArg = globals.token;
-                    }
-                    argToken = globals.token;
-                }
-                argsCount++;
-                // Temporally, set offset to 0 here.  It's computed later if
-                // needed.
-                args->next = newObj(argToken, typeInfo, 0);
-                args = args->next;
-                if (!consumeReserved(","))
-                    break;
+            for (Obj *arg = obj->func->args; arg; arg = arg->next) {
+                if (!arg->token)
+                    errorAt(token->str, "Argument name is missed.");
+                else if (arg->type->type == TypeVoid)
+                    errorAt(token->str,
+                            "Cannot declare function argument with type \"void\"");
             }
-            expectReserved(")");
-        }
-        obj->func->args = argHead.next;
-        obj->func->argsCount = argsCount;
 
-        if (consumeReserved(";")) {
-            justDeclaring = 1;
-        }
-
-        // Missing variable name although this is not just a function
-        // declaration.
-        if (!justDeclaring && missingIdentOfArg) {
-            Token *token_save = globals.token;
-            globals.token = missingIdentOfArg;
-            errorIdentExpected();
-            globals.token = token_save;
-            return NULL;
-        }
-
-        funcFound = findFunction(obj->name, obj->len);
-        if (funcFound) {
-            if (!justDeclaring) {
+            funcFound = findFunction(obj->token->str, obj->token->len);
+            if (funcFound) {
                 if (funcFound->func->haveImpl) {
-                    errorAt(ident->str, "Function is defined twice");
-                } else {
-                    // Argument name may be omitted with function declaration.
-                    // Function implementation must have argument name, so
-                    // replace it to make sure argument name can be found.
-                    // TODO: Check if arguments are same.
-                    // TODO: Free funcFound->args
-                    funcFound->func->args = obj->func->args;
-                    funcFound->func->haveImpl = 1;
+                    errorAt(token->str, "Redefinition of function.");
                 }
+                // Argument name may be omitted with function declaration.
+                // Function implementation must have argument name, so
+                // replace it to make sure argument name can be found.
+                // TODO: Check if arguments are same.
+                // TODO: Check if return types are same
+                // TODO: Free funcFound->args
+                funcFound->func->args = obj->func->args;
+                funcFound->func->haveImpl = 1;
+            } else {
+                // Register function
+                obj->next = globals.functions;
+                globals.functions = obj;
+            }
+            n = newNodeFunction(obj->token);
+            n->func = obj;
+            n->token = obj->token;
+
+            // Dive into this function block.
+            globals.currentBlock = n;
+            globals.currentFunction = obj;
+
+            // Compute argument variables' offset.
+            // Note that arguments are all copied onto stack at the head of
+            // function.
+            argOffset = 0;
+            argNum = 0;
+            for (Obj *v = obj->func->args; v; v = v->next) {
+                ++argNum;
+                if (argNum > REG_ARGS_MAX_COUNT) {
+                    argOffset -= ONE_WORD_BYTES;
+                    v->offset = argOffset;
+                } else {
+                    argOffset += sizeOf(v->type);
+                    v->offset = argOffset;
+                    n->localVarSize = argOffset;
+                    if (argNum == REG_ARGS_MAX_COUNT) {
+                        argOffset = -ONE_WORD_BYTES;
+                    }
+                }
+            }
+
+            // Handle function body
+            n->body = stmt();
+
+            // Escape from this function block to the outer one.
+            globals.currentBlock = n->outerBlock;
+            return n;
+        } else if (obj->type->type == TypeFunction) {
+            // Function declaration
+            Obj *funcFound = NULL;
+            funcFound = findFunction(obj->token->str, obj->token->len);
+            if (funcFound) {
+                // TODO: Check return/argument types matches with the previous
+                // function declaration.
+            } else {
+                // Register function
+                obj->func->haveImpl = 0;
+                obj->next = globals.functions;
+                globals.functions = obj;
             }
         } else {
-            // Register function.
-            obj->next = globals.functions;
-            globals.functions = obj;
+            // Global variable declaration
+            if (findGlobalVar(obj->token->str, obj->token->len))
+                errorAt(obj->token->str, "Redefinition of variable.");
+            else if (obj->type->type == TypeVoid)
+                errorAt(obj->token->str,
+                        "Cannot declare variable with type \"void\"");
+
+            obj->next = globals.vars;
+            globals.vars = obj;
         }
 
-        if (justDeclaring) {
-            return NULL;
-        }
+        if (!consumeReserved(","))
+            break;
 
-
-        n = newNodeFunction(ident);
-        n->func = obj;
-        n->token = ident;
-
-        // Dive into the new block.
-        globals.currentBlock = n;
-        globals.currentFunction = n->func;
-
-        // Compute argument variables' offset.
-        // Note that arguments are all copied onto stack at the head of
-        // function.
-        argOffset = 0;
-        argNum = 0;
-        for (Obj *v = obj->func->args; v; v = v->next) {
-            ++argNum;
-            if (argNum > REG_ARGS_MAX_COUNT) {
-                argOffset -= ONE_WORD_BYTES;
-                v->offset = argOffset;
-            } else {
-                argOffset += sizeOf(v->type);
-                v->offset = argOffset;
-                n->localVarSize = argOffset;
-                if (argNum == REG_ARGS_MAX_COUNT) {
-                    argOffset = -ONE_WORD_BYTES;
-                }
-            }
-        }
-
-        // Handle function body
-        assureReserved("{");
-        n->body = stmt();
-
-        // Escape from this block to the outer one.
-        globals.currentBlock = n->outerBlock;
-        return n;
-    } else {
-        errorIdentExpected();
+        acceptFuncDefinition = 0;
     }
+    expectReserved(";");
     return NULL;
 }
 

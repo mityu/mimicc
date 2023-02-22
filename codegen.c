@@ -248,7 +248,7 @@ void genCodeGlobals(void) {
         printf("  .string  \"%s\"\n", s->string);
     }
     for (Obj *v = globals.vars; v; v = v->next) {
-        printlen(v->name, v->len);
+        printlen(v->token->str, v->token->len);
         puts(":");
         printf("  .zero %d\n", sizeOf(v->type));
     }
@@ -542,9 +542,9 @@ static void genCodeFunction(const Node *n) {
 
     putchar('\n');
     printn(".globl ");
-    printlen(n->func->name, n->func->len);
+    printlen(n->func->token->str, n->func->token->len);
     putchar('\n');
-    printlen(n->func->name, n->func->len);
+    printlen(n->func->token->str, n->func->token->len);
     puts(":");
 
     // Prologue.

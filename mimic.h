@@ -44,7 +44,7 @@ struct TypeInfo {
     int arraySize;
     Struct *structEntity; // Valid when type is TypeStruct
     TypeInfo *retType; // Valid when type is TypeFunction
-    TypeInfo *argsType; // Valid when type is TypeFunction
+    TypeInfo *argTypes; // Valid when type is TypeFunction
 };
 
 extern struct Types {
@@ -177,8 +177,7 @@ struct Function {
 
 struct Obj {
     Obj      *next;
-    char     *name;
-    int      len;     // Length of name.
+    Token    *token;
     TypeInfo *type;   // Type of object.
     int      offset;  // Offset from rbp.  Variable adress is calculated as
     Function *func;   // Valid when object holds function
