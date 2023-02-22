@@ -278,6 +278,13 @@ static void genCodeLVal(const Node *n) {
         printlen(n->token->str, n->token->len);
         puts("[rip]");
         puts("  push rax");
+    } else if (n->kind == NodeMemberAccess) {
+        StructMember *m = findStructMember(
+                n->lhs->type->structEntity, n->token->str, n->token->len);
+        genCodeLVal(n->lhs);
+        puts("  pop rax");
+        printf("  add rax, %d\n", m->offset);
+        puts("  push rax");
     } else {
         puts("  mov rax, rbp");
         printf("  sub rax, %d\n", n->offset);
@@ -803,12 +810,6 @@ void genCode(const Node *n) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
-    } else if (n->kind == NodeMemberAccess) {
-        StructMember *m = findStructMember(
-                n->lhs->type->structEntity, n->token->str, n->token->len);
-        puts("  pop rax");
-        printf("  add rax, %d\n", m->offset);
-        puts("  push rax");
     } else if (n->kind == NodeBlock) {
         if (n->localVarSize)
             printf("  sub rsp, %d\n", n->localVarSize);
@@ -870,7 +871,7 @@ void genCode(const Node *n) {
     } else if (n->kind == NodeLiteralString) {
         printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         puts("  push rax");
-    } else if (n->kind == NodeLVar || n->kind == NodeGVar) {
+    } else if (n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);

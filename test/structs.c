@@ -101,5 +101,6 @@ int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
     test_sizeof_struct();
+    test_struct_member_access();
     return 0;
 }
