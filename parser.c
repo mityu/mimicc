@@ -195,8 +195,6 @@ static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
 static Obj *newObjFunction(Token *t) {
     Obj *obj = newObj(t, NULL, 0);
     obj->func = (Function *)safeAlloc(sizeof(Function));
-    obj->func->name = t->str;
-    obj->func->len = t->len;
     return obj;
 }
 
@@ -261,9 +259,9 @@ static Node *newNodeFCall(TypeInfo *retType) {
     return n;
 }
 
-static Node *newNodeFunction(void) {
+static Node *newNodeFunction(Token *t) {
     Node *n = newNode(NodeFunction, &Types.None);
-    n->func = (Function *)safeAlloc(sizeof(Function));
+    n->func = newObjFunction(t);
     return n;
 }
 
@@ -291,7 +289,7 @@ static Obj *findLVar(char *name, int len) {
         if (!block)
             break;
     }
-    for (Obj *v = globals.currentFunction->args; v; v = v->next) {
+    for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
         if (v->len == len && memcmp(v->name, name, (size_t)len) == 0)
             return v;
     }
@@ -637,7 +635,7 @@ static Node *decl(void) {
             return NULL;
         }
 
-        funcFound = findFunction(obj->func->name, obj->func->len);
+        funcFound = findFunction(obj->name, obj->len);
         if (funcFound) {
             if (!justDeclaring) {
                 if (funcFound->func->haveImpl) {
@@ -663,8 +661,8 @@ static Node *decl(void) {
         }
 
 
-        n = newNodeFunction();
-        n->func = obj->func;
+        n = newNodeFunction(ident);
+        n->func = obj;
         n->token = ident;
 
         // Dive into the new block.

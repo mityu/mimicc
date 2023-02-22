@@ -144,12 +144,12 @@ struct Node {
                        // statement doesn't exist.
     TypeInfo *type;    // Type of this node's result value.
     Token *token;      // Token which gave this node.
-    Obj *localVars;   // List of variables local to block. (func, block, for, ...)
+    Obj *localVars;    // List of variables local to block. (func, block, for, ...)
                        // Stored in reversed appearing order for an
                        // implementation reason.
-    int localVarSize;   // The size of local variables (not includes inner blocks').
+    int localVarSize;  // The size of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
-    Function *func;    // Function info.
+    Obj *func;         // Function info.
     Node *outerBlock;  // One step outer block.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
@@ -166,25 +166,22 @@ struct FCall {
     Node *args;    // Function arguments in reversed order.
 };
 
+struct Function {
+    int argsCount;
+    int haveVaArgs;    // TRUE if function have variadic arguments
+    int haveImpl;      // TRUE when implementation is given.  FALSE if
+                       // only declaration is given.
+    Obj *args;         // Function arguments.  NOT IN REVERSED ORDER.
+    TypeInfo *retType; // Type of return value.
+};
+
 struct Obj {
-    Obj     *next;
+    Obj      *next;
     char     *name;
     int      len;     // Length of name.
     TypeInfo *type;   // Type of object.
     int      offset;  // Offset from rbp.  Variable adress is calculated as
     Function *func;   // Valid when object holds function
-};
-
-struct Function {
-    Function *next;
-    char *name;
-    int len;
-    int argsCount;
-    int haveVaArgs;    // TRUE if function have variadic arguments
-    Obj *args;        // Function arguments.  NOT IN REVERSED ORDER.
-    TypeInfo *retType; // Type of return value.
-    int haveImpl;      // TRUE when implementation is given.  FALSE if
-                       // only declaration is given.
 };
 
 struct LiteralString {
@@ -219,7 +216,7 @@ struct Globals {
     LiteralString *strings;    // Literal string list.
     Struct *structs;           // Declared struct list.
     Node *currentBlock;        // Current block.
-    Function *currentFunction; // Function currently parsed.
+    Obj *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.
     Token *token;              // Token currently watches.

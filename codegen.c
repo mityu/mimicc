@@ -536,7 +536,7 @@ static void genCodeFunction(const Node *n) {
     if (!n)
         return;
 
-    int regargs = n->func->argsCount;
+    int regargs = n->func->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
@@ -556,7 +556,7 @@ static void genCodeFunction(const Node *n) {
         int offsets[REG_ARGS_MAX_COUNT] = {};
         int size[REG_ARGS_MAX_COUNT] = {};
         int totalOffset = 0;
-        Obj *arg = n->func->args;
+        Obj *arg = n->func->func->args;
 
         for (int i = 0; i < regargs; ++i) {
             size[i] = sizeOf(arg->type);

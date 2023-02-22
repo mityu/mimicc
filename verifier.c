@@ -94,7 +94,7 @@ void verifyType(const Node *n) {
         if (!funcNode) {
             errorUnreachable();
         }
-        if (!checkAssignable(funcNode->func->retType, n->lhs->type)) {
+        if (!checkAssignable(funcNode->func->func->retType, n->lhs->type)) {
             errorAt(n->token->str, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
