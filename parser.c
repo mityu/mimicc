@@ -563,6 +563,7 @@ static Node *decl(void) {
 
         argHead.next = NULL;
         obj = newObjFunction(ident);
+        obj->func->retType = type;
 
 
         if (!consumeReserved(")")) {
