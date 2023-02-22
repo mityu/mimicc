@@ -14,7 +14,7 @@ static Obj *parseEntireDeclaration(int allowTentativeArray);
 static TypeInfo *parseBaseType(void);
 static TypeInfo *parsePointerType(TypeInfo *baseType);
 static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
-static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType, int allowTentativeArray);
+static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeArray);
 static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
@@ -406,28 +406,36 @@ static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType) {
 
 static Obj *parseEntireDeclaration(int allowTentativeArray) {
     TypeInfo *baseType = parseBaseType();
-    Obj *obj = parseAdvancedTypeDeclaration(&baseType, allowTentativeArray);
+    Obj *obj = parseAdvancedTypeDeclaration(baseType, allowTentativeArray);
     return obj;
 }
 
-static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType, int allowTentativeArray) {
+static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeArray) {
     Obj *obj = NULL;
-    TypeInfo *tmp = NULL;
+    TypeInfo *placeHolder = NULL;
     Token *ident = NULL;
 
     obj = (Obj *)safeAlloc(sizeof(Obj));
 
     while (consumeReserved("*")) {
+        TypeInfo *tmp = NULL;
         tmp = newTypeInfo(TypePointer);
-        tmp->baseType = *baseType;
-        baseType = &tmp;
+        tmp->baseType = baseType;
+        baseType = tmp;
     }
 
     ident = consumeIdent();
     if (ident) {
         obj->token = ident;
+        obj->type = baseType;
     } else if (consumeReserved("(")) {
-        obj->type = parseAdvancedTypeDeclaration(baseType, 0)->type;
+        // TODO: Free inner object
+        Obj *inner = NULL;
+        placeHolder = newTypeInfo(TypeNone);
+        inner = parseAdvancedTypeDeclaration(placeHolder, 0);
+        obj->type = inner->type;
+        obj->token = inner->token;
+        inner->token = NULL;
         expectReserved(")");
     }
     // TODO: Give error "ident expected" here?
@@ -450,23 +458,25 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo **baseType, int allowTentative
             curType = &(*curType)->baseType;
             needSize = 1;
         }
-        *curType = newTypeInfo((*baseType)->type);
-        **curType = **baseType;
-        baseType = &arrayType;
+        *curType = newTypeInfo(baseType->type);
+        **curType = *baseType;
+        baseType = arrayType;
     } else if (matchReserved("(")) {
         TypeInfo *funcType = NULL;
 
         obj->func = parseFuncArgDeclaration();
-        obj->func->retType = *baseType;
+        obj->func->retType = baseType;
 
         funcType = newTypeInfo(TypeFunction);
-        funcType->retType = *baseType;
+        funcType->retType = baseType;
         if (obj->func->args)
             funcType->argTypes = obj->func->args->type;
-        baseType = &funcType;
+        baseType = funcType;
     }
-    if (!obj->type)
-        obj->type = *baseType;
+    if (placeHolder)
+        *placeHolder = *baseType;
+    else
+        obj->type = baseType;
     return obj;
 }
 
@@ -614,7 +624,7 @@ static Node *decl(void) {
     }
     for (;;) {
         Token *tokenObjHead = globals.token;
-        obj = parseAdvancedTypeDeclaration(&baseType, 1);
+        obj = parseAdvancedTypeDeclaration(baseType, 1);
         if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
