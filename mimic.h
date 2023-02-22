@@ -33,14 +33,18 @@ typedef enum {
     TypeArray,
     TypePointer,
     TypeStruct, // Struct
+    TypeFunction,
 } TypeKind;
 
 typedef struct TypeInfo TypeInfo;
 struct TypeInfo {
+    TypeInfo *next;
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
     Struct *structEntity; // Valid when type is TypeStruct
+    TypeInfo *retType; // Valid when type is TypeFunction
+    TypeInfo *argsType; // Valid when type is TypeFunction
 };
 
 extern struct Types {

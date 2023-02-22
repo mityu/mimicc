@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-#define PrimitiveType(type) (TypeInfo){type, NULL, 0, 0}
+#define PrimitiveType(type) (TypeInfo){NULL, type, NULL, 0, NULL, NULL, NULL}
     Types.None   = PrimitiveType(TypeNone),
     Types.Void   = PrimitiveType(TypeVoid),
     Types.Int    = PrimitiveType(TypeInt),
