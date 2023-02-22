@@ -246,5 +246,6 @@ int sizeOf(const TypeInfo *ti);
 // verifier.c
 void verifyFlow(const Node *n);
 void verifyType(const Node *n);
+int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
 int isWorkLikePointer(const TypeInfo *t);
 #endif // HEADER_MIMIC_H

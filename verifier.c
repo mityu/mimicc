@@ -6,7 +6,6 @@
 static void verifyTypeFCall(const Node *n);
 static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);
-static int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
 static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
 static int isLvalue(const Node *n);
@@ -309,12 +308,26 @@ static int checkComparable(const TypeInfo *t1, const TypeInfo *t2) {
     return 0;
 }
 
-// TODO: Support array
-static int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
+int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
     if (t1->type != t2->type) {
         return 0;
-    } else if (t1->type == TypePointer) {
+    } else if (t1->type == TypePointer || t1->type == TypeArray) {
         return checkTypeEqual(t1->baseType, t2->baseType);
+    } else if (t1->type == TypeFunction) {
+        TypeInfo *arg1, *arg2;
+        if (!checkTypeEqual(t1->retType, t2->retType))
+            return 0;
+
+        arg1 = t1->argTypes;
+        arg2 = t2->argTypes;
+        for (; arg1; arg1 = arg1->next, arg2 = arg2->next) {
+            if (!(arg2 && checkTypeEqual(arg1, arg2)))
+                return 0;
+        }
+        if (arg2)
+            return 0;
+    } else if (t1->type == TypeStruct) {
+        // TODO: Implement
     }
     return 1;
 }

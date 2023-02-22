@@ -596,6 +596,7 @@ static Node *decl(void) {
     TypeInfo *baseType = NULL;
     Struct *s = NULL;
     Obj *obj = NULL;
+    Token *tokenBaseType = NULL;
     int acceptFuncDefinition = 1;
 
     // Parse and skip struct declarations
@@ -606,15 +607,16 @@ static Node *decl(void) {
         return NULL;
     }
 
+    tokenBaseType = globals.token;
     baseType = parseBaseType();
     if (!baseType) {
         errorTypeExpected();
     }
     for (;;) {
-        Token *token = globals.token;
+        Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(&baseType, 1);
         if (!obj->token->str) {
-            errorAt(token->str, "Missing variable/function name.");
+            errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
         if (obj->type->type == TypeFunction && matchReserved("{")) {
             // Function definition.
@@ -629,22 +631,39 @@ static Node *decl(void) {
 
             for (Obj *arg = obj->func->args; arg; arg = arg->next) {
                 if (!arg->token)
-                    errorAt(token->str, "Argument name is missed.");
+                    errorAt(tokenObjHead->str, "Argument name is missed.");
                 else if (arg->type->type == TypeVoid)
-                    errorAt(token->str,
+                    errorAt(tokenObjHead->str,
                             "Cannot declare function argument with type \"void\"");
             }
 
             funcFound = findFunction(obj->token->str, obj->token->len);
             if (funcFound) {
                 if (funcFound->func->haveImpl) {
-                    errorAt(token->str, "Redefinition of function.");
+                    errorAt(tokenObjHead->str, "Redefinition of function.");
                 }
+
+                // Check types are same with previous declaration.
+                if (!checkTypeEqual(funcFound->func->retType, obj->func->retType)) {
+                    errorAt(tokenBaseType->str,
+                            "Function return type mismatch with previous declaration.");
+                } else if (funcFound->func->argsCount != obj->func->argsCount ||
+                        funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
+                    errorAt(tokenObjHead->str,
+                            "Mismatch number of function arguments with previous declaration.");
+                } else {
+                    Obj *argDecl = funcFound->func->args;
+                    Obj *argDef = obj->func->args;
+                    for (; argDecl; argDecl = argDecl->next, argDef = argDef->next) {
+                        if (!checkTypeEqual(argDecl->type, argDef->type))
+                            errorAt(argDef->token->str,
+                                    "Argument type mismatch with previous declaration.");
+                    }
+                }
+
                 // Argument name may be omitted with function declaration.
                 // Function implementation must have argument name, so
                 // replace it to make sure argument name can be found.
-                // TODO: Check if arguments are same.
-                // TODO: Check if return types are same
                 // TODO: Free funcFound->args
                 funcFound->func->args = obj->func->args;
                 funcFound->func->haveImpl = 1;
@@ -692,8 +711,23 @@ static Node *decl(void) {
             Obj *funcFound = NULL;
             funcFound = findFunction(obj->token->str, obj->token->len);
             if (funcFound) {
-                // TODO: Check return/argument types matches with the previous
-                // function declaration.
+                // Check types are same with previous declaration.
+                if (!checkTypeEqual(funcFound->func->retType, obj->func->retType)) {
+                    errorAt(tokenBaseType->str,
+                            "Function return type mismatch with previous declaration.");
+                } else if (funcFound->func->argsCount != obj->func->argsCount ||
+                        funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
+                    errorAt(tokenObjHead->str,
+                            "Mismatch number of function arguments with previous declaration.");
+                } else {
+                    Obj *argDecl = funcFound->func->args;
+                    Obj *argDef = obj->func->args;
+                    for (; argDecl; argDecl = argDecl->next, argDef = argDef->next) {
+                        if (!checkTypeEqual(argDecl->type, argDef->type))
+                            errorAt(tokenObjHead->str,
+                                    "Argument type mismatch with previous declaration.");
+                    }
+                }
             } else {
                 // Register function
                 obj->func->haveImpl = 0;
