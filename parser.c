@@ -954,16 +954,17 @@ static void structBody(Struct *s) {
             break;
 
         for (;;) {
-            TypeInfo *type = parsePointerType(baseType);
-            Token *token = expectIdent();
+            Token *tokenMember = globals.token;
+            Obj *member = parseAdvancedTypeDeclaration(baseType, 0);
 
-            if (type->type == TypeStruct && type->structEntity == s)
-                errorAt(globals.token->prev->prev->str,
-                        "Cannot use self struct for member type.");
+            if (!member->token) {
+                errorAt(tokenMember->str, "Member name required.");
+            } else if (member->type->type == TypeStruct &&
+                    member->type->structEntity == s) {
+                errorAt(tokenMember->str, "Cannot use struct itself for member type.");
+            }
 
-            type = parseArrayType(type, 0);
-
-            members->next = newObj(token, type, -1);
+            members->next = member;
             members = members->next;
 
             if (!consumeReserved(","))
