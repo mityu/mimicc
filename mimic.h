@@ -190,21 +190,11 @@ struct LiteralString {
     int id;
 };
 
-typedef struct StructMember StructMember;
-
 struct Struct {
     Struct *next;
     Token *tagName;
-    StructMember *members;
+    Obj *members;
     int totalSize;
-};
-
-struct StructMember {
-    StructMember *next;
-    TypeInfo *type;
-    char *name;
-    int len;
-    int offset;  // Member's offset in struct.
 };
 
 typedef struct Globals Globals;
@@ -240,7 +230,7 @@ int checkEscapeChar(char c, char *decoded);
 // parser.c
 void program();
 Obj *findFunction(const char *name, int len);
-StructMember *findStructMember(const Struct *s, const char *name, int len);
+Obj *findStructMember(const Struct *s, const char *name, int len);
 int sizeOf(const TypeInfo *ti);
 
 // verifier.c

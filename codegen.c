@@ -279,7 +279,7 @@ static void genCodeLVal(const Node *n) {
         puts("[rip]");
         puts("  push rax");
     } else if (n->kind == NodeMemberAccess) {
-        StructMember *m = findStructMember(
+        Obj *m = findStructMember(
                 n->lhs->type->structEntity, n->token->str, n->token->len);
         genCodeLVal(n->lhs);
         puts("  pop rax");

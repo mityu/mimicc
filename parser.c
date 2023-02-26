@@ -206,12 +206,6 @@ static Struct *newStruct(void) {
     return s;
 }
 
-static StructMember *newStructMember(void) {
-    StructMember *m = (StructMember *)safeAlloc(sizeof(StructMember));
-    m->offset = -1;
-    return m;
-}
-
 // Generate new node object and returns it.  Members of kind, type, outerBlock,
 // and token are automatically set to valid value.
 static Node *newNode(NodeKind kind, TypeInfo *type) {
@@ -264,6 +258,7 @@ static Node *newNodeFCall(TypeInfo *retType) {
 static Node *newNodeFunction(Token *t) {
     Node *n = newNode(NodeFunction, &Types.None);
     n->func = newObjFunction(t);
+    n->token = t;
     return n;
 }
 
@@ -324,9 +319,9 @@ static Struct *findStruct(const char *name, int len) {
 }
 
 // Search member in struct.  Returns the member if found, otherwise NULL.
-StructMember *findStructMember(const Struct *s, const char *name, int len) {
-    for (StructMember *m = s->members; m; m = m->next) {
-        if (m->len == len && memcmp(m->name, name, (size_t)len) == 0)
+Obj *findStructMember(const Struct *s, const char *name, int len) {
+    for (Obj *m = s->members; m; m = m->next) {
+        if (m->token->len == len && memcmp(m->token->str, name, (size_t)len) == 0)
             return m;
     }
     return NULL;
@@ -555,7 +550,7 @@ static int alignOf(const TypeInfo *ti) {
             return 1;
 
         align = -1;
-        for (StructMember *m = ti->structEntity->members; m; m = m->next) {
+        for (Obj *m = ti->structEntity->members; m; m = m->next) {
             int a = alignOf(m->type);
             if (a > align)
                 align = a;
@@ -682,9 +677,9 @@ static Node *decl(void) {
                 obj->next = globals.functions;
                 globals.functions = obj;
             }
+            // TODO: Free n->func
             n = newNodeFunction(obj->token);
             n->func = obj;
-            n->token = obj->token;
 
             // Dive into this function block.
             globals.currentBlock = n;
@@ -948,8 +943,8 @@ static Struct *structDeclaration(void) {
 }
 
 static void structBody(Struct *s) {
-    StructMember memberHead;
-    StructMember *members = &memberHead;
+    Obj memberHead;
+    Obj *members = &memberHead;
     int structAlign = 1;
     memberHead.next = NULL;
     expectReserved("{");
@@ -968,11 +963,8 @@ static void structBody(Struct *s) {
 
             type = parseArrayType(type, 0);
 
-            members->next = newStructMember();
+            members->next = newObj(token, type, -1);
             members = members->next;
-            members->name = token->str;
-            members->len = token->len;
-            members->type = type;
 
             if (!consumeReserved(","))
                 break;
@@ -984,11 +976,11 @@ static void structBody(Struct *s) {
     s->members = memberHead.next;
 
     s->totalSize = 0;
-    for (StructMember *m = s->members; m; m = m->next) {
+    for (Obj *m = s->members; m; m = m->next) {
         int size = sizeOf(m->type);
         int align, padding;
         if (size < 0)
-            errorAt(m->name, "Cannot determine size of this.");
+            errorAt(m->token->str, "Cannot determine size of this.");
         align = alignOf(m->type);
         padding = s->totalSize % align;
         if (padding)
@@ -1480,7 +1472,7 @@ static Node *postfix(void) {
             n = newNodeBinary(NodePostDecl, n, NULL, n->type);
         } else if (consumeReserved(".") || consumeReserved("->")) {
             Token *ident;
-            StructMember *member;
+            Obj *member;
 
             if (globals.token->prev->str[0] == '-') {
                 if (n->type->type != TypePointer ||
