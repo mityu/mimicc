@@ -1004,7 +1004,6 @@ static Node *varDeclaration(void) {
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
-    Token *ident = NULL;
     Obj *lvar = NULL;
     int totalVarSize = 0;
     int currentVarSize = 0;
@@ -1023,25 +1022,26 @@ static Node *varDeclaration(void) {
 
 
     for (;;) {
+        Token *tokenVar = globals.token;
         Node *varNode = NULL;
+        Obj *varObj = NULL;
         int varPadding = 0;
         int varAlignment = 0;
 
-        varType = parsePointerType(baseType);
-        ident = consumeIdent();
-        if (!ident) {
+        varObj = parseAdvancedTypeDeclaration(baseType, 1);
+        if (!varObj->token) {
+            globals.token = tokenVar;
             errorIdentExpected();
         }
-
-        varType = parseArrayType(varType, 1);
+        varType = varObj->type;
 
         if (varType->type == TypeVoid) {
-            errorAt(ident->str, "Cannot declare variable with type \"void\"");
+            errorAt(varObj->token->str, "Cannot declare variable with type \"void\"");
         }
 
-        lvar = findLVar(ident->str, ident->len);
+        lvar = findLVar(varObj->token->str, varObj->token->len);
         if (lvar) {
-            errorAt(ident->str, "Redefinition of variable");
+            errorAt(varObj->token->str, "Redefinition of variable");
         }
 
         // Variable size is not defined when array with size omitted, so do not
@@ -1092,7 +1092,7 @@ static Node *varDeclaration(void) {
         totalVarSize += varPadding + currentVarSize;
         globals.currentBlock->localVarSize += varPadding + currentVarSize;
 
-        lvar = newObj(ident, varType, totalVarSize);
+        lvar = newObj(varObj->token, varType, totalVarSize);
         varNode->offset = totalVarSize;
 
         // Register variable.
