@@ -12,8 +12,6 @@ static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static Obj *parseEntireDeclaration(int allowTentativeArray);
 static TypeInfo *parseBaseType(void);
-static TypeInfo *parsePointerType(TypeInfo *baseType);
-static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType);
 static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeArray);
 static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
@@ -353,50 +351,6 @@ static TypeInfo *parseBaseType(void) {
     }
 
     return NULL;
-}
-
-// Parse pointer declarations.
-static TypeInfo *parsePointerType(TypeInfo *baseType) {
-    TypeInfo *typeInfo = baseType;
-    while (consumeReserved("*")) {
-        TypeInfo *t = newTypeInfo(TypePointer);
-        t->baseType = typeInfo;
-        typeInfo = t;
-    }
-    return typeInfo;
-}
-
-// Parse array declarations.
-static TypeInfo *parseArrayType(TypeInfo *baseType, int allowIncompleteType) {
-    TypeInfo head;
-    TypeInfo *curType;
-    int size, needSize;
-
-    if (!matchReserved("["))
-        return baseType;
-
-    head.baseType = NULL;
-    curType = &head;
-    needSize = 0;
-    if (!allowIncompleteType)
-        needSize = 1;
-
-    while (consumeReserved("[")) {
-        if (needSize) {
-            size = expectNumber();
-        } else if (!consumeNumber(&size)) {
-            size = -1;
-        }
-        expectReserved("]");
-        needSize = 1;  // Only the first [] can omit array size.
-        curType->baseType = newTypeInfo(TypeArray);
-        curType->baseType->arraySize = size;
-        curType = curType->baseType;
-    }
-
-    curType->baseType = baseType;
-
-    return head.baseType;
 }
 
 static Obj *parseEntireDeclaration(int allowTentativeArray) {
@@ -1399,8 +1353,8 @@ static Node *unary(void) {
         if (consumeReserved("(")) {
             type = parseBaseType();
             if (type) {
-                type = parsePointerType(type);
-                type = parseArrayType(type, 0);
+                Obj *obj = parseAdvancedTypeDeclaration(type, 0);
+                type = obj->type;
                 expectReserved(")");
             }
         }
