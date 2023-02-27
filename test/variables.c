@@ -374,6 +374,19 @@ void test_local_variables(void) {
     }
 }
 
+void test_zero_clear_local_array(void) {
+    int n[3][3] = {{}, {101, 103},};
+    ASSERT(0, n[0][0]);
+    ASSERT(0, n[0][1]);
+    ASSERT(0, n[0][2]);
+    ASSERT(101, n[1][0]);
+    ASSERT(103, n[1][1]);
+    ASSERT(0, n[1][2]);
+    ASSERT(0, n[2][0]);
+    ASSERT(0, n[2][1]);
+    ASSERT(0, n[2][2]);
+}
+
 void test_increment_or_decrement_array_element(void) {
     int x[3] = {3, 5, 7};
     x[2]++;
@@ -394,6 +407,7 @@ int local_var_independent(void) {
 
 int main(void) {
     test_init_local_variables();
+    test_zero_clear_local_array();
     test_local_variables();
     test_increment_or_decrement_array_element();
     test_global_variables();

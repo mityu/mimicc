@@ -157,6 +157,7 @@ static int isExprNode(const Node *n) {
     case NodeContinue:
     case NodeReturn:
     case NodeFunction:
+    case NodeClearStack:
         return 0;
     }
     errorUnreachable();
@@ -806,7 +807,24 @@ void genCode(const Node *n) {
     if (!n)
         return;
 
-    if (n->kind == NodeAddress) {
+    if (n->kind == NodeClearStack) {
+        int entire, rest;
+        entire = rest = sizeOf(n->rhs->type);
+        puts("  mov rax, rbp");
+        printf("  sub rax, %d\n", n->rhs->offset);
+        while (rest) {
+            if (rest >= 8) {
+                printf("  mov QWORD PTR %d[rax], 0\n", entire - rest);
+                rest -= 8;
+            } else if (rest >= 4) {
+                printf("  mov DWORD PTR %d[rax], 0\n", entire - rest);
+                rest -= 4;
+            } else {
+                printf("  mov BYTE PTR %d[rax], 0\n", entire - rest);
+                rest -= 1;
+            }
+        }
+    } else if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);

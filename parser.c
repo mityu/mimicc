@@ -1014,6 +1014,8 @@ static Node *varDeclaration(void) {
 
             if (varType->type == TypeArray) {
                 if (initializer->kind == NodeExprList) {
+                    n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
+                    n = n->next;
                     n->next = buildArrayInitNodes(varNode, varType, initializer->body);
                 } else if (initializer->kind == NodeLiteralString) {
                     n->next = buildArrayInitNodes(varNode, varType, initializer);
@@ -1087,9 +1089,6 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                         "%d items given to array sized %d.",
                         elemCount,
                         arraySize);
-            } else if (elemCount < arraySize) {
-                errorAt(initializer->token->str,
-                        "Clearing rest items with 0 is not implemented yet.");
             }
 
             index = 0;
@@ -1183,8 +1182,12 @@ static Node *varInitializerList(void) {
 
     for (;;) {
         if (consumeReserved("{")) {
-            elem->next = varInitializerList();
-            expectReserved("}");
+            if (consumeReserved("}")) {
+                elem->next = newNode(NodeExprList, &Types.None);
+            } else {
+                elem->next = varInitializerList();
+                expectReserved("}");
+            }
         } else {
             elem->next = assign();
         }
