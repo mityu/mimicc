@@ -390,5 +390,7 @@ int main(void) {
     test_do_while_continue();
     test_comma_1();
     test_comma_2();
+    test_cond_not();
+    test_not();
     return 0;
 }
