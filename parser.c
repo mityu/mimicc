@@ -20,7 +20,9 @@ static Node *stmt(void);
 static Struct *structDeclaration(void);
 static void structBody(Struct *s);
 static Node *varDeclaration(void);
-static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount);
+static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
+static Node *varInitializer(void);
+static Node *varInitializerList(void);
 static Node *expr(void);
 static Node *assign(void);
 static Node *logicalOR(void);
@@ -1006,31 +1008,26 @@ static Node *varDeclaration(void) {
         // Parse initialzier statement
         if (consumeReserved("=")) {
             Token *tokenAssign = globals.token->prev;
+            Node *initializer = NULL;
+
+            initializer = varInitializer();
 
             if (varType->type == TypeArray) {
-                int elemCount = 0;
-                int arraySize = varType->arraySize;
-                n->next = arrayInitializer(varNode, varType, &elemCount);
-
-                if (arraySize == -1) {
-                    varType->arraySize = elemCount;
-                    arraySize = elemCount;
-                }
-
-                if (elemCount > arraySize) {
-                    errorAt(
-                            tokenAssign->next->str,
-                            "%d items given to array sized %d.",
-                            elemCount,
-                            arraySize);
-                } else if (elemCount != arraySize) {
+                if (initializer->kind == NodeExprList) {
+                    n->next = buildArrayInitNodes(varNode, varType, initializer->body);
+                } else if (initializer->kind == NodeLiteralString) {
+                    n->next = buildArrayInitNodes(varNode, varType, initializer);
+                } else {
                     errorAt(tokenAssign->next->str,
-                            "Clearing rest items with 0 is not implemented yet.");
+                            "Initializer-list is expected here.");
                 }
             } else {
-                n->next = newNodeBinary(NodeAssign, varNode, assign(), varType);
+                if (initializer->kind == NodeExprList) {
+                    errorAt(tokenAssign->next->str,
+                            "Initializer-list is not expected here.");
+                }
+                n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
             }
-
             n = n->next;
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
             errorAt(globals.token->str, "Initializer list required.");
@@ -1068,66 +1065,61 @@ static Node *varDeclaration(void) {
     return initblock;
 }
 
-static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
-    Node head;
-    Node *exprs = &head;
+static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
+    if (varType->type == TypeArray) {
+        int elemCount = 0;
+        int arraySize = varType->arraySize;
 
-    head.next = NULL;
-    *elemCount = 0;
+        if (initializer->kind == NodeExprList) {
+            int index = 0;
+            Node head = {};
+            Node *node = &head;
 
-    if (elemType->baseType->type == TypeArray) {
-        // Parse "{{...}, {...}, ...}"
-        expectReserved("{");
-        for (;;) {
-            int childElemCount = 0;
-            int arraySize = elemType->baseType->arraySize;  // Child array size
-            Node *elem = newNodeBinary(
-                    NodeAdd, lvar, newNodeNum(*elemCount), elemType);
-            Token *tokenValSet = globals.token;
-
-            exprs->next = arrayInitializer(elem, elemType->baseType, &childElemCount);
-
-            exprs = exprs->next;
-            (*elemCount)++;
+            for (Node *elem = initializer->body; elem; elem = elem->next)
+                elemCount++;
 
             if (arraySize == -1) {
-            }
-            if (childElemCount > arraySize) {
+                arraySize = elemCount;
+                varType->arraySize = arraySize;
+            } else if (elemCount > arraySize) {
                 errorAt(
-                        tokenValSet->str,
+                        initializer->token->str,
                         "%d items given to array sized %d.",
-                        childElemCount,
+                        elemCount,
                         arraySize);
-            } else if (childElemCount != arraySize) {
-                errorAt(tokenValSet->str,
+            } else if (elemCount < arraySize) {
+                errorAt(initializer->token->str,
                         "Clearing rest items with 0 is not implemented yet.");
             }
 
-            if (!consumeReserved(","))
-                break;
-
-            // In case of "{expr, expr, ..., expr,}"
-            if (matchReserved("}"))
-                break;
-        }
-        expectReserved("}");
-    } else {
-        // Parse "{expr, expr, ...}" (or string literal for char[])
-        Token *stringToken = consumeLiteralString();
-        if (elemType->baseType->type == TypeChar && stringToken) {
-            // String literal is given instead of {...}
-            LiteralString *string = stringToken->literalStr;
+            index = 0;
+            for (Node *init = initializer->body; init; init = init->next) {
+                Node *elem = newNodeBinary(
+                        NodeAdd, varNode, newNodeNum(index), varType);
+                index++;
+                node->next = buildArrayInitNodes(elem, varType->baseType, init);
+                while (node->next)
+                    node = node->next;
+            }
+            return head.next;
+        } else if (initializer->kind == NodeLiteralString) {
+            // TODO: Check type of lhs is char[] or char*?
+            LiteralString *string = initializer->token->literalStr;
+            Node head = {};
+            Node *node = &head;
             int len = 0;
             int elemIdx = 0;
+
             if (!string)
                 errorUnreachable();
 
-            *elemCount = string->len;
             len = strlen(string->string);
+
+            // Checks for array size is done later.
             for (int i = 0; i < len; ++i) {
-                char c = string->string[i];
-                Node *ptradjust = NULL;
+                Node *shiftptr = NULL;
                 Node *elem = NULL;
+                char c = string->string[i];
 
                 if (c == '\\') {
                     char cc = 0;
@@ -1136,42 +1128,73 @@ static Node *arrayInitializer(Node *lvar, TypeInfo *elemType, int *elemCount) {
                     else
                         --i;
                 }
-                ptradjust = newNodeBinary(
-                        NodeAdd, lvar, newNodeNum(elemIdx), elemType);
+
+                shiftptr = newNodeBinary(
+                        NodeAdd, varNode, newNodeNum(elemIdx), varType);
                 elem = newNodeBinary(
-                        NodeDeref, NULL, ptradjust, elemType->baseType);
-                exprs->next = newNodeBinary(
+                        NodeDeref, NULL, shiftptr, varType->baseType);
+                node->next = newNodeBinary(
                         NodeAssign, elem, newNodeNum((int)c), elem->type);
-                exprs = exprs->next;
+                node = node->next;
                 elemIdx++;
             }
-        } else {
-            expectReserved("{");
-            for (;;) {
-                Node *ptradjust = newNodeBinary(
-                        NodeAdd, lvar, newNodeNum(*elemCount), elemType);
-                Node *elem = newNodeBinary(
-                        NodeDeref, NULL, ptradjust, elemType->baseType);
-                exprs->next = newNodeBinary(NodeAssign, elem, assign(), elem->type);
-                exprs = exprs->next;
-                (*elemCount)++;
-                if (!consumeReserved(","))
-                    break;
 
-                // In case of "{expr, expr, ..., expr,}"
-                if (matchReserved("}"))
-                    break;
+            elemCount = elemIdx + 1;
+            if (arraySize == -1) {
+                arraySize = elemCount;
+                varType->arraySize = arraySize;
+            } else if (elemCount > arraySize) {
+                errorAt(
+                        initializer->token->str,
+                        "%d items given to array sized %d.",
+                        elemCount,
+                        arraySize);
+            } else if (elemCount < arraySize) {
+                errorAt(initializer->token->str,
+                        "Clearing rest items with 0 is not implemented yet.");
             }
-            expectReserved("}");
-        }
-    }
 
-    if (head.next) {
-        Node *block = newNode(NodeBlock, &Types.None);
-        block->body = head.next;
-        return block;
+            return head.next;
+        } else {
+            errorAt(initializer->token->str,
+                    "Initializer-list is expected for array");
+        }
+    } else {
+        Node *elem = newNodeBinary(NodeDeref, NULL, varNode, varType);
+        return newNodeBinary(NodeAssign, elem, initializer, elem->type);
     }
-    errorUnreachable();
+}
+
+static Node *varInitializer(void) {
+    Node *initializer = NULL;
+
+    if (matchReserved("{")) {
+        initializer = varInitializerList();
+    } else {
+        initializer = assign();
+    }
+    return initializer;
+}
+
+static Node *varInitializerList(void) {
+    Node *list = newNode(NodeExprList, &Types.None);
+    Node head = {};
+    Node *elem = &head;
+
+    for (;;) {
+        if (consumeReserved("{")) {
+            elem->next = varInitializerList();
+            expectReserved("}");
+        } else {
+            elem->next = assign();
+        }
+        elem = elem->next;
+
+        if (!consumeReserved(",") || matchReserved("}"))
+            break;
+    }
+    list->body = head.next;
+    return list;
 }
 
 static Node *expr(void) {
