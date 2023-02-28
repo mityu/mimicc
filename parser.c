@@ -1030,7 +1030,8 @@ static Node *varDeclaration(void) {
                 }
                 n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
             }
-            n = n->next;
+            while (n->next)
+                n = n->next;
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
             errorAt(globals.token->str, "Initializer list required.");
         }
@@ -1167,8 +1168,12 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
 static Node *varInitializer(void) {
     Node *initializer = NULL;
 
-    if (matchReserved("{")) {
-        initializer = varInitializerList();
+    if (consumeReserved("{")) {
+        initializer = newNode(NodeExprList, &Types.None);
+        if (!consumeReserved("}")) {
+            initializer->body = varInitializerList();
+            expectReserved("}");
+        }
     } else {
         initializer = assign();
     }

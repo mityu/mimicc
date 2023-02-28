@@ -145,6 +145,13 @@ void test_init_local_variables(void) {
         ASSERT('\n', x[4]);
         ASSERT('\0', x[5]);
     }
+    {
+        int n[3] = {3, 5, 7}, m = 11;
+        ASSERT(3, n[0]);
+        ASSERT(5, n[1]);
+        ASSERT(7, n[2]);
+        ASSERT(11, m);
+    }
 }
 
 void test_local_variables(void) {
