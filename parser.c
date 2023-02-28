@@ -1016,7 +1016,7 @@ static Node *varDeclaration(void) {
                 if (initializer->kind == NodeExprList) {
                     n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
                     n = n->next;
-                    n->next = buildArrayInitNodes(varNode, varType, initializer->body);
+                    n->next = buildArrayInitNodes(varNode, varType, initializer);
                 } else if (initializer->kind == NodeLiteralString) {
                     n->next = buildArrayInitNodes(varNode, varType, initializer);
                 } else {
@@ -1176,16 +1176,14 @@ static Node *varInitializer(void) {
 }
 
 static Node *varInitializerList(void) {
-    Node *list = newNode(NodeExprList, &Types.None);
     Node head = {};
     Node *elem = &head;
 
     for (;;) {
         if (consumeReserved("{")) {
-            if (consumeReserved("}")) {
-                elem->next = newNode(NodeExprList, &Types.None);
-            } else {
-                elem->next = varInitializerList();
+            elem->next = newNode(NodeExprList, &Types.None);
+            if (!consumeReserved("}")) {
+                elem->next->body = varInitializerList();
                 expectReserved("}");
             }
         } else {
@@ -1196,8 +1194,7 @@ static Node *varInitializerList(void) {
         if (!consumeReserved(",") || matchReserved("}"))
             break;
     }
-    list->body = head.next;
-    return list;
+    return head.next;
 }
 
 static Node *expr(void) {
