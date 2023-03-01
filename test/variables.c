@@ -69,6 +69,9 @@ void test_init_local_variables(void) {
         ASSERT(10, b);
         ASSERT(15, c);
     }
+}
+
+void test_init_local_arrays(void) {
     {
         int x[3] = {1, 2, 3};
         ASSERT(1, x[0]);
@@ -151,6 +154,57 @@ void test_init_local_variables(void) {
         ASSERT(5, n[1]);
         ASSERT(7, n[2]);
         ASSERT(11, m);
+    }
+}
+
+void test_init_local_structs(void) {
+    struct S1 {
+        int n;
+        int m;
+    };
+    struct S2 {
+        char c;
+        int n;
+    };
+    struct S3 {
+        struct S2 s2;
+        char c;
+    };
+    struct S4 {
+        int n[4];
+    };
+
+    {
+        struct S1 obj = {3, 7};
+        ASSERT(3, obj.n);
+        ASSERT(7, obj.m);
+    }
+    {
+        struct S2 obj = {'a', 7};
+        ASSERT(97, obj.c);
+        ASSERT(7, obj.n);
+    }
+    {
+        struct S3 obj = {{'l', 11}, 'z'};
+        ASSERT(108, obj.s2.c);
+        ASSERT(11, obj.s2.n);
+        ASSERT(122, obj.c);
+    }
+    {
+        struct S4 obj = {{13, 17, 19, 23}};
+        ASSERT(13, obj.n[0]);
+        ASSERT(17, obj.n[1]);
+        ASSERT(19, obj.n[2]);
+        ASSERT(23, obj.n[3]);
+    }
+    {
+        struct S1 obj[3] = {{29, 31}, {37, 41}, {43, 47}};
+        ASSERT(29, obj[0].n);
+        ASSERT(31, obj[0].m);
+        ASSERT(37, obj[1].n);
+        ASSERT(41, obj[1].m);
+        ASSERT(43, obj[2].n);
+        ASSERT(47, obj[2].m);
     }
 }
 
@@ -394,6 +448,81 @@ void test_zero_clear_local_array(void) {
     ASSERT(0, n[2][2]);
 }
 
+void test_zero_clear_local_struct(void) {
+    struct S0 {
+        int n;
+        int narray1[3];
+        int narray3[3][3][3];
+    };
+    struct S {
+        int n;
+        struct S0 s0;
+        struct S0 s0array[3];
+    };
+    {
+        struct S0 obj = {};
+        ASSERT(0, obj.n);
+        ASSERT(0, obj.narray1[0]);
+        ASSERT(0, obj.narray1[1]);
+        ASSERT(0, obj.narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.narray3[i][j][k]);
+    }
+    {
+        struct S0 obj = {3, {5, 7, 11}, {}};
+        ASSERT(3, obj.n);
+        ASSERT(5, obj.narray1[0]);
+        ASSERT(7, obj.narray1[1]);
+        ASSERT(11, obj.narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.narray3[i][j][k]);
+    }
+    {
+        struct S obj = {13, {}, {{}, {17, {19, 23, 29}, {}},}};
+        ASSERT(13, obj.n);
+
+        ASSERT(0, obj.s0.n);
+        ASSERT(0, obj.s0.narray1[0]);
+        ASSERT(0, obj.s0.narray1[1]);
+        ASSERT(0, obj.s0.narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.s0.narray3[i][j][k]);
+
+        ASSERT(0, obj.s0array[0].n);
+        ASSERT(0, obj.s0array[0].narray1[0]);
+        ASSERT(0, obj.s0array[0].narray1[1]);
+        ASSERT(0, obj.s0array[0].narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.s0array[0].narray3[i][j][k]);
+
+        ASSERT(17, obj.s0array[1].n);
+        ASSERT(19, obj.s0array[1].narray1[0]);
+        ASSERT(23, obj.s0array[1].narray1[1]);
+        ASSERT(29, obj.s0array[1].narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.s0array[1].narray3[i][j][k]);
+
+        ASSERT(0, obj.s0array[2].n);
+        ASSERT(0, obj.s0array[2].narray1[0]);
+        ASSERT(0, obj.s0array[2].narray1[1]);
+        ASSERT(0, obj.s0array[2].narray1[2]);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                for (int k = 0; k < 3; ++k)
+                    ASSERT(0, obj.s0array[2].narray3[i][j][k]);
+    }
+}
+
 void test_increment_or_decrement_array_element(void) {
     int x[3] = {3, 5, 7};
     x[2]++;
@@ -414,7 +543,9 @@ int local_var_independent(void) {
 
 int main(void) {
     test_init_local_variables();
+    test_init_local_arrays();
     test_zero_clear_local_array();
+    test_zero_clear_local_struct();
     test_local_variables();
     test_increment_or_decrement_array_element();
     test_global_variables();

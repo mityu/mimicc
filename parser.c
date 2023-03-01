@@ -20,7 +20,9 @@ static Node *stmt(void);
 static Struct *structDeclaration(void);
 static void structBody(Struct *s);
 static Node *varDeclaration(void);
+static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
+static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *varInitializer(void);
 static Node *varInitializerList(void);
 static Node *expr(void);
@@ -1007,29 +1009,12 @@ static Node *varDeclaration(void) {
 
         // Parse initialzier statement
         if (consumeReserved("=")) {
-            Token *tokenAssign = globals.token->prev;
-            Node *initializer = NULL;
+            Node *initializer = varInitializer();
 
-            initializer = varInitializer();
+            n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
+            n = n->next;
+            n->next = buildVarInitNodes(varNode, varType, initializer);
 
-            if (varType->type == TypeArray) {
-                if (initializer->kind == NodeExprList) {
-                    n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
-                    n = n->next;
-                    n->next = buildArrayInitNodes(varNode, varType, initializer);
-                } else if (initializer->kind == NodeLiteralString) {
-                    n->next = buildArrayInitNodes(varNode, varType, initializer);
-                } else {
-                    errorAt(tokenAssign->next->str,
-                            "Initializer-list is expected here.");
-                }
-            } else {
-                if (initializer->kind == NodeExprList) {
-                    errorAt(tokenAssign->next->str,
-                            "Initializer-list is not expected here.");
-                }
-                n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
-            }
             while (n->next)
                 n = n->next;
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
@@ -1066,6 +1051,30 @@ static Node *varDeclaration(void) {
 
     initblock->body = headNode.next;
     return initblock;
+}
+
+static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
+    Node head = {};
+    Node *n = &head;
+    if (varType->type == TypeArray) {
+        if (initializer->kind == NodeExprList) {
+            n->next = buildArrayInitNodes(varNode, varType, initializer);
+        } else if (initializer->kind == NodeLiteralString) {
+            n->next = buildArrayInitNodes(varNode, varType, initializer);
+        } else {
+            errorAt(initializer->token->str,
+                    "Initializer-list is expected here.");
+        }
+    } else if (varType->type == TypeStruct) {
+        n->next = buildStructInitNodes(varNode, varType, initializer);
+    } else {
+        if (initializer->kind == NodeExprList) {
+            errorAt(initializer->token->str,
+                    "Initializer-list is not expected here.");
+        }
+        n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
+    }
+    return head.next;
 }
 
 static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
@@ -1161,8 +1170,40 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
         }
     } else {
         Node *elem = newNodeBinary(NodeDeref, NULL, varNode, varType);
-        return newNodeBinary(NodeAssign, elem, initializer, elem->type);
+        return buildVarInitNodes(elem, elem->type, initializer);
     }
+}
+
+static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
+    Node head = {};
+    Node *node = &head;
+    Node *init = NULL;
+    Obj *member = NULL;
+
+    if (varType->type != TypeStruct)
+        errorUnreachable();
+    else if (initializer->kind != NodeExprList)
+        errorAt(initializer->token->str, "Initializer-list is expected here.");
+
+    member = varNode->type->structEntity->members;
+    init = initializer->body;
+    for (;;) {
+        Node *memberNode = NULL;
+
+        if (!(init && member))
+            break;
+
+        memberNode = newNodeBinary(NodeMemberAccess, varNode, NULL, member->type);
+        memberNode->token = member->token;
+        node->next = buildVarInitNodes(memberNode, memberNode->type, init);
+
+        init = init->next;
+        member = member->next;
+        while (node->next)
+            node = node->next;
+    }
+
+    return head.next;
 }
 
 static Node *varInitializer(void) {
