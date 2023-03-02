@@ -280,7 +280,6 @@ static Node *newNodeNum(int val) {
 
 static Node *newNodeLVar(Obj *obj) {
     Node *n = newNode(NodeLVar, obj->type);
-    n->offset = obj->offset;
     n->obj = obj;
     return n;
 }
@@ -302,7 +301,7 @@ static Node *newNodeFCall(TypeInfo *retType) {
 
 static Node *newNodeFunction(Token *t) {
     Node *n = newNode(NodeFunction, &Types.None);
-    n->func = newObjFunction(t);
+    n->obj = newObjFunction(t);
     n->token = t;
     return n;
 }
@@ -716,7 +715,7 @@ static Node *decl(void) {
             // TODO: Free n->func
             enterNewEnv();
             n = newNodeFunction(obj->token);
-            n->func = obj;
+            n->obj = obj;
 
             globals.currentFunction = obj;
 
@@ -1209,7 +1208,6 @@ static Node *varDeclaration(void) {
             totalVarSize += varPadding + currentVarSize;
             globals.currentEnv->varSize += varPadding + currentVarSize;
 
-            varNode->offset = totalVarSize;
             varObj->offset = totalVarSize;
         }
 

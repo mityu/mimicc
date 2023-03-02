@@ -164,10 +164,7 @@ struct Node {
     Token *token;      // Token which gave this node.
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Obj *obj;
-    Obj *func;         // Function info.
     int val;           // Used when kind is NodeNum.
-    int offset;        // Used when kind is NodeLVar. Offset from base pointer.
-                       // Variable adress is calculated as "RBP - offset."
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
 };

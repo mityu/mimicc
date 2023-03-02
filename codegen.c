@@ -317,7 +317,7 @@ static void genCodeLVal(const Node *n) {
         puts("  push rax");
     } else {
         puts("  mov rax, rbp");
-        printf("  sub rax, %d\n", n->offset);
+        printf("  sub rax, %d\n", n->obj->offset);
         puts("  push rax");
     }
 }
@@ -570,17 +570,17 @@ static void genCodeFunction(const Node *n) {
     if (!n)
         return;
 
-    int regargs = n->func->func->argsCount;
+    int regargs = n->obj->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
     putchar('\n');
-    if (!n->func->isStatic) {
+    if (!n->obj->isStatic) {
         printn(".globl ");
-        printlen(n->func->token->str, n->func->token->len);
+        printlen(n->obj->token->str, n->obj->token->len);
         putchar('\n');
     }
-    printlen(n->func->token->str, n->func->token->len);
+    printlen(n->obj->token->str, n->obj->token->len);
     puts(":");
 
     // Prologue.
@@ -592,7 +592,7 @@ static void genCodeFunction(const Node *n) {
         int offsets[REG_ARGS_MAX_COUNT] = {};
         int size[REG_ARGS_MAX_COUNT] = {};
         int totalOffset = 0;
-        Obj *arg = n->func->func->args;
+        Obj *arg = n->obj->func->args;
 
         for (int i = 0; i < regargs; ++i) {
             size[i] = sizeOf(arg->type);
@@ -839,7 +839,7 @@ void genCode(const Node *n) {
         int entire, rest;
         entire = rest = sizeOf(n->rhs->type);
         puts("  mov rax, rbp");
-        printf("  sub rax, %d\n", n->rhs->offset);
+        printf("  sub rax, %d\n", n->rhs->obj->offset);
         while (rest) {
             if (rest >= 8) {
                 printf("  mov QWORD PTR %d[rax], 0\n", entire - rest);

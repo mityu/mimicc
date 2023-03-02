@@ -53,7 +53,7 @@ void verifyType(const Node *n) {
 
     if (n->kind == NodeFunction) {
         Obj *funcSave = currentFunction;
-        currentFunction = n->func;
+        currentFunction = n->obj;
         verifyType(n->body);
         currentFunction = funcSave;
     } else if (n->kind == NodeBlock) {
