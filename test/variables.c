@@ -436,16 +436,26 @@ void test_local_variables(void) {
 }
 
 void test_zero_clear_local_array(void) {
-    int n[3][3] = {{}, {101, 103},};
-    ASSERT(0, n[0][0]);
-    ASSERT(0, n[0][1]);
-    ASSERT(0, n[0][2]);
-    ASSERT(101, n[1][0]);
-    ASSERT(103, n[1][1]);
-    ASSERT(0, n[1][2]);
-    ASSERT(0, n[2][0]);
-    ASSERT(0, n[2][1]);
-    ASSERT(0, n[2][2]);
+    {
+        int n[3][3] = {{}, {101, 103},};
+        ASSERT(0, n[0][0]);
+        ASSERT(0, n[0][1]);
+        ASSERT(0, n[0][2]);
+        ASSERT(101, n[1][0]);
+        ASSERT(103, n[1][1]);
+        ASSERT(0, n[1][2]);
+        ASSERT(0, n[2][0]);
+        ASSERT(0, n[2][1]);
+        ASSERT(0, n[2][2]);
+    }
+    {
+        char s[5] = "xyz";
+        ASSERT(120, s[0]);
+        ASSERT(121, s[1]);
+        ASSERT(122, s[2]);
+        ASSERT(0, s[3]);
+        ASSERT(0, s[4]);
+    }
 }
 
 void test_zero_clear_local_struct(void) {

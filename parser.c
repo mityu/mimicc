@@ -1066,9 +1066,7 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
     Node head = {};
     Node *n = &head;
     if (varType->type == TypeArray) {
-        if (initializer->kind == NodeExprList) {
-            n->next = buildArrayInitNodes(varNode, varType, initializer);
-        } else if (initializer->kind == NodeLiteralString) {
+        if (initializer->kind == NodeExprList || initializer->kind == NodeLiteralString) {
             n->next = buildArrayInitNodes(varNode, varType, initializer);
         } else {
             errorAt(initializer->token->str,
@@ -1167,9 +1165,6 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                         "%d items given to array sized %d.",
                         elemCount,
                         arraySize);
-            } else if (elemCount < arraySize) {
-                errorAt(initializer->token->str,
-                        "Clearing rest items with 0 is not implemented yet.");
             }
 
             return head.next;
