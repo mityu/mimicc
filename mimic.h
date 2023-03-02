@@ -67,6 +67,7 @@ typedef enum {
     TokenIdent,
     TokenNumber,
     TokenStatic,
+    TokenExtern,
     TokenIf,
     TokenElseif,
     TokenElse,
@@ -163,6 +164,7 @@ struct Node {
     TypeInfo *type;    // Type of this node's result value.
     Token *token;      // Token which gave this node.
     FCall *fcall;      // Called function information used when kind is NodeFCall.
+    Obj *obj;
     Obj *func;         // Function info.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when kind is NodeLVar. Offset from base pointer.
@@ -191,6 +193,7 @@ struct Function {
 typedef struct ObjAttr ObjAttr;
 struct ObjAttr {
     int isStatic;
+    int isExtern;
 };
 
 // Struct for objects; variables and functions.
@@ -200,7 +203,8 @@ struct Obj {
     TypeInfo *type;        // Type of object.
     int      offset;       // Offset from rbp.  Variable adress is calculated
                            // as RBP - offset.
-    int      isStatic;     // TRUE is object is declared with "static."
+    int      isExtern;     // TRUE if object is declared with "extern".
+    int      isStatic;     // TRUE if object is declared with "static".
     int      staticVarID;  // ID for static local variables.
     Function *func;        // Valid when object holds function.
 };
@@ -244,7 +248,7 @@ struct Globals {
     Node *code;                // The root node of program.
     Env globalEnv;
     Obj *functions;            // Declared function list.
-    GVar *staticVars;           // Static local variable list.
+    GVar *staticVars;          // Static local variable list.
     LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
     Env *currentEnv;

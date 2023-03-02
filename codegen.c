@@ -265,6 +265,8 @@ void genCodeGlobals(void) {
         safeFree(strings);
     }
     for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
+        if (v->isExtern)
+            continue;
         if (!v->isStatic) {
             printn(".globl ");
             printlen(v->token->str, v->token->len);
@@ -299,7 +301,7 @@ static void genCodeLVal(const Node *n) {
     // and offset, then store it on the top of the stack.  Calculate it on rax,
     // not on rbp, because rbp must NOT be changed until exiting from a
     // function.
-    if (n->kind == NodeGVar) {
+    if (n->kind == NodeGVar || (n->kind == NodeLVar && n->obj->isExtern)) {
         printn("  lea rax, ");
         printlen(n->token->str, n->token->len);
         puts("[rip]");

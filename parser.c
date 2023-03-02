@@ -52,6 +52,12 @@ _Noreturn static void errorUnexpectedEOF(void) {
     errorAt(globals.token->str, "Unexpected EOF");
 }
 
+// Check if name of given token matches to pair of {name, len}.  Returns TRUE
+// if so, otherwise FALSE.
+static int matchToken(const Token *token, const char *name, const int len) {
+    return token->len == len && memcmp(token->str, name, len) == 0;
+}
+
 // Check if current token matches `op` with type TokenReserved, and returns
 // TRUE if so.
 static int matchReserved(char *op) {
@@ -304,7 +310,7 @@ static Node *newNodeFunction(Token *t) {
 // NULL when not.
 static Obj *findGlobalVar(char *name, int len) {
     for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
-        if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
+        if (matchToken(v->token, name, len))
             return v;
     }
     return NULL;
@@ -316,7 +322,7 @@ static Obj *findGlobalVar(char *name, int len) {
 static Obj *findLVar(char *name, int len) {
     for (Env *env = globals.currentEnv; env && env != &globals.globalEnv; env = env->outer) {
         for (Obj *v = env->vars; v; v = v->next) {
-            if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
+            if (matchToken(v->token, name, len))
                 return v;
         }
     }
@@ -392,8 +398,20 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
 static TypeInfo *parseBaseType(ObjAttr *attr) {
     Token *type = NULL;
 
-    if (attr && consumeCertainTokenType(TokenStatic)) {
-        attr->isStatic = 1;
+    if (attr) {
+        Token *tokenSave = globals.token;
+        for (;;) {
+            if (consumeCertainTokenType(TokenStatic)) {
+                attr->isStatic = 1;
+            } else if (consumeCertainTokenType(TokenExtern)) {
+                attr->isExtern = 1;
+            } else {
+                break;
+            }
+        }
+        if (attr->isStatic && attr->isExtern) {
+            errorAt(tokenSave->str, "Cannot combine \"static\" and \"extern\".");
+        }
     }
 
     type = consumeTypeName();
@@ -636,6 +654,7 @@ static Node *decl(void) {
         Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(baseType, 1);
         obj->isStatic = attr.isStatic;
+        obj->isExtern = attr.isExtern;
         if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
@@ -1132,6 +1151,7 @@ static Node *varDeclaration(void) {
             errorIdentExpected();
         }
         varObj->isStatic = attr.isStatic;
+        varObj->isExtern = attr.isExtern;
         varType = varObj->type;
 
         if (varType->type == TypeVoid) {
@@ -1147,6 +1167,7 @@ static Node *varDeclaration(void) {
         // compute variable offset here.  It will be computed after parsing
         // initialzier statement.
         varNode = newNodeLVar(-1, varType);
+        varNode->obj = varObj;
 
         // Parse initialzier statement
         if (consumeReserved("=")) {
@@ -1174,6 +1195,8 @@ static Node *varDeclaration(void) {
             gvar->next = globals.staticVars;
             globals.staticVars = gvar;
             varObj->staticVarID = globals.staticVarCount++;
+        } else if (varObj->isExtern) {
+            // Do nothing.
         } else {
             currentVarSize = sizeOf(varType);
             varAlignment = alignOf(varType);
@@ -1701,11 +1724,14 @@ static Node *primary(void) {
             if (lvar->isStatic) {
                 n = newNode(NodeSVar, lvar->type);
                 n->staticVarID = lvar->staticVarID;
+                n->obj = lvar;
             } else {
                 n = newNodeLVar(lvar->offset, lvar->type);
+                n->obj = lvar;
             }
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
             n = newNode(NodeGVar, gvar->type);
+            n->obj = gvar;
         } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
             n = newNodeNum(enumItem->value);
         } else {
