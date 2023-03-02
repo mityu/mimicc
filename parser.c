@@ -335,17 +335,12 @@ Obj *findFunction(const char *name, int len) {
 
 // Look up structure and return it.  If structure didn't found, returns NULL.
 static Struct *findStruct(const char *name, int len) {
-    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-        for (Struct *s = block->structs; s; s = s->next) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        for (Struct *s = env->structs; s; s = s->next) {
             if (s->tagName->len == len &&
                     memcmp(s->tagName->str, name, (size_t)len) == 0)
                 return s;
         }
-    }
-    for (Struct *s = globals.structs; s; s = s->next) {
-        if (s->tagName->len == len &&
-                memcmp(s->tagName->str, name, (size_t)len) == 0)
-            return s;
     }
     return NULL;
 }
@@ -631,8 +626,8 @@ static Node *decl(void) {
     // Parse and skip struct declarations
     s = structDeclaration();
     if (s) {
-        s->next = globals.structs;
-        globals.structs = s;
+        s->next = globals.currentEnv->structs;
+        globals.currentEnv->structs = s;
         return NULL;
     }
 
@@ -801,8 +796,8 @@ static Node *stmt(void) {
     // Parse and skip struct declarations
     s = structDeclaration();
     if (s) {
-        s->next = globals.currentBlock->structs;
-        globals.currentBlock->structs = s;
+        s->next = globals.currentEnv->structs;
+        globals.currentEnv->structs = s;
         return NULL;
     }
 

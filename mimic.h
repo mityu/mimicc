@@ -173,8 +173,6 @@ struct Node {
                        // Variable adress is calculated as "RBP - offset."
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
-    Struct *structs;   // Declared struct list local to block.
-    Enum *enums;       // Declared enum list local to block.
 };
 
 struct FCall {
@@ -242,7 +240,6 @@ struct Globals {
     Obj *functions;       // Declared function list.
     Obj *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
-    Struct *structs;           // Declared struct list.
     Node *currentBlock;        // Current block.
     Env *currentEnv;
     Obj *currentFunction; // Function currently parsed.
