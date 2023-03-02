@@ -278,9 +278,10 @@ static Node *newNodeNum(int val) {
     return n;
 }
 
-static Node *newNodeLVar(int offset, TypeInfo *type) {
-    Node *n = newNode(NodeLVar, type);
-    n->offset = offset;
+static Node *newNodeLVar(Obj *obj) {
+    Node *n = newNode(NodeLVar, obj->type);
+    n->offset = obj->offset;
+    n->obj = obj;
     return n;
 }
 
@@ -1150,6 +1151,7 @@ static Node *varDeclaration(void) {
             globals.token = tokenVar;
             errorIdentExpected();
         }
+        varObj->offset = -1;
         varObj->isStatic = attr.isStatic;
         varObj->isExtern = attr.isExtern;
         varType = varObj->type;
@@ -1166,7 +1168,7 @@ static Node *varDeclaration(void) {
         // Variable size is not defined when array with size omitted, so do not
         // compute variable offset here.  It will be computed after parsing
         // initialzier statement.
-        varNode = newNodeLVar(-1, varType);
+        varNode = newNodeLVar(varObj);
         varNode->obj = varObj;
 
         // Parse initialzier statement
@@ -1721,14 +1723,7 @@ static Node *primary(void) {
         Obj *gvar = NULL;
         EnumItem *enumItem = NULL;
         if (lvar) {
-            if (lvar->isStatic) {
-                n = newNode(NodeSVar, lvar->type);
-                n->staticVarID = lvar->staticVarID;
-                n->obj = lvar;
-            } else {
-                n = newNodeLVar(lvar->offset, lvar->type);
-                n->obj = lvar;
-            }
+            n = newNodeLVar(lvar);
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
             n = newNode(NodeGVar, gvar->type);
             n->obj = gvar;

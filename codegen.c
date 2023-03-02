@@ -146,7 +146,6 @@ static int isExprNode(const Node *n) {
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
-    case NodeSVar:
         return 1;
     case NodeIf:
     case NodeElseif:
@@ -291,7 +290,7 @@ static void genCodeLVal(const Node *n) {
         // Address for variable must be on the top of the stack.
         return;
     } else if (!(n->kind == NodeLVar || n->kind == NodeGVar ||
-                n->kind == NodeSVar || n->kind == NodeMemberAccess)) {
+                n->kind == NodeMemberAccess)) {
         error("Lhs of assignment is not a variable.");
     }
 
@@ -313,8 +312,8 @@ static void genCodeLVal(const Node *n) {
         puts("  pop rax");
         printf("  add rax, %d\n", m->offset);
         puts("  push rax");
-    } else if (n->kind == NodeSVar) {
-        printf("  lea rax, .StaticVar%d[rip]\n", n->staticVarID);
+    } else if (n->kind == NodeLVar && n->obj->isStatic) {
+        printf("  lea rax, .StaticVar%d[rip]\n", n->obj->staticVarID);
         puts("  push rax");
     } else {
         puts("  mov rax, rbp");
@@ -923,7 +922,7 @@ void genCode(const Node *n) {
         printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         puts("  push rax");
     } else if (n->kind == NodeLVar || n->kind == NodeGVar ||
-            n->kind == NodeSVar || n->kind == NodeMemberAccess) {
+            n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);

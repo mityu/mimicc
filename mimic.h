@@ -128,7 +128,6 @@ typedef enum {
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)
-    NodeSVar,          // Static local variable
     NodeAssign,        // {lhs} = {rhs};
     NodeFCall,         // Function calls,
     NodeIf,
@@ -169,7 +168,6 @@ struct Node {
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when kind is NodeLVar. Offset from base pointer.
                        // Variable adress is calculated as "RBP - offset."
-    int staticVarID;   // Used when kind is NodeSVar.  Static variable ID.
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
 };

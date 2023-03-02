@@ -556,10 +556,24 @@ int helper_countup(void) {
     return ++count;
 }
 
+int helper_countup2(void) {
+    static int count1;
+    static int count2;
+    count1++;
+    count2++;
+    return count1 + count2;
+}
+
 void test_static_local_variable(void) {
     ASSERT(1, helper_countup());
     ASSERT(2, helper_countup());
     ASSERT(3, helper_countup());
+
+    ASSERT(2, helper_countup2());
+    ASSERT(4, helper_countup2());
+    ASSERT(6, helper_countup2());
+
+    ASSERT(4, helper_countup());
 }
 
 int main(void) {
