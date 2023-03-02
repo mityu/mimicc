@@ -232,13 +232,14 @@ typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
     Env globalEnv;
-    Obj *functions;       // Declared function list.
+    Obj *functions;            // Declared function list.
     LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
     Env *currentEnv;
-    Obj *currentFunction; // Function currently parsed.
+    Obj *currentFunction;      // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.
+    int staticVarCount;        // The number of variables declared with "static."
     int namelessEnumCount;     // The number of nameless enums.
     int namelessStructCount;   // The number of nameless structs.
     Token *token;              // Token currently watches.

@@ -263,6 +263,11 @@ void genCodeGlobals(void) {
         safeFree(strings);
     }
     for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
+        if (!v->is_static) {
+            printn(".globl ");
+            printlen(v->token->str, v->token->len);
+            putchar('\n');
+        }
         printlen(v->token->str, v->token->len);
         puts(":");
         printf("  .zero %d\n", sizeOf(v->type));
