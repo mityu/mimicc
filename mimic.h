@@ -236,6 +236,7 @@ struct Globals {
     Obj *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.
+    int namelessEnumCount;     // The number of nameless enums.
     Token *token;              // Token currently watches.
     char *source;              // The source code (input).
     char *sourceFile;          // The source file path.

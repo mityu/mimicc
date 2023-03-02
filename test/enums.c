@@ -23,6 +23,19 @@ void testLocalEnumWithTag(void) {
     ASSERT(13, ev);
 }
 
+void testLocalEnumWithoutTag(void) {
+    enum {
+        NamelessA,
+        NamelessB,
+        NamelessC,
+    } v = NamelessC;
+
+    ASSERT(0, NamelessA);
+    ASSERT(1, NamelessB);
+    ASSERT(2, NamelessC);
+    ASSERT(2, v);
+}
+
 void testSizeOfEnum(void) {
     enum A {
         ItemA,
@@ -34,6 +47,7 @@ void testSizeOfEnum(void) {
 
 int main(void) {
     testLocalEnumWithTag();
+    testLocalEnumWithoutTag();
     testSizeOfEnum();
     return 0;
 }

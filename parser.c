@@ -188,6 +188,23 @@ static int atEOF(void) {
     return globals.token->type == TokenEOF;
 }
 
+static Token *buildTagNameForNamelessObject(int id) {
+    static const char prefix[] = "nameless-object-";
+    static const int prefix_size = sizeof(prefix);
+    Token *tagName = (Token *)safeAlloc(sizeof(Token));
+    int suffix_len = 1;
+
+    for (int tmp = id / 10; tmp; tmp /= 10)
+        suffix_len++;
+
+    tagName->len = prefix_size + suffix_len;
+    tagName->str = (char *)safeAlloc(tagName->len);
+
+    sprintf(tagName->str, "%s%d", prefix, id);
+
+    return tagName;
+}
+
 static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     Obj *v = (Obj *)safeAlloc(sizeof(Obj));
     v->next = NULL;
@@ -370,7 +387,6 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
         attr->is_static = 1;
     }
 
-
     type = consumeTypeName();
     if (type) {
         return newTypeInfo(type->varType);
@@ -384,14 +400,10 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
         typeInfo = newTypeInfo(TypeStruct);
         typeInfo->structEntity = s;
         return typeInfo;
-    } else if (consumeCertainTokenType(TokenEnum)) {
-        Token *tagName = consumeIdent();
-        Enum *e = findEnum(tagName->str, tagName->len);
-        TypeInfo *typeInfo = NULL;
-        if (!e)
-            errorAt(tagName->str, "Unknown enum");
-        typeInfo = newTypeInfo(TypeEnum);
-        typeInfo->tagName = tagName;
+    } else if (matchCertainTokenType(TokenEnum)) {
+        Enum *e = enumDeclaration();
+        TypeInfo *typeInfo = newTypeInfo(TypeEnum);
+        typeInfo->tagName = e->tagName;
         return typeInfo;
     }
 
@@ -423,7 +435,7 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         obj->token = ident;
         obj->type = baseType;
     } else if (consumeReserved("(")) {
-        // TODO: Free inner object
+        // TODO: Free 'inner' object
         Obj *inner = NULL;
         placeHolder = newTypeInfo(TypeNone);
         inner = parseAdvancedTypeDeclaration(placeHolder, 0);
@@ -617,6 +629,7 @@ static Node *decl(void) {
     if (!baseType) {
         errorTypeExpected();
     }
+
     for (;;) {
         Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(baseType, 1);
@@ -765,21 +778,12 @@ static Node *decl(void) {
 static Node *stmt(void) {
     Node *varDeclNode = NULL;
     Struct *s = NULL;
-    Enum *e = NULL;
 
     // Parse and skip struct declarations
     s = structDeclaration();
     if (s) {
         s->next = globals.currentBlock->structs;
         globals.currentBlock->structs = s;
-        return NULL;
-    }
-
-    e = enumDeclaration();
-    if (e) {
-        expectReserved(";");
-        e->next = globals.currentBlock->enums;
-        globals.currentBlock->enums = e;
         return NULL;
     }
 
@@ -914,6 +918,9 @@ static Node *stmt(void) {
         expectReserved(")");
         expectReserved(";");
         return n;
+    } else if (consumeReserved(";")) {
+        // Empty statement
+        return NULL;
     } else {
         Node *n = expr();
         expectReserved(";");
@@ -1018,25 +1025,27 @@ static void structBody(Struct *s) {
 static Enum *enumDeclaration(void) {
     Token *tokenEnum = globals.token;
     Enum *e = NULL;
+
     if (!consumeCertainTokenType(TokenEnum))
         return NULL;
 
     e = (Enum *)safeAlloc(sizeof(Enum));
     e->tagName = consumeIdent();
 
-
-    if (!matchReserved("{")) {
-        globals.token = tokenEnum;
-        return NULL;
-    }
-
+    // TODO: Prohibit declaring new enum at function parameter.
     if (matchReserved("{")) {
         if (e->tagName) {
             Enum *pre = findEnum(e->tagName->str, e->tagName->len);
             if (pre)
                 errorAt(tokenEnum->str, "Redefinition of enum.");
+        } else {
+            e->tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
         enumBody(e);
+        e->next = globals.currentBlock->enums;
+        globals.currentBlock->enums = e;
+    } else if (!e->tagName) {
+        errorAt(globals.token->str, "Missing enum tag name.");
     }
     return e;
 }
@@ -1089,8 +1098,15 @@ static Node *varDeclaration(void) {
     headNode.next = NULL;
 
     baseType = parseBaseType(NULL);
-    if (!baseType)
+    if (!baseType) {
         return NULL;
+    } else if (baseType->type == TypeEnum) {  // TODO: Also accept struct
+        Token *last = globals.token->prev;
+
+        // Do not consume ";" here; it's handled by stmt().
+        if (last->str[0] == '}' && last->len == 1 && matchReserved(";"))
+            return NULL;  // Just declaring an enum.
+    }
 
     for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
         totalVarSize += block->localVarSize;
