@@ -63,8 +63,7 @@ static int matchToken(const Token *token, const char *name, const int len) {
 static int matchReserved(char *op) {
     abortIfEOF();
     if (globals.token->type == TokenReserved &&
-            strlen(op) == (size_t)globals.token->len &&
-            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
+            matchToken(globals.token, op, strlen(op))) {
         return 1;
     }
     return 0;
@@ -81,10 +80,7 @@ static int matchCertainTokenType(TokenType type) {
 // If the current token is the expected token, consume the token and returns
 // TRUE.
 static int consumeReserved(char *op) {
-    abortIfEOF();
-    if (globals.token->type == TokenReserved &&
-            strlen(op) == (size_t)globals.token->len &&
-            memcmp(globals.token->str, op, (size_t)globals.token->len) == 0) {
+    if (matchReserved(op)) {
         globals.token = globals.token->next;
         return 1;
     }
@@ -327,7 +323,7 @@ static Obj *findLVar(char *name, int len) {
         }
     }
     for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
-        if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
+        if (matchToken(v->token, name, len))
             return v;
     }
     return NULL;
@@ -335,7 +331,7 @@ static Obj *findLVar(char *name, int len) {
 
 Obj *findFunction(const char *name, int len) {
     for (Obj *obj = globals.functions; obj; obj = obj->next) {
-        if (obj->token->len == len && memcmp(obj->token->str, name, (size_t)len) == 0)
+        if (matchToken(obj->token, name, len))
             return obj;
     }
     return NULL;
@@ -345,8 +341,7 @@ Obj *findFunction(const char *name, int len) {
 static Struct *findStruct(const char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Struct *s = env->structs; s; s = s->next) {
-            if (s->tagName->len == len &&
-                    memcmp(s->tagName->str, name, (size_t)len) == 0)
+            if (matchToken(s->tagName, name, len))
                 return s;
         }
     }
@@ -356,7 +351,7 @@ static Struct *findStruct(const char *name, int len) {
 // Search member in struct.  Returns the member if found, otherwise NULL.
 Obj *findStructMember(const Struct *s, const char *name, int len) {
     for (Obj *m = s->members; m; m = m->next) {
-        if (m->token->len == len && memcmp(m->token->str, name, (size_t)len) == 0)
+        if (matchToken(m->token, name, len))
             return m;
     }
     return NULL;
@@ -365,8 +360,7 @@ Obj *findStructMember(const Struct *s, const char *name, int len) {
 static Enum *findEnum(const char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Enum *e = env->enums; e; e = e->next) {
-            if (e->tagName->len == len &&
-                    memcmp(e->tagName->str, name, (size_t)len) == 0)
+            if (matchToken(e->tagName, name, len))
                 return e;
         }
     }
@@ -378,8 +372,7 @@ static EnumItem *findEnumItem(const char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Enum *e = env->enums; e; e = e->next) {
             for (EnumItem *item = e->items; item; item = item->next) {
-                if (item->token->len == len &&
-                        memcmp(item->token->str, name, (size_t)len) == 0)
+                if (matchToken(item->token, name, len))
                     return item;
             }
         }
