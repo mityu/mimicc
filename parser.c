@@ -8,7 +8,6 @@
 
 #define abortIfEOF()  do { if (atEOF()) errorUnexpectedEOF(); } while (0)
 
-static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static Obj *parseEntireDeclaration(int allowTentativeArray);
 static TypeInfo *parseBaseType(ObjAttr *attr);
@@ -19,6 +18,8 @@ static Node *decl(void);
 static Node *stmt(void);
 static Struct *structDeclaration(void);
 static void structBody(Struct *s);
+static Enum *enumDeclaration(void);
+static void enumBody(Enum * e);
 static Node *varDeclaration(void);
 static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
@@ -325,6 +326,31 @@ Obj *findStructMember(const Struct *s, const char *name, int len) {
     for (Obj *m = s->members; m; m = m->next) {
         if (m->token->len == len && memcmp(m->token->str, name, (size_t)len) == 0)
             return m;
+    }
+    return NULL;
+}
+
+static Enum *findEnum(const char *name, int len) {
+    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
+        for (Enum *e = block->enums; e; e = e->next) {
+            if (e->tagName->len == len &&
+                    memcmp(e->tagName->str, name, (size_t)len) == 0)
+                return e;
+        }
+    }
+    return NULL;
+}
+
+static EnumItem *findEnumItem(const char *name, int len) {
+    Enum *e = NULL;
+    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
+        for (Enum *e = block->enums; e; e = e->next) {
+            for (EnumItem *item = e->items; item; item = item->next) {
+                if (item->token->len == len &&
+                        memcmp(item->token->str, name, (size_t)len) == 0)
+                    return item;
+            }
+        }
     }
     return NULL;
 }
@@ -731,12 +757,21 @@ static Node *decl(void) {
 static Node *stmt(void) {
     Node *varDeclNode = NULL;
     Struct *s = NULL;
+    Enum *e = NULL;
 
     // Parse and skip struct declarations
     s = structDeclaration();
     if (s) {
         s->next = globals.currentBlock->structs;
         globals.currentBlock->structs = s;
+        return NULL;
+    }
+
+    e = enumDeclaration();
+    if (e) {
+        expectReserved(";");
+        e->next = globals.currentBlock->enums;
+        globals.currentBlock->enums = e;
         return NULL;
     }
 
@@ -963,6 +998,57 @@ static void structBody(Struct *s) {
     // Add padding.
     if (s->totalSize)
         s->totalSize = (((s->totalSize - 1) / structAlign) + 1) * structAlign;
+}
+
+// Parse enum declaration if found and returns parse result.  If no enum found,
+// returns NULL.
+static Enum *enumDeclaration(void) {
+    Token *tokenEnum = globals.token;
+    Enum *e = NULL;
+    if (!consumeCertainTokenType(TokenEnum))
+        return NULL;
+
+    e = (Enum *)safeAlloc(sizeof(Enum));
+    e->tagName = consumeIdent();
+
+    if (e->tagName) {
+        Enum *pre = findEnum(e->tagName->str, e->tagName->len);
+        if (pre)
+            errorAt(tokenEnum->str, "Redefinition of enum.");
+    }
+
+    if (matchReserved("{")) {
+        enumBody(e);
+    }
+    return e;
+}
+
+static void enumBody(Enum *e) {
+    EnumItem head = {};
+    EnumItem *item = &head;
+    int value = 0;
+
+    expectReserved("{");
+    for (;;) {
+        Token *itemToken = consumeIdent();
+        EnumItem *previous = NULL;
+        if (!itemToken)
+            break;
+
+        previous = findEnumItem(itemToken->str, itemToken->len);
+        if (previous)
+            errorAt(itemToken->str, "Duplicate enum item");
+
+        item->next = (EnumItem *)safeAlloc(sizeof(EnumItem));
+        item = item->next;
+        item->token = itemToken;
+        item->value = value++;
+
+        if (!consumeReserved(","))
+            break;
+    }
+    expectReserved("}");
+    e->items = head.next;
 }
 
 // Parse local variable declaration. If there's no variable declaration,
@@ -1555,10 +1641,13 @@ static Node *primary(void) {
     if (ident) {
         Obj *lvar = findLVar(ident->str, ident->len);
         Obj *gvar = NULL;
+        EnumItem *enumItem = NULL;
         if (lvar) {
             n = newNodeLVar(lvar->offset, lvar->type);
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
             n = newNode(NodeGVar, gvar->type);
+        } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
+            n = newNodeNum(enumItem->value);
         } else {
             errorAt(ident->str, "Undefined variable");
         }

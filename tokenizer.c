@@ -120,6 +120,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "enum")) {
+            current = newToken(TokenEnum, current, p, 4);
+            p += 4;
+            continue;
+        }
+
         if (isToken(p, "const")) {
             // TODO: Create new token; Take into account when parsing.
             p += 5;

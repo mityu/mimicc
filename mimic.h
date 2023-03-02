@@ -74,6 +74,7 @@ typedef enum {
     TokenSizeof,
     TokenLiteralString,
     TokenStruct,
+    TokenEnum,
     TokenEOF,
 } TokenType;
 
@@ -134,6 +135,7 @@ typedef struct Function Function;
 typedef struct Obj Obj;
 typedef struct FCall FCall;
 typedef struct Node Node;
+typedef struct Enum Enum;
 struct Node {
     NodeKind kind;
     Node *lhs;
@@ -160,6 +162,7 @@ struct Node {
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
     Struct *structs;   // Declared struct list local to block.
+    Enum *enums;       // Declared enum list local to block.
 };
 
 struct FCall {
@@ -205,6 +208,19 @@ struct Struct {
     Token *tagName;
     Obj *members;
     int totalSize;
+};
+
+typedef struct EnumItem EnumItem;
+struct Enum {
+    Enum *next;
+    Token *tagName;
+    EnumItem *items;
+};
+
+struct EnumItem {
+    EnumItem *next;
+    Token *token;
+    int value;
 };
 
 typedef struct Globals Globals;
