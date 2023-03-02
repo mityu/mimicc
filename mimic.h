@@ -2,6 +2,7 @@
 #define HEADER_MIMIC_H
 
 #include <stddef.h>
+#include <stdlib.h>
 
 #define REG_ARGS_MAX_COUNT  (6)
 #define ONE_WORD_BYTES  (8)

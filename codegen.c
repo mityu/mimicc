@@ -244,9 +244,23 @@ void genCodeGlobals(void) {
     if (globals.vars == NULL && globals.strings == NULL)
         return;
     puts("\n.data");
-    for (LiteralString *s = globals.strings; s; s = s->next) {
-        printf(".LiteralString%d:\n", s->id);
-        printf("  .string  \"%s\"\n", s->string);
+    if (globals.literalStringCount) {
+        LiteralString **strings = (LiteralString **)safeAlloc(
+                globals.literalStringCount * sizeof(LiteralString *));
+
+        // Reverse order.
+        int index = globals.literalStringCount - 1;
+        for (LiteralString *s = globals.strings; s; s = s->next) {
+            strings[index--] = s;
+        }
+
+        for (int i = 0; i < globals.literalStringCount; ++i) {
+            LiteralString *s = strings[i];
+            printf(".LiteralString%d:\n", s->id);
+            printf("  .string  \"%s\"\n", s->string);
+        }
+
+        safeFree(strings);
     }
     for (Obj *v = globals.vars; v; v = v->next) {
         printlen(v->token->str, v->token->len);
