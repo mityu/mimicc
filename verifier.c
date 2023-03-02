@@ -277,9 +277,9 @@ static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
     } else if (lhs->type == TypeArray) {
         return 0;
     } else if (rhs->type == TypeNumber) {
-        return lhs->type == TypeInt || lhs->type == TypeChar;
+        return lhs->type == TypeInt || lhs->type == TypeChar || lhs->type == TypeEnum;
     } else if (lhs->type == TypeInt) {
-        return rhs->type == TypeInt || rhs->type == TypeChar;  // TODO: Truely OK?
+        return rhs->type == TypeInt || rhs->type == TypeChar || rhs->type == TypeEnum;  // TODO: Truely OK?
     } else {
         return lhs->type == rhs->type;
     }
@@ -334,12 +334,12 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
 
 // Return TRUE if given type is integer type.
 static int isIntegerType(const TypeInfo *t) {
-    return t->type == TypeInt || t->type == TypeNumber;
+    return t->type == TypeInt || t->type == TypeNumber || t->type == TypeEnum;
 }
 
 // Return TRUE if given type is arithmetic type.
 static int isArithmeticType(const TypeInfo *t) {
-    return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber;
+    return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber || t->type == TypeEnum;
 }
 
 // Return TRUE is `n` is lvalue.

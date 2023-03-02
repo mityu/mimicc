@@ -372,10 +372,9 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
 
 
     type = consumeTypeName();
-    if (type)
+    if (type) {
         return newTypeInfo(type->varType);
-
-    if (consumeCertainTokenType(TokenStruct)) {
+    } else if (consumeCertainTokenType(TokenStruct)) {
         Token *tagName = consumeIdent();
         Struct *s = findStruct(tagName->str, tagName->len);
         TypeInfo *typeInfo = NULL;
@@ -384,6 +383,15 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
 
         typeInfo = newTypeInfo(TypeStruct);
         typeInfo->structEntity = s;
+        return typeInfo;
+    } else if (consumeCertainTokenType(TokenEnum)) {
+        Token *tagName = consumeIdent();
+        Enum *e = findEnum(tagName->str, tagName->len);
+        TypeInfo *typeInfo = NULL;
+        if (!e)
+            errorAt(tagName->str, "Unknown enum");
+        typeInfo = newTypeInfo(TypeEnum);
+        typeInfo->tagName = tagName;
         return typeInfo;
     }
 
@@ -507,7 +515,7 @@ static Function *parseFuncArgDeclaration(void) {
 
 // Return size of given type.  If computing failed, exit program.
 int sizeOf(const TypeInfo *ti) {
-    if (ti->type == TypeInt || ti->type == TypeNumber) {
+    if (ti->type == TypeInt || ti->type == TypeNumber || ti->type == TypeEnum) {
         return 4;
     } else if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
@@ -527,7 +535,7 @@ int sizeOf(const TypeInfo *ti) {
 static int alignOf(const TypeInfo *ti) {
     if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
-    } else if (ti->type == TypeInt || ti->type == TypeNumber) {
+    } else if (ti->type == TypeInt || ti->type == TypeNumber || ti->type == TypeEnum) {
         return 4;
     } else if (ti->type == TypePointer) {
         return 8;
@@ -955,6 +963,11 @@ static void structBody(Struct *s) {
         if (!baseType)
             break;
 
+        // TODO: Prohibit using same name in multiple struct member:
+        //   struct A {
+        //     int member;
+        //     char member;
+        //   }
         for (;;) {
             Token *tokenMember = globals.token;
             Obj *member = parseAdvancedTypeDeclaration(baseType, 0);
@@ -1011,13 +1024,18 @@ static Enum *enumDeclaration(void) {
     e = (Enum *)safeAlloc(sizeof(Enum));
     e->tagName = consumeIdent();
 
-    if (e->tagName) {
-        Enum *pre = findEnum(e->tagName->str, e->tagName->len);
-        if (pre)
-            errorAt(tokenEnum->str, "Redefinition of enum.");
+
+    if (!matchReserved("{")) {
+        globals.token = tokenEnum;
+        return NULL;
     }
 
     if (matchReserved("{")) {
+        if (e->tagName) {
+            Enum *pre = findEnum(e->tagName->str, e->tagName->len);
+            if (pre)
+                errorAt(tokenEnum->str, "Redefinition of enum.");
+        }
         enumBody(e);
     }
     return e;
@@ -1035,6 +1053,11 @@ static void enumBody(Enum *e) {
         if (!itemToken)
             break;
 
+        // TODO: Make this case error:
+        //   enum {
+        //     ItemA,
+        //     ItemA
+        //   }
         previous = findEnumItem(itemToken->str, itemToken->len);
         if (previous)
             errorAt(itemToken->str, "Duplicate enum item");

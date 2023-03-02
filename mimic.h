@@ -24,6 +24,7 @@
 
 typedef struct LiteralString LiteralString;
 typedef struct Struct Struct;
+typedef struct Token Token;
 
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
@@ -34,6 +35,7 @@ typedef enum {
     TypeArray,
     TypePointer,
     TypeStruct, // Struct
+    TypeEnum,   // Enum
     TypeFunction,
 } TypeKind;
 
@@ -46,6 +48,7 @@ struct TypeInfo {
     Struct *structEntity; // Valid when type is TypeStruct
     TypeInfo *retType; // Valid when type is TypeFunction
     TypeInfo *argTypes; // Valid when type is TypeFunction
+    Token *tagName; // Valid when type is TypeEnum
 };
 
 extern struct Types {
@@ -78,7 +81,6 @@ typedef enum {
     TokenEOF,
 } TokenType;
 
-typedef struct Token Token;
 struct Token {
     TokenType type;
     Token *prev;
