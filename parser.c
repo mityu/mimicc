@@ -1088,7 +1088,6 @@ static Node *varDeclaration(void) {
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
-    Obj *lvar = NULL;
     int totalVarSize = 0;
     int currentVarSize = 0;
     TypeInfo *baseType = NULL;
@@ -1116,6 +1115,7 @@ static Node *varDeclaration(void) {
         Token *tokenVar = globals.token;
         Node *varNode = NULL;
         Obj *varObj = NULL;
+        Obj *existingVar = NULL;
         int varPadding = 0;
         int varAlignment = 0;
 
@@ -1130,8 +1130,8 @@ static Node *varDeclaration(void) {
             errorAt(varObj->token->str, "Cannot declare variable with type \"void\"");
         }
 
-        lvar = findLVar(varObj->token->str, varObj->token->len);
-        if (lvar) {
+        existingVar = findLVar(varObj->token->str, varObj->token->len);
+        if (existingVar) {
             errorAt(varObj->token->str, "Redefinition of variable");
         }
 
@@ -1164,12 +1164,12 @@ static Node *varDeclaration(void) {
         totalVarSize += varPadding + currentVarSize;
         globals.currentEnv->varSize += varPadding + currentVarSize;
 
-        lvar = newObj(varObj->token, varType, totalVarSize);
         varNode->offset = totalVarSize;
+        varObj->offset = totalVarSize;
 
         // Register variable.
-        lvar->next = globals.currentEnv->vars;
-        globals.currentEnv->vars = lvar;
+        varObj->next = globals.currentEnv->vars;
+        globals.currentEnv->vars = varObj;
 
 
         if (!consumeReserved(","))
