@@ -1027,7 +1027,7 @@ static Enum *enumDeclaration(void) {
     if (matchReserved("{")) {
         Enum *e = NULL;
         if (tagName) {
-            Enum *pre = findEnum(e->tagName->str, e->tagName->len);
+            Enum *pre = findEnum(tagName->str, tagName->len);
             if (pre)
                 errorAt(tokenEnum->str, "Redefinition of enum.");
         } else {
