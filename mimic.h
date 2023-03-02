@@ -98,11 +98,10 @@ struct Token {
 typedef struct Env Env;
 struct Env {
     Env *outer;
-    Obj *funcs;
     Struct *structs;
     Enum *enums;
-    Obj *vars;
-    int varSize;
+    Obj *vars;     // List of variables local to this env.
+    int varSize;   // Total size of variables local to this env.
 };
 
 typedef enum {
@@ -150,6 +149,7 @@ typedef struct FCall FCall;
 typedef struct Node Node;
 struct Node {
     NodeKind kind;
+    Env *env;
     Node *lhs;
     Node *rhs;
     Node *condition;   // Used by if/for/while/switch(?) statements.
@@ -161,13 +161,8 @@ struct Node {
                        // statement doesn't exist.
     TypeInfo *type;    // Type of this node's result value.
     Token *token;      // Token which gave this node.
-    Obj *localVars;    // List of variables local to block. (func, block, for, ...)
-                       // Stored in reversed appearing order for an
-                       // implementation reason.
-    int localVarSize;  // The size of local variables (not includes inner blocks').
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Obj *func;         // Function info.
-    Node *outerBlock;  // One step outer block.
     int val;           // Used when kind is NodeNum.
     int offset;        // Used when type is TokenLVar. Offset from base pointer.
                        // Variable adress is calculated as "RBP - offset."
@@ -238,7 +233,6 @@ struct Globals {
     Node *code;                // The root node of program.
     Env globalEnv;
     Obj *functions;       // Declared function list.
-    Obj *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
     Env *currentEnv;

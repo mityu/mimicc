@@ -241,7 +241,7 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
 };
 
 void genCodeGlobals(void) {
-    if (globals.vars == NULL && globals.strings == NULL)
+    if (globals.globalEnv.vars == NULL && globals.strings == NULL)
         return;
     puts("\n.data");
     if (globals.literalStringCount) {
@@ -262,7 +262,7 @@ void genCodeGlobals(void) {
 
         safeFree(strings);
     }
-    for (Obj *v = globals.vars; v; v = v->next) {
+    for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
         printlen(v->token->str, v->token->len);
         puts(":");
         printf("  .zero %d\n", sizeOf(v->type));
@@ -501,11 +501,8 @@ static void genCodeFCall(const Node *n) {
 
     if (stackAlignState == -1) {
         stackAlignState = 0;
-        for (Node *c = n->outerBlock; c; c = c->next) {
-            stackVarSize += c->localVarSize;
-            if (c->kind == NodeFunction)
-                break;
-        }
+        for (Env *env = n->env; env; env = env->outer)
+            stackVarSize += env->varSize;
     }
 
     if ((n->fcall->argsCount - regargs) > 0) {
@@ -845,8 +842,8 @@ void genCode(const Node *n) {
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
     } else if (n->kind == NodeBlock) {
-        if (n->localVarSize)
-            printf("  sub rsp, %d\n", n->localVarSize);
+        if (n->env->varSize)
+            printf("  sub rsp, %d\n", n->env->varSize);
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
@@ -856,9 +853,13 @@ void genCode(const Node *n) {
                 puts("  pop rax");
             }
         }
-        if (n->localVarSize)
-            printf("  add rsp, %d\n", n->localVarSize);
+        if (n->env->varSize)
+            printf("  add rsp, %d\n", n->env->varSize);
     } else if (n->kind == NodeExprList) {
+        if (!n->body) {
+            puts("  push 0  /* Represents NOP */");
+            return;
+        }
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Throw away values that expressions left on stack, but the last

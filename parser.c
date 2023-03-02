@@ -247,7 +247,7 @@ static Node *newNode(NodeKind kind, TypeInfo *type) {
     n->rhs  = NULL;
     n->body = NULL;
     n->next = NULL;
-    n->outerBlock = globals.currentBlock;
+    n->env = globals.currentEnv;
     n->token = globals.token->prev;
     n->type = type;
     return n;
@@ -297,7 +297,7 @@ static Node *newNodeFunction(Token *t) {
 // Find global variable by name. Return LVar* when variable is found. Returns
 // NULL when not.
 static Obj *findGlobalVar(char *name, int len) {
-    for (Obj *v = globals.vars; v; v = v->next) {
+    for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
         if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
             return v;
     }
@@ -308,15 +308,11 @@ static Obj *findGlobalVar(char *name, int len) {
 // found. When not, returns NULL.
 // Note that this function does NOT search global variables.
 static Obj *findLVar(char *name, int len) {
-    Node *block = globals.currentBlock;
-    for (;;) {
-        for (Obj *v = block->localVars; v; v = v->next) {
+    for (Env *env = globals.currentEnv; env && env != &globals.globalEnv; env = env->outer) {
+        for (Obj *v = env->vars; v; v = v->next) {
             if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
                 return v;
         }
-        block = block->outerBlock;
-        if (!block)
-            break;
     }
     for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
         if (v->token->len == len && memcmp(v->token->str, name, (size_t)len) == 0)
@@ -704,13 +700,11 @@ static Node *decl(void) {
                 globals.functions = obj;
             }
             // TODO: Free n->func
+            enterNewEnv();
             n = newNodeFunction(obj->token);
             n->func = obj;
 
-            // Dive into this function block.
-            globals.currentBlock = n;
             globals.currentFunction = obj;
-            enterNewEnv();
 
             // Compute argument variables' offset.
             // Note that arguments are all copied onto stack at the head of
@@ -725,7 +719,7 @@ static Node *decl(void) {
                 } else {
                     argOffset += sizeOf(v->type);
                     v->offset = argOffset;
-                    n->localVarSize = argOffset;
+                    n->env->varSize = argOffset;
                     if (argNum == REG_ARGS_MAX_COUNT) {
                         argOffset = -ONE_WORD_BYTES;
                     }
@@ -735,8 +729,6 @@ static Node *decl(void) {
             // Handle function body
             n->body = stmt();
 
-            // Escape from this function block to the outer one.
-            globals.currentBlock = n->outerBlock;
             exitCurrentEnv();
 
             return n;
@@ -776,8 +768,8 @@ static Node *decl(void) {
                 errorAt(obj->token->str,
                         "Cannot declare variable with type \"void\"");
 
-            obj->next = globals.vars;
-            globals.vars = obj;
+            obj->next = globals.globalEnv.vars;
+            globals.globalEnv.vars = obj;
         }
 
         if (!consumeReserved(","))
@@ -806,20 +798,18 @@ static Node *stmt(void) {
         return varDeclNode;
 
     if (consumeReserved("{")) {
-        Node *n = newNode(NodeBlock, &Types.None);
-        Node body;
+        Node *n;
+        Node body = {};
         Node *last = &body;
 
-        body.next = NULL;
-        globals.currentBlock = n;  // Dive into the new block.
         enterNewEnv();
+        n = newNode(NodeBlock, &Types.None);
         while (!consumeReserved("}")) {
             last->next = stmt();
             if (last->next)
                 last = last->next;
         }
         n->body = body.next;
-        globals.currentBlock = n->outerBlock;  // Escape from this block to the outer one.
         exitCurrentEnv();
         return n;
     } else if (consumeCertainTokenType(TokenBreak)) {
@@ -877,12 +867,11 @@ static Node *stmt(void) {
         //        int i = 0;
         //        for (; i < 10; ++i) {...}
         //    }
-        Node *block = newNode(NodeBlock, &Types.None);
+        Node *block;
         Node *n;
 
-        // Dive into this `for` block.
-        globals.currentBlock = block;
         enterNewEnv();
+        block = newNode(NodeBlock, &Types.None);
 
         n = newNodeFor();
         block->body = n;
@@ -912,8 +901,6 @@ static Node *stmt(void) {
         }
         n->body = stmt();
 
-        // Escape this block.
-        globals.currentBlock = block->outerBlock;
         exitCurrentEnv();
 
         return block;
@@ -1126,8 +1113,8 @@ static Node *varDeclaration(void) {
             return NULL;  // Just declaring an enum.
     }
 
-    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-        totalVarSize += block->localVarSize;
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        totalVarSize += env->varSize;
     }
 
 
@@ -1181,18 +1168,14 @@ static Node *varDeclaration(void) {
             varPadding = varAlignment - varPadding;
 
         totalVarSize += varPadding + currentVarSize;
-        globals.currentBlock->localVarSize += varPadding + currentVarSize;
+        globals.currentEnv->varSize += varPadding + currentVarSize;
 
         lvar = newObj(varObj->token, varType, totalVarSize);
         varNode->offset = totalVarSize;
 
         // Register variable.
-        if (globals.currentBlock->localVars) {
-            lvar->next = globals.currentBlock->localVars;
-            globals.currentBlock->localVars = lvar;
-        } else {
-            globals.currentBlock->localVars = lvar;
-        }
+        lvar->next = globals.currentEnv->vars;
+        globals.currentEnv->vars = lvar;
 
 
         if (!consumeReserved(","))

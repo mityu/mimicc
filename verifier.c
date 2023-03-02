@@ -46,11 +46,16 @@ void verifyFlow(const Node *n) {
 }
 
 void verifyType(const Node *n) {
+    static Obj *currentFunction = NULL;
+
     if (n == NULL)
         return;
 
     if (n->kind == NodeFunction) {
+        Obj *funcSave = currentFunction;
+        currentFunction = n->func;
         verifyType(n->body);
+        currentFunction = funcSave;
     } else if (n->kind == NodeBlock) {
         for (Node *c = n->body; c; c = c->next) {
             verifyType(c);
@@ -78,22 +83,11 @@ void verifyType(const Node *n) {
             verifyType(c->body);
         }
     } else if (n->kind == NodeReturn) {
-        Node *funcNode = NULL;
-
         // Check if {expr} is valid.
         verifyType(n->lhs);
 
         // Check the returned value's types.
-        funcNode = n->outerBlock;
-        for (; funcNode; funcNode = funcNode->outerBlock) {
-            if (funcNode->kind == NodeFunction) {
-                break;
-            }
-        }
-        if (!funcNode) {
-            errorUnreachable();
-        }
-        if (!checkAssignable(funcNode->func->func->retType, n->lhs->type)) {
+        if (!checkAssignable(currentFunction->func->retType, n->lhs->type)) {
             errorAt(n->token->str, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
