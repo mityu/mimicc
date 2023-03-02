@@ -241,8 +241,8 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
 };
 
 void genCodeGlobals(void) {
-    if (globals.globalEnv.vars == NULL && globals.strings == NULL &&
-            globals.staticVars == NULL)
+    if (globals.globalVars == NULL && globals.staticVars == NULL &&
+            globals.strings == NULL)
         return;
     puts("\n.data");
     if (globals.literalStringCount) {
@@ -263,7 +263,8 @@ void genCodeGlobals(void) {
 
         safeFree(strings);
     }
-    for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
+    for (GVar *gvar = globals.globalVars; gvar; gvar = gvar->next) {
+        Obj *v = gvar->obj;
         if (v->isExtern)
             continue;
         if (!v->isStatic) {

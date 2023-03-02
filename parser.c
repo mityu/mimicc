@@ -304,9 +304,9 @@ static Node *newNodeFunction(Token *t) {
 
 // Find global variable by name. Return LVar* when variable is found. Returns
 // NULL when not.
-static Obj *findGlobalVar(char *name, int len) {
-    for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
-        if (matchToken(v->token, name, len))
+static GVar *findGlobalVar(char *name, int len) {
+    for (GVar *v = globals.globalVars; v; v = v->next) {
+        if (matchToken(v->obj->token, name, len))
             return v;
     }
     return NULL;
@@ -316,7 +316,7 @@ static Obj *findGlobalVar(char *name, int len) {
 // found. When not, returns NULL.
 // Note that this function does NOT search global variables.
 static Obj *findLVar(char *name, int len) {
-    for (Env *env = globals.currentEnv; env && env != &globals.globalEnv; env = env->outer) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Obj *v = env->vars; v; v = v->next) {
             if (matchToken(v->token, name, len))
                 return v;
@@ -768,14 +768,16 @@ static Node *decl(void) {
             }
         } else {
             // Global variable declaration
+            GVar *gvar = NULL;
             if (findGlobalVar(obj->token->str, obj->token->len))
                 errorAt(obj->token->str, "Redefinition of variable.");
             else if (obj->type->type == TypeVoid)
                 errorAt(obj->token->str,
                         "Cannot declare variable with type \"void\"");
 
-            obj->next = globals.globalEnv.vars;
-            globals.globalEnv.vars = obj;
+            gvar = newGVar(obj);
+            gvar->next = globals.globalVars;
+            globals.globalVars = gvar;
         }
 
         if (!consumeReserved(","))
@@ -1711,13 +1713,13 @@ static Node *primary(void) {
     ident = consumeIdent();
     if (ident) {
         Obj *lvar = findLVar(ident->str, ident->len);
-        Obj *gvar = NULL;
+        GVar *gvar = NULL;
         EnumItem *enumItem = NULL;
         if (lvar) {
             n = newNodeLVar(lvar);
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
-            n = newNode(NodeGVar, gvar->type);
-            n->obj = gvar;
+            n = newNode(NodeGVar, gvar->obj->type);
+            n->obj = gvar->obj;
         } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
             n = newNodeNum(enumItem->value);
         } else {

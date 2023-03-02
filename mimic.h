@@ -243,6 +243,7 @@ struct Globals {
     Node *code;                // The root node of program.
     Env globalEnv;
     Obj *functions;            // Declared function list.
+    GVar *globalVars;          // Global variable list.
     GVar *staticVars;          // Static local variable list.
     LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
