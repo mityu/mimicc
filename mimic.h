@@ -60,6 +60,7 @@ typedef enum {
     TokenTypeName,
     TokenIdent,
     TokenNumber,
+    TokenStatic,
     TokenIf,
     TokenElseif,
     TokenElse,
@@ -176,12 +177,19 @@ struct Function {
     TypeInfo *retType; // Type of return value.
 };
 
+typedef struct ObjAttr ObjAttr;
+struct ObjAttr {
+    int is_static;
+};
+
 struct Obj {
     Obj      *next;
     Token    *token;
-    TypeInfo *type;   // Type of object.
-    int      offset;  // Offset from rbp.  Variable adress is calculated as
-    Function *func;   // Valid when object holds function
+    TypeInfo *type;     // Type of object.
+    int      offset;    // Offset from rbp.  Variable adress is calculated as
+                        // RBP - offset.
+    int      is_static; // TRUE is object is declared with "static."
+    Function *func;     // Valid when object holds function.
 };
 
 struct LiteralString {
@@ -229,7 +237,7 @@ Token *tokenize(void);
 int checkEscapeChar(char c, char *decoded);
 
 // parser.c
-void program();
+void program(void);
 Obj *findFunction(const char *name, int len);
 Obj *findStructMember(const Struct *s, const char *name, int len);
 int sizeOf(const TypeInfo *ti);

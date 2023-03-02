@@ -51,3 +51,11 @@ assert_fail 'struct S{ struct S obj; };'
 assert_fail 'int main(void) { int n; n->member;}'
 assert_fail 'struct S {int n;}; int main(void) { struct S obj; obj->n;}'
 assert_fail 'struct S {int n;}; int main(void) { struct S **obj; obj->n;}'
+
+echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
+../mimic ./Xtmp/tmp.c > ./Xtmp/tmp.s || exit 1
+gcc ./Xtmp/tmp.s
+if [ $? -eq 0 ]; then
+  echo "Other than 0 returned."
+  exit 1
+fi

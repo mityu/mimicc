@@ -549,9 +549,11 @@ static void genCodeFunction(const Node *n) {
         regargs = REG_ARGS_MAX_COUNT;
 
     putchar('\n');
-    printn(".globl ");
-    printlen(n->func->token->str, n->func->token->len);
-    putchar('\n');
+    if (!n->func->is_static) {
+        printn(".globl ");
+        printlen(n->func->token->str, n->func->token->len);
+        putchar('\n');
+    }
     printlen(n->func->token->str, n->func->token->len);
     puts(":");
 

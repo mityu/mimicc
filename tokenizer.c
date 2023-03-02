@@ -126,6 +126,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "static")) {
+            current = newToken(TokenStatic, current, p, 6);
+            p += 6;
+            continue;
+        }
+
         if (isToken(p, "if")) {
             current = newToken(TokenIf, current, p, 2);
             p += 2;

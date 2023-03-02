@@ -11,7 +11,7 @@
 static Token *newToken(TokenType type, Token *current, char *str, int len);
 static int atEOF(void);
 static Obj *parseEntireDeclaration(int allowTentativeArray);
-static TypeInfo *parseBaseType(void);
+static TypeInfo *parseBaseType(ObjAttr *attr);
 static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeArray);
 static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
@@ -337,8 +337,15 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
 
 // Parse base of declared type and return its information.  Return NULL if type
 // doesn't appear.
-static TypeInfo *parseBaseType(void) {
-    Token *type = consumeTypeName();
+static TypeInfo *parseBaseType(ObjAttr *attr) {
+    Token *type = NULL;
+
+    if (attr && consumeCertainTokenType(TokenStatic)) {
+        attr->is_static = 1;
+    }
+
+
+    type = consumeTypeName();
     if (type)
         return newTypeInfo(type->varType);
 
@@ -358,7 +365,7 @@ static TypeInfo *parseBaseType(void) {
 }
 
 static Obj *parseEntireDeclaration(int allowTentativeArray) {
-    TypeInfo *baseType = parseBaseType();
+    TypeInfo *baseType = parseBaseType(NULL);
     Obj *obj = parseAdvancedTypeDeclaration(baseType, allowTentativeArray);
     return obj;
 }
@@ -559,6 +566,7 @@ static Node *decl(void) {
     TypeInfo *baseType = NULL;
     Struct *s = NULL;
     Obj *obj = NULL;
+    ObjAttr attr = {};
     Token *tokenBaseType = NULL;
     int acceptFuncDefinition = 1;
 
@@ -571,13 +579,14 @@ static Node *decl(void) {
     }
 
     tokenBaseType = globals.token;
-    baseType = parseBaseType();
+    baseType = parseBaseType(&attr);
     if (!baseType) {
         errorTypeExpected();
     }
     for (;;) {
         Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(baseType, 1);
+        obj->is_static = attr.is_static;
         if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
@@ -817,7 +826,7 @@ static Node *stmt(void) {
         expectReserved("(");
         if (!consumeReserved(";")) {
             Token *tokenSave = globals.token;
-            if (parseBaseType()) {
+            if (parseBaseType(NULL)) {
                 Node *block = newNode(NodeBlock, &Types.None);
 
                 globals.token = tokenSave;
@@ -907,7 +916,7 @@ static void structBody(Struct *s) {
     memberHead.next = NULL;
     expectReserved("{");
     for (;;) {
-        TypeInfo *baseType = parseBaseType();
+        TypeInfo *baseType = parseBaseType(NULL);
         if (!baseType)
             break;
 
@@ -970,7 +979,7 @@ static Node *varDeclaration(void) {
 
     headNode.next = NULL;
 
-    baseType = parseBaseType();
+    baseType = parseBaseType(NULL);
     if (!baseType)
         return NULL;
 
@@ -1420,7 +1429,7 @@ static Node *unary(void) {
 
         // First, do check for "sizeof(type)".
         if (consumeReserved("(")) {
-            type = parseBaseType();
+            type = parseBaseType(NULL);
             if (type) {
                 Obj *obj = parseAdvancedTypeDeclaration(type, 0);
                 type = obj->type;
