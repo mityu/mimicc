@@ -50,7 +50,7 @@ struct TypeInfo {
     Struct *structEntity; // Valid when type is TypeStruct
     TypeInfo *retType; // Valid when type is TypeFunction
     TypeInfo *argTypes; // Valid when type is TypeFunction
-    Token *tagName; // Valid when type is TypeEnum
+    Token *tagName; // Valid when type is TypeStruct or TypeEnum
 };
 
 extern struct Types {
@@ -240,6 +240,7 @@ struct Globals {
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.
     int namelessEnumCount;     // The number of nameless enums.
+    int namelessStructCount;   // The number of nameless structs.
     Token *token;              // Token currently watches.
     char *source;              // The source code (input).
     char *sourceFile;          // The source file path.

@@ -3,6 +3,8 @@
 struct GStruct {};
 struct GStruct gObj;
 
+struct {int n[2]; char s[3];} gObjWithoutTag;
+
 void test_decl_global_struct_var(void) {
     struct GStruct obj;
 }
@@ -97,10 +99,32 @@ void test_struct_member_access(void) {
     ASSERT(23, s3.ps2->s1.n);
 }
 
+void test_decl_local_struct_without_tag(void) {
+    struct S {
+        int n;
+        char c;
+    } obj = {3, 'a'}, zero = {};
+
+    ASSERT(3, obj.n);
+    ASSERT(97, obj.c);
+    ASSERT(0, zero.n);
+    ASSERT(0, zero.c);
+}
+
+void test_decl_global_struct_without_tag(void) {
+    ASSERT(0, gObjWithoutTag.n[0]);
+    ASSERT(0, gObjWithoutTag.n[1]);
+    ASSERT(0, gObjWithoutTag.s[0]);
+    ASSERT(0, gObjWithoutTag.s[1]);
+    ASSERT(0, gObjWithoutTag.s[2]);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
     test_sizeof_struct();
     test_struct_member_access();
+    test_decl_local_struct_without_tag();
+    test_decl_global_struct_without_tag();
     return 0;
 }

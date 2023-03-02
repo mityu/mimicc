@@ -393,14 +393,10 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     type = consumeTypeName();
     if (type) {
         return newTypeInfo(type->varType);
-    } else if (consumeCertainTokenType(TokenStruct)) {
-        Token *tagName = consumeIdent();
-        Struct *s = findStruct(tagName->str, tagName->len);
-        TypeInfo *typeInfo = NULL;
-        if (!s)
-            errorAt(tagName->str, "Unknown struct");
-
-        typeInfo = newTypeInfo(TypeStruct);
+    } else if (matchCertainTokenType(TokenStruct)) {
+        Struct *s = structDeclaration();
+        TypeInfo *typeInfo = newTypeInfo(TypeStruct);
+        typeInfo->tagName = s->tagName;
         typeInfo->structEntity = s;
         return typeInfo;
     } else if (matchCertainTokenType(TokenEnum)) {
@@ -619,23 +615,15 @@ static Node *decl(void) {
     Token *tokenBaseType = NULL;
     int acceptFuncDefinition = 1;
 
-    // Parse and skip struct declarations
-    s = structDeclaration();
-    if (s) {
-        s->next = globals.currentEnv->structs;
-        globals.currentEnv->structs = s;
-        return NULL;
-    }
-
     tokenBaseType = globals.token;
     baseType = parseBaseType(&attr);
     if (!baseType) {
         errorTypeExpected();
-    } else if (baseType->type == TypeEnum) {
+    } else if (baseType->type == TypeStruct || baseType->type == TypeEnum) {
         Token *last = globals.token->prev;
 
         if (last->len == 1 && last->str[0] == '}' && consumeReserved(";"))
-            return NULL;  // Just declaring an enum.
+            return NULL;  // Just declaring a struct or an enum.
     }
 
     for (;;) {
@@ -783,15 +771,6 @@ static Node *decl(void) {
 
 static Node *stmt(void) {
     Node *varDeclNode = NULL;
-    Struct *s = NULL;
-
-    // Parse and skip struct declarations
-    s = structDeclaration();
-    if (s) {
-        s->next = globals.currentEnv->structs;
-        globals.currentEnv->structs = s;
-        return NULL;
-    }
 
     varDeclNode = varDeclaration();
     if (varDeclNode)
@@ -933,12 +912,12 @@ static Node *stmt(void) {
     }
 }
 
-// Parse struct declaration.  Returns TRUE if there's a struct declaration,
-// otherwise FALSE.
+// Parse struct declaration.  Returns struct if there's a struct declaration,
+// otherwise NULL.
 static Struct *structDeclaration(void) {
-    Token *tokenSave = globals.token;
+    // TODO: Prohibit declaring new enum at function parameter.
+    Token *tokenStruct = globals.token;
     Token *tagName = NULL;
-    Struct *s = NULL;
 
     if (!consumeCertainTokenType(TokenStruct)) {
         return NULL;
@@ -946,22 +925,30 @@ static Struct *structDeclaration(void) {
 
     tagName = consumeIdent();
 
-    if (!matchReserved("{")) {
-        globals.token = tokenSave;
-        return NULL;
+    if (matchReserved("{")) {
+        Struct *s = NULL;
+        if (tagName) {
+            if (findStruct(tagName->str, tagName->len)) {
+                errorAt(tokenStruct->str, "Redefinition of struct.");
+            }
+        } else {
+            tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
+        }
+        s = newStruct();
+        s->tagName = tagName;
+        structBody(s);
+        s->next = globals.currentEnv->structs;
+        globals.currentEnv->structs = s;
+
+        return s;
+    } else if (tagName) {
+        Struct *s = findStruct(tagName->str, tagName->len);
+        if (!s)
+            errorAt(tokenStruct->str, "Undefiend struct");
+        return s;
+    } else {
+        errorAt(globals.token->str, "Missing struct tag name.");
     }
-
-    s = findStruct(tagName->str, tagName->len);
-    if (s)
-        errorAt(tagName->str, "Redefinition of struct");
-
-    s = newStruct();
-    s->tagName = tagName;
-
-    structBody(s);
-
-    expectReserved(";");
-    return s;
 }
 
 static void structBody(Struct *s) {
@@ -1105,12 +1092,12 @@ static Node *varDeclaration(void) {
     baseType = parseBaseType(NULL);
     if (!baseType) {
         return NULL;
-    } else if (baseType->type == TypeEnum) {  // TODO: Also accept struct
+    } else if (baseType->type == TypeStruct || baseType->type == TypeEnum) {
         Token *last = globals.token->prev;
 
         // Do not consume ";" here; it's handled by stmt().
         if (last->str[0] == '}' && last->len == 1 && matchReserved(";"))
-            return NULL;  // Just declaring an enum.
+            return NULL;  // Just declaring a struct or an enum.
     }
 
     for (Env *env = globals.currentEnv; env; env = env->outer) {
