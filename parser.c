@@ -1016,30 +1016,37 @@ static void structBody(Struct *s) {
 // returns NULL.
 static Enum *enumDeclaration(void) {
     Token *tokenEnum = globals.token;
-    Enum *e = NULL;
+    Token *tagName = NULL;
 
     if (!consumeCertainTokenType(TokenEnum))
         return NULL;
 
-    e = (Enum *)safeAlloc(sizeof(Enum));
-    e->tagName = consumeIdent();
+    tagName = consumeIdent();
 
     // TODO: Prohibit declaring new enum at function parameter.
     if (matchReserved("{")) {
-        if (e->tagName) {
+        Enum *e = NULL;
+        if (tagName) {
             Enum *pre = findEnum(e->tagName->str, e->tagName->len);
             if (pre)
                 errorAt(tokenEnum->str, "Redefinition of enum.");
         } else {
-            e->tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
+            tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
+        e = (Enum *)safeAlloc(sizeof(Enum));
+        e->tagName = tagName;
         enumBody(e);
         e->next = globals.currentEnv->enums;
         globals.currentEnv->enums = e;
-    } else if (!e->tagName) {
+        return e;
+    } else if (tagName) {
+        Enum *e = findEnum(tagName->str, tagName->len);
+        if (!e)
+            errorAt(tokenEnum->str, "Undefined enum");
+        return e;
+    } else {
         errorAt(globals.token->str, "Missing enum tag name.");
     }
-    return e;
 }
 
 static void enumBody(Enum *e) {
