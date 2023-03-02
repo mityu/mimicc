@@ -146,6 +146,7 @@ static int isExprNode(const Node *n) {
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
+    case NodeSVar:
         return 1;
     case NodeIf:
     case NodeElseif:
@@ -241,7 +242,8 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
 };
 
 void genCodeGlobals(void) {
-    if (globals.globalEnv.vars == NULL && globals.strings == NULL)
+    if (globals.globalEnv.vars == NULL && globals.strings == NULL &&
+            globals.staticVars == NULL)
         return;
     puts("\n.data");
     if (globals.literalStringCount) {
@@ -263,7 +265,7 @@ void genCodeGlobals(void) {
         safeFree(strings);
     }
     for (Obj *v = globals.globalEnv.vars; v; v = v->next) {
-        if (!v->is_static) {
+        if (!v->isStatic) {
             printn(".globl ");
             printlen(v->token->str, v->token->len);
             putchar('\n');
@@ -271,6 +273,10 @@ void genCodeGlobals(void) {
         printlen(v->token->str, v->token->len);
         puts(":");
         printf("  .zero %d\n", sizeOf(v->type));
+    }
+    for (GVar *v = globals.staticVars; v; v = v->next) {
+        printf(".StaticVar%d:\n", v->obj->staticVarID);
+        printf("  .zero %d\n", sizeOf(v->obj->type));
     }
 }
 
@@ -283,7 +289,7 @@ static void genCodeLVal(const Node *n) {
         // Address for variable must be on the top of the stack.
         return;
     } else if (!(n->kind == NodeLVar || n->kind == NodeGVar ||
-                n->kind == NodeMemberAccess)) {
+                n->kind == NodeSVar || n->kind == NodeMemberAccess)) {
         error("Lhs of assignment is not a variable.");
     }
 
@@ -304,6 +310,9 @@ static void genCodeLVal(const Node *n) {
         genCodeLVal(n->lhs);
         puts("  pop rax");
         printf("  add rax, %d\n", m->offset);
+        puts("  push rax");
+    } else if (n->kind == NodeSVar) {
+        printf("  lea rax, .StaticVar%d[rip]\n", n->staticVarID);
         puts("  push rax");
     } else {
         puts("  mov rax, rbp");
@@ -565,7 +574,7 @@ static void genCodeFunction(const Node *n) {
         regargs = REG_ARGS_MAX_COUNT;
 
     putchar('\n');
-    if (!n->func->is_static) {
+    if (!n->func->isStatic) {
         printn(".globl ");
         printlen(n->func->token->str, n->func->token->len);
         putchar('\n');
@@ -911,7 +920,8 @@ void genCode(const Node *n) {
     } else if (n->kind == NodeLiteralString) {
         printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         puts("  push rax");
-    } else if (n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeMemberAccess) {
+    } else if (n->kind == NodeLVar || n->kind == NodeGVar ||
+            n->kind == NodeSVar || n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);

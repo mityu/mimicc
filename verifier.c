@@ -338,7 +338,7 @@ static int isArithmeticType(const TypeInfo *t) {
 
 // Return TRUE is `n` is lvalue.
 static int isLvalue(const Node *n) {
-    return n->kind == NodeLVar || n->kind == NodeGVar ||
+    return n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeSVar ||
         n->kind == NodeDeref || n->kind == NodeMemberAccess;
 }
 

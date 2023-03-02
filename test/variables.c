@@ -551,6 +551,17 @@ int local_var_independent(void) {
     return 10;
 }
 
+int helper_countup(void) {
+    static int count;
+    return ++count;
+}
+
+void test_static_local_variable(void) {
+    ASSERT(1, helper_countup());
+    ASSERT(2, helper_countup());
+    ASSERT(3, helper_countup());
+}
+
 int main(void) {
     test_init_local_variables();
     test_init_local_arrays();
@@ -560,5 +571,6 @@ int main(void) {
     test_increment_or_decrement_array_element();
     test_global_variables();
     ASSERT(10, local_var_independent());
+    test_static_local_variable();
     return 0;
 }

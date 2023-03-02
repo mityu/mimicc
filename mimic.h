@@ -127,6 +127,7 @@ typedef enum {
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)
+    NodeSVar,          // Static local variable
     NodeAssign,        // {lhs} = {rhs};
     NodeFCall,         // Function calls,
     NodeIf,
@@ -164,8 +165,9 @@ struct Node {
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     Obj *func;         // Function info.
     int val;           // Used when kind is NodeNum.
-    int offset;        // Used when type is TokenLVar. Offset from base pointer.
+    int offset;        // Used when kind is NodeLVar. Offset from base pointer.
                        // Variable adress is calculated as "RBP - offset."
+    int staticVarID;   // Used when kind is NodeSVar.  Static variable ID.
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
 };
@@ -188,17 +190,26 @@ struct Function {
 
 typedef struct ObjAttr ObjAttr;
 struct ObjAttr {
-    int is_static;
+    int isStatic;
 };
 
+// Struct for objects; variables and functions.
 struct Obj {
     Obj      *next;
     Token    *token;
-    TypeInfo *type;     // Type of object.
-    int      offset;    // Offset from rbp.  Variable adress is calculated as
-                        // RBP - offset.
-    int      is_static; // TRUE is object is declared with "static."
-    Function *func;     // Valid when object holds function.
+    TypeInfo *type;        // Type of object.
+    int      offset;       // Offset from rbp.  Variable adress is calculated
+                           // as RBP - offset.
+    int      isStatic;     // TRUE is object is declared with "static."
+    int      staticVarID;  // ID for static local variables.
+    Function *func;        // Valid when object holds function.
+};
+
+// Struct for global variables.
+typedef struct GVar GVar;
+struct GVar {
+    GVar *next;
+    Obj *obj;
 };
 
 struct LiteralString {
@@ -233,6 +244,7 @@ struct Globals {
     Node *code;                // The root node of program.
     Env globalEnv;
     Obj *functions;            // Declared function list.
+    GVar *staticVars;           // Static local variable list.
     LiteralString *strings;    // Literal string list.
     Node *currentBlock;        // Current block.
     Env *currentEnv;

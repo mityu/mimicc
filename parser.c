@@ -232,6 +232,12 @@ static Obj *newObjFunction(Token *t) {
     return obj;
 }
 
+static GVar *newGVar(Obj *obj) {
+    GVar *gvar = (GVar *)safeAlloc(sizeof(GVar));
+    gvar->obj = obj;
+    return gvar;
+}
+
 static Struct *newStruct(void) {
     Struct *s = (Struct *)safeAlloc(sizeof(Struct));
     s->totalSize = -1;
@@ -387,7 +393,7 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     Token *type = NULL;
 
     if (attr && consumeCertainTokenType(TokenStatic)) {
-        attr->is_static = 1;
+        attr->isStatic = 1;
     }
 
     type = consumeTypeName();
@@ -629,7 +635,7 @@ static Node *decl(void) {
     for (;;) {
         Token *tokenObjHead = globals.token;
         obj = parseAdvancedTypeDeclaration(baseType, 1);
-        obj->is_static = attr.is_static;
+        obj->isStatic = attr.isStatic;
         if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
@@ -1088,6 +1094,7 @@ static Node *varDeclaration(void) {
     Node *initblock = newNode(NodeBlock, &Types.None);
     Node headNode;
     Node *n = &headNode;
+    ObjAttr attr = {};
     int totalVarSize = 0;
     int currentVarSize = 0;
     TypeInfo *baseType = NULL;
@@ -1095,7 +1102,7 @@ static Node *varDeclaration(void) {
 
     headNode.next = NULL;
 
-    baseType = parseBaseType(NULL);
+    baseType = parseBaseType(&attr);
     if (!baseType) {
         return NULL;
     } else if (baseType->type == TypeStruct || baseType->type == TypeEnum) {
@@ -1124,6 +1131,7 @@ static Node *varDeclaration(void) {
             globals.token = tokenVar;
             errorIdentExpected();
         }
+        varObj->isStatic = attr.isStatic;
         varType = varObj->type;
 
         if (varType->type == TypeVoid) {
@@ -1142,8 +1150,14 @@ static Node *varDeclaration(void) {
 
         // Parse initialzier statement
         if (consumeReserved("=")) {
-            Node *initializer = varInitializer();
+            Node *initializer = NULL;
 
+            if (varObj->isStatic) {
+                errorAt(globals.token->prev->str,
+                        "Initializer for static variable is not implemented yet.");
+            }
+
+            initializer = varInitializer();
             n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
             n = n->next;
             n->next = buildVarInitNodes(varNode, varType, initializer);
@@ -1155,17 +1169,24 @@ static Node *varDeclaration(void) {
         }
 
 
-        currentVarSize = sizeOf(varType);
-        varAlignment = alignOf(varType);
-        varPadding = (totalVarSize + currentVarSize) % varAlignment;
-        if (varPadding)
-            varPadding = varAlignment - varPadding;
+        if (varObj->isStatic) {
+            GVar *gvar = newGVar(varObj);
+            gvar->next = globals.staticVars;
+            globals.staticVars = gvar;
+            varObj->staticVarID = globals.staticVarCount++;
+        } else {
+            currentVarSize = sizeOf(varType);
+            varAlignment = alignOf(varType);
+            varPadding = (totalVarSize + currentVarSize) % varAlignment;
+            if (varPadding)
+                varPadding = varAlignment - varPadding;
 
-        totalVarSize += varPadding + currentVarSize;
-        globals.currentEnv->varSize += varPadding + currentVarSize;
+            totalVarSize += varPadding + currentVarSize;
+            globals.currentEnv->varSize += varPadding + currentVarSize;
 
-        varNode->offset = totalVarSize;
-        varObj->offset = totalVarSize;
+            varNode->offset = totalVarSize;
+            varObj->offset = totalVarSize;
+        }
 
         // Register variable.
         varObj->next = globals.currentEnv->vars;
@@ -1677,7 +1698,12 @@ static Node *primary(void) {
         Obj *gvar = NULL;
         EnumItem *enumItem = NULL;
         if (lvar) {
-            n = newNodeLVar(lvar->offset, lvar->type);
+            if (lvar->isStatic) {
+                n = newNode(NodeSVar, lvar->type);
+                n->staticVarID = lvar->staticVarID;
+            } else {
+                n = newNodeLVar(lvar->offset, lvar->type);
+            }
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
             n = newNode(NodeGVar, gvar->type);
         } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
