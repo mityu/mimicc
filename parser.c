@@ -205,6 +205,18 @@ static Token *buildTagNameForNamelessObject(int id) {
     return tagName;
 }
 
+static void enterNewEnv(void) {
+    Env *env = (Env *)safeAlloc(sizeof(Env));
+    env->outer = globals.currentEnv;
+    globals.currentEnv = env;
+}
+
+static void exitCurrentEnv(void) {
+    if (!globals.currentEnv->outer)
+        errorUnreachable();
+    globals.currentEnv = globals.currentEnv->outer;
+}
+
 static Obj *newObj(Token *t, TypeInfo *typeInfo, int offset) {
     Obj *v = (Obj *)safeAlloc(sizeof(Obj));
     v->next = NULL;
@@ -348,8 +360,8 @@ Obj *findStructMember(const Struct *s, const char *name, int len) {
 }
 
 static Enum *findEnum(const char *name, int len) {
-    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-        for (Enum *e = block->enums; e; e = e->next) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        for (Enum *e = env->enums; e; e = e->next) {
             if (e->tagName->len == len &&
                     memcmp(e->tagName->str, name, (size_t)len) == 0)
                 return e;
@@ -360,8 +372,8 @@ static Enum *findEnum(const char *name, int len) {
 
 static EnumItem *findEnumItem(const char *name, int len) {
     Enum *e = NULL;
-    for (Node *block = globals.currentBlock; block; block = block->outerBlock) {
-        for (Enum *e = block->enums; e; e = e->next) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        for (Enum *e = env->enums; e; e = e->next) {
             for (EnumItem *item = e->items; item; item = item->next) {
                 if (item->token->len == len &&
                         memcmp(item->token->str, name, (size_t)len) == 0)
@@ -628,6 +640,11 @@ static Node *decl(void) {
     baseType = parseBaseType(&attr);
     if (!baseType) {
         errorTypeExpected();
+    } else if (baseType->type == TypeEnum) {
+        Token *last = globals.token->prev;
+
+        if (last->len == 1 && last->str[0] == '}' && consumeReserved(";"))
+            return NULL;  // Just declaring an enum.
     }
 
     for (;;) {
@@ -698,6 +715,7 @@ static Node *decl(void) {
             // Dive into this function block.
             globals.currentBlock = n;
             globals.currentFunction = obj;
+            enterNewEnv();
 
             // Compute argument variables' offset.
             // Note that arguments are all copied onto stack at the head of
@@ -724,6 +742,7 @@ static Node *decl(void) {
 
             // Escape from this function block to the outer one.
             globals.currentBlock = n->outerBlock;
+            exitCurrentEnv();
 
             return n;
         } else if (obj->type->type == TypeFunction) {
@@ -798,6 +817,7 @@ static Node *stmt(void) {
 
         body.next = NULL;
         globals.currentBlock = n;  // Dive into the new block.
+        enterNewEnv();
         while (!consumeReserved("}")) {
             last->next = stmt();
             if (last->next)
@@ -805,6 +825,7 @@ static Node *stmt(void) {
         }
         n->body = body.next;
         globals.currentBlock = n->outerBlock;  // Escape from this block to the outer one.
+        exitCurrentEnv();
         return n;
     } else if (consumeCertainTokenType(TokenBreak)) {
         Node *n = newNode(NodeBreak, &Types.None);
@@ -866,6 +887,7 @@ static Node *stmt(void) {
 
         // Dive into this `for` block.
         globals.currentBlock = block;
+        enterNewEnv();
 
         n = newNodeFor();
         block->body = n;
@@ -897,6 +919,7 @@ static Node *stmt(void) {
 
         // Escape this block.
         globals.currentBlock = block->outerBlock;
+        exitCurrentEnv();
 
         return block;
     } else if (consumeCertainTokenType(TokenWhile)) {
@@ -1042,8 +1065,8 @@ static Enum *enumDeclaration(void) {
             e->tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
         enumBody(e);
-        e->next = globals.currentBlock->enums;
-        globals.currentBlock->enums = e;
+        e->next = globals.currentEnv->enums;
+        globals.currentEnv->enums = e;
     } else if (!e->tagName) {
         errorAt(globals.token->str, "Missing enum tag name.");
     }

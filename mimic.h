@@ -23,7 +23,9 @@
     } while (0)
 
 typedef struct LiteralString LiteralString;
+typedef struct Obj Obj;
 typedef struct Struct Struct;
+typedef struct Enum Enum;
 typedef struct Token Token;
 
 typedef enum {
@@ -93,6 +95,16 @@ struct Token {
     int len;                   // The token length.
 };
 
+typedef struct Env Env;
+struct Env {
+    Env *outer;
+    Obj *funcs;
+    Struct *structs;
+    Enum *enums;
+    Obj *vars;
+    int varSize;
+};
+
 typedef enum {
     NodeAdd,           // +
     NodeSub,           // -
@@ -134,10 +146,8 @@ typedef enum {
 } NodeKind;
 
 typedef struct Function Function;
-typedef struct Obj Obj;
 typedef struct FCall FCall;
 typedef struct Node Node;
-typedef struct Enum Enum;
 struct Node {
     NodeKind kind;
     Node *lhs;
@@ -228,11 +238,13 @@ struct EnumItem {
 typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
+    Env globalEnv;
     Obj *functions;       // Declared function list.
     Obj *vars;                // Global variables.
     LiteralString *strings;    // Literal string list.
     Struct *structs;           // Declared struct list.
     Node *currentBlock;        // Current block.
+    Env *currentEnv;
     Obj *currentFunction; // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
     int literalStringCount;    // The number of literal strings appeared in program.

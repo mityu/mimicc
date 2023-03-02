@@ -102,6 +102,7 @@ int main(int argc, char *argv[]) {
 #undef PrimitiveType
 
     memset(&globals, 0, sizeof(globals));
+    globals.currentEnv = &globals.globalEnv;
     globals.sourceFile = argv[1];
     globals.source = readFile(globals.sourceFile);
     globals.token = tokenize();
