@@ -199,8 +199,8 @@ static Token *buildTagNameForNamelessObject(int id) {
     for (int tmp = id / 10; tmp; tmp /= 10)
         suffix_len++;
 
-    tagName->len = prefix_size + suffix_len;
-    tagName->str = (char *)safeAlloc(tagName->len);
+    tagName->len = prefix_size + suffix_len - 1;
+    tagName->str = (char *)safeAlloc(tagName->len + 1);
 
     sprintf(tagName->str, "%s%d", prefix, id);
 
