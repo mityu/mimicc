@@ -487,6 +487,7 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         Obj *inner = NULL;
         placeHolder = newTypeInfo(TypeNone);
         inner = parseAdvancedTypeDeclaration(placeHolder, 0);
+        // TODO: Check sizeOf(inner->type)
         obj->type = inner->type;
         obj->token = inner->token;
         inner->token = NULL;
@@ -1059,11 +1060,6 @@ static void structBody(Struct *s) {
         if (!baseType)
             break;
 
-        // TODO: Prohibit using same name in multiple struct member:
-        //   struct A {
-        //     int member;
-        //     char member;
-        //   }
         for (;;) {
             Token *tokenMember = globals.token;
             Obj *member = parseAdvancedTypeDeclaration(baseType, 0);
@@ -1073,6 +1069,11 @@ static void structBody(Struct *s) {
             } else if (member->type->type == TypeStruct &&
                     member->type->structDef == s) {
                 errorAt(tokenMember->str, "Cannot use struct itself for member type.");
+            }
+
+            for (Obj *m = memberHead.next; m; m = m->next) {
+                if (matchToken(m->token, member->token->str, member->token->len))
+                    errorAt(member->token->str, "Duplicate member name.");
             }
 
             members->next = member;
