@@ -51,6 +51,12 @@ assert_fail 'struct S{ struct S obj; };'
 assert_fail 'int main(void) { int n; n->member;}'
 assert_fail 'struct S {int n;}; int main(void) { struct S obj; obj->n;}'
 assert_fail 'struct S {int n;}; int main(void) { struct S **obj; obj->n;}'
+assert_fail 'typedef struct S A1; typedef struct S A2; struct S s;'
+assert_fail 'typedef enum E A1; typedef enum E A2; enum E s;'
+assert_fail 'typedef int X; typedef char X;'
+# TODO: Make these error
+# assert_fail 'typedef int Int[]; Int array;'
+# assert_fail 'typedef int Int[]; int main(void) {Int array[3] = {};}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
 ../mimic ./Xtmp/tmp.c > ./Xtmp/tmp.s || exit 1

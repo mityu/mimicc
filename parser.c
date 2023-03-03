@@ -16,9 +16,9 @@ static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
-static Struct *structDeclaration(void);
+static Struct *structDeclaration(const ObjAttr *attr);
 static void structBody(Struct *s);
-static Enum *enumDeclaration(void);
+static Enum *enumDeclaration(const ObjAttr *attr);
 static void enumBody(Enum * e);
 static Node *varDeclaration(void);
 static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
@@ -246,6 +246,13 @@ static Struct *newStruct(void) {
     return s;
 }
 
+static Typedef *newTypedef(Obj *obj) {
+    Typedef *def = (Typedef *)safeAlloc(sizeof(Typedef));
+    def->name = obj->token;
+    def->type = obj->type;
+    return def;
+}
+
 // Generate new node object and returns it.  Members of kind, type, outerBlock,
 // and token are automatically set to valid value.
 static Node *newNode(NodeKind kind, TypeInfo *type) {
@@ -380,6 +387,16 @@ static EnumItem *findEnumItem(const char *name, int len) {
     return NULL;
 }
 
+static Typedef *findTypedef(const char *name, int len) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        for (Typedef *def = env->typedefs; def; def = def->next) {
+            if (matchToken(def->name, name, len))
+                return def;
+        }
+    }
+    return NULL;
+}
+
 static TypeInfo *newTypeInfo(TypeKind kind) {
     TypeInfo *t = (TypeInfo *)safeAlloc(sizeof(TypeInfo));
     t->type = kind;
@@ -398,12 +415,15 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
                 attr->isStatic = 1;
             } else if (consumeCertainTokenType(TokenExtern)) {
                 attr->isExtern = 1;
+            } else if (consumeCertainTokenType(TokenTypedef)) {
+                attr->isTypedef = 1;
             } else {
                 break;
             }
         }
-        if (attr->isStatic && attr->isExtern) {
-            errorAt(tokenSave->str, "Cannot combine \"static\" and \"extern\".");
+        if ((attr->isStatic + attr->isExtern + attr->isTypedef) >= 2) {
+            errorAt(tokenSave->str,
+                    "Cannot combine \"static\" ,\"extern\" and \"typedef\".");
         }
     }
 
@@ -411,18 +431,31 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     if (type) {
         return newTypeInfo(type->varType);
     } else if (matchCertainTokenType(TokenStruct)) {
-        Struct *s = structDeclaration();
+        Struct *s = structDeclaration(attr);
         TypeInfo *typeInfo = newTypeInfo(TypeStruct);
         typeInfo->tagName = s->tagName;
         typeInfo->structEntity = s;
         return typeInfo;
     } else if (matchCertainTokenType(TokenEnum)) {
-        Enum *e = enumDeclaration();
+        Enum *e = enumDeclaration(attr);
         TypeInfo *typeInfo = newTypeInfo(TypeEnum);
         typeInfo->tagName = e->tagName;
         return typeInfo;
-    }
+    } else {
+        Token *tokenSave = globals.token;
+        Token *ident = consumeIdent();
 
+        if (ident) {
+            Typedef *def = findTypedef(ident->str, ident->len);
+
+            if (def) {
+                return def->type;
+            } else {
+                globals.token = tokenSave;
+                return NULL;
+            }
+        }
+    }
     return NULL;
 }
 
@@ -541,8 +574,17 @@ static Function *parseFuncArgDeclaration(void) {
     return func;
 }
 
+static void registerTypedef(Typedef *def) {
+    if (findTypedef(def->name->str, def->name->len)) {
+        errorAt(def->name->str, "Redefinition of typedef name.");
+    }
+    def->next = globals.currentEnv->typedefs;
+    globals.currentEnv->typedefs = def;
+}
+
 // Return size of given type.  If computing failed, exit program.
 int sizeOf(const TypeInfo *ti) {
+    // TODO: Return -1 for undefined enum type.
     if (ti->type == TypeInt || ti->type == TypeNumber || ti->type == TypeEnum) {
         return 4;
     } else if (ti->type == TypeChar || ti->type == TypeVoid) {
@@ -645,12 +687,21 @@ static Node *decl(void) {
 
     for (;;) {
         Token *tokenObjHead = globals.token;
+
         obj = parseAdvancedTypeDeclaration(baseType, 1);
         obj->isStatic = attr.isStatic;
         obj->isExtern = attr.isExtern;
+
         if (!obj->token) {
             errorAt(tokenObjHead->str, "Missing variable/function name.");
         }
+
+        if (attr.isTypedef) {
+            expectReserved(";");
+            registerTypedef(newTypedef(obj));
+            return NULL;
+        }
+
         if (obj->type->type == TypeFunction && matchReserved("{")) {
             // Function definition.
             Obj *funcFound = NULL;
@@ -934,10 +985,11 @@ static Node *stmt(void) {
 
 // Parse struct declaration.  Returns struct if there's a struct declaration,
 // otherwise NULL.
-static Struct *structDeclaration(void) {
+static Struct *structDeclaration(const ObjAttr *attr) {
     // TODO: Prohibit declaring new enum at function parameter.
     Token *tokenStruct = globals.token;
     Token *tagName = NULL;
+    int allowUndefinedStruct = attr && attr->isTypedef;
 
     if (!consumeCertainTokenType(TokenStruct)) {
         return NULL;
@@ -948,14 +1000,17 @@ static Struct *structDeclaration(void) {
     if (matchReserved("{")) {
         Struct *s = NULL;
         if (tagName) {
-            if (findStruct(tagName->str, tagName->len)) {
+            s = findStruct(tagName->str, tagName->len);
+            if (s && s->hasImpl) {
                 errorAt(tokenStruct->str, "Redefinition of struct.");
             }
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
         }
-        s = newStruct();
+        if (!s)
+            s = newStruct();
         s->tagName = tagName;
+        s->hasImpl = 1;
         structBody(s);
         s->next = globals.currentEnv->structs;
         globals.currentEnv->structs = s;
@@ -963,8 +1018,17 @@ static Struct *structDeclaration(void) {
         return s;
     } else if (tagName) {
         Struct *s = findStruct(tagName->str, tagName->len);
-        if (!s)
-            errorAt(tokenStruct->str, "Undefiend struct");
+        if (allowUndefinedStruct) {
+            if (!s) {
+                s = newStruct();
+                s->tagName = tagName;
+                s->hasImpl = 0;
+                s->next = globals.currentEnv->structs;
+                globals.currentEnv->structs = s;
+            }
+        } else if (!(s && s->hasImpl)) {
+            errorAt(tokenStruct->str, "Undefiend struct.");
+        }
         return s;
     } else {
         errorAt(globals.token->str, "Missing struct tag name.");
@@ -1034,9 +1098,10 @@ static void structBody(Struct *s) {
 
 // Parse enum declaration if found and returns parse result.  If no enum found,
 // returns NULL.
-static Enum *enumDeclaration(void) {
+static Enum *enumDeclaration(const ObjAttr *attr) {
     Token *tokenEnum = globals.token;
     Token *tagName = NULL;
+    int allowUndefinedEnum = attr && attr->isTypedef;
 
     if (!consumeCertainTokenType(TokenEnum))
         return NULL;
@@ -1047,22 +1112,32 @@ static Enum *enumDeclaration(void) {
     if (matchReserved("{")) {
         Enum *e = NULL;
         if (tagName) {
-            Enum *pre = findEnum(tagName->str, tagName->len);
-            if (pre)
+            Enum *e = findEnum(tagName->str, tagName->len);
+            if (e && e->hasImpl)
                 errorAt(tokenEnum->str, "Redefinition of enum.");
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
         e = (Enum *)safeAlloc(sizeof(Enum));
         e->tagName = tagName;
+        e->hasImpl = 1;
         enumBody(e);
         e->next = globals.currentEnv->enums;
         globals.currentEnv->enums = e;
         return e;
     } else if (tagName) {
         Enum *e = findEnum(tagName->str, tagName->len);
-        if (!e)
-            errorAt(tokenEnum->str, "Undefined enum");
+        if (allowUndefinedEnum) {
+            if (!e) {
+                e = (Enum *)safeAlloc(sizeof(Enum));
+                e->tagName = tagName;
+                e->hasImpl = 0;
+                e->next = globals.currentEnv->enums;
+                globals.currentEnv->enums = e;
+            }
+        } else if (!(e && e->hasImpl)) {
+            errorAt(tokenEnum->str, "Undefined enum.");
+        }
         return e;
     } else {
         errorAt(globals.token->str, "Missing enum tag name.");
@@ -1145,6 +1220,12 @@ static Node *varDeclaration(void) {
             globals.token = tokenVar;
             errorIdentExpected();
         }
+        if (attr.isTypedef) {
+            expectReserved(";");
+            registerTypedef(newTypedef(varObj));
+            return initblock;
+        }
+
         varObj->offset = -1;
         varObj->isStatic = attr.isStatic;
         varObj->isExtern = attr.isExtern;
@@ -1598,6 +1679,7 @@ static Node *unary(void) {
             type = unary()->type;
         }
 
+        // TODO: Check returned size.  (If size < 0 then the type is invalid)
         n = newNodeNum(sizeOf(type));
     } else {
         return postfix();

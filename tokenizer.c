@@ -144,6 +144,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "typedef")) {
+            current = newToken(TokenTypedef, current, p, 7);
+            p += 7;
+            continue;
+        }
+
         if (isToken(p, "if")) {
             current = newToken(TokenIf, current, p, 2);
             p += 2;

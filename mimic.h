@@ -26,6 +26,7 @@ typedef struct LiteralString LiteralString;
 typedef struct Obj Obj;
 typedef struct Struct Struct;
 typedef struct Enum Enum;
+typedef struct Typedef Typedef;
 typedef struct Token Token;
 
 typedef enum {
@@ -68,6 +69,7 @@ typedef enum {
     TokenNumber,
     TokenStatic,
     TokenExtern,
+    TokenTypedef,
     TokenIf,
     TokenElseif,
     TokenElse,
@@ -101,6 +103,7 @@ struct Env {
     Env *outer;
     Struct *structs;
     Enum *enums;
+    Typedef *typedefs;
     Obj *vars;     // List of variables local to this env.
     int varSize;   // Total size of variables local to this env.
 };
@@ -189,6 +192,7 @@ typedef struct ObjAttr ObjAttr;
 struct ObjAttr {
     int isStatic;
     int isExtern;
+    int isTypedef;
 };
 
 // Struct for objects; variables and functions.
@@ -223,6 +227,7 @@ struct Struct {
     Token *tagName;
     Obj *members;
     int totalSize;
+    int hasImpl;
 };
 
 typedef struct EnumItem EnumItem;
@@ -230,12 +235,19 @@ struct Enum {
     Enum *next;
     Token *tagName;
     EnumItem *items;
+    int hasImpl;
 };
 
 struct EnumItem {
     EnumItem *next;
     Token *token;
     int value;
+};
+
+struct Typedef {
+    Typedef *next;
+    Token *name;     // Typedef name.
+    TypeInfo *type;  // Actual type.
 };
 
 typedef struct Globals Globals;
