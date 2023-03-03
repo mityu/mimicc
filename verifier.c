@@ -74,6 +74,8 @@ void verifyType(const Node *n) {
     } else if (n->kind == NodeDoWhile) {
         verifyType(n->condition);
         verifyType(n->body);
+    } else if (n->kind == NodeExprList) {
+        verifyType(n->body);
     } else if (n->kind == NodeIf) {
         verifyType(n->condition);
         verifyType(n->body);
