@@ -1176,14 +1176,13 @@ static void enumBody(Enum *e) {
         if (!itemToken)
             break;
 
-        // TODO: Make this case error:
-        //   enum {
-        //     ItemA,
-        //     ItemA
-        //   }
         previous = findEnumItem(itemToken->str, itemToken->len);
         if (previous)
-            errorAt(itemToken->str, "Duplicate enum item");
+            errorAt(itemToken->str, "Duplicate enum item.");
+
+        for (EnumItem *p = head.next; p; p = p->next)
+            if (matchToken(p->token, itemToken->str, itemToken->len))
+                errorAt(itemToken->str, "Duplicate enum item.");
 
         item->next = (EnumItem *)safeAlloc(sizeof(EnumItem));
         item = item->next;
