@@ -433,13 +433,12 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     } else if (matchCertainTokenType(TokenStruct)) {
         Struct *s = structDeclaration(attr);
         TypeInfo *typeInfo = newTypeInfo(TypeStruct);
-        typeInfo->tagName = s->tagName;
-        typeInfo->structEntity = s;
+        typeInfo->structDef = s;
         return typeInfo;
     } else if (matchCertainTokenType(TokenEnum)) {
         Enum *e = enumDeclaration(attr);
         TypeInfo *typeInfo = newTypeInfo(TypeEnum);
-        typeInfo->tagName = e->tagName;
+        typeInfo->enumDef = e;
         return typeInfo;
     } else {
         Token *tokenSave = globals.token;
@@ -582,11 +581,16 @@ static void registerTypedef(Typedef *def) {
     globals.currentEnv->typedefs = def;
 }
 
-// Return size of given type.  If computing failed, exit program.
+// Return size of given type.  Return negative value for incomplete types.  If
+// computing failed, exit program.
 int sizeOf(const TypeInfo *ti) {
-    // TODO: Return -1 for undefined enum type.
-    if (ti->type == TypeInt || ti->type == TypeNumber || ti->type == TypeEnum) {
+    if (ti->type == TypeInt || ti->type == TypeNumber) {
         return 4;
+    } else if (ti->type == TypeEnum) {
+        if (ti->enumDef->hasImpl)
+            return 4;
+        else
+            return -1;
     } else if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
     } else if (ti->type == TypePointer) {
@@ -594,7 +598,7 @@ int sizeOf(const TypeInfo *ti) {
     } else if (ti->type == TypeArray) {
         return sizeOf(ti->baseType) * ti->arraySize;
     } else if (ti->type == TypeStruct) {
-        return ti->structEntity->totalSize;
+        return ti->structDef->totalSize;
     }
     errorUnreachable();
 }
@@ -615,11 +619,11 @@ static int alignOf(const TypeInfo *ti) {
         int align;
 
         // Alignment of struct with no members is 1.
-        if (ti->structEntity->members == NULL)
+        if (ti->structDef->members == NULL)
             return 1;
 
         align = -1;
-        for (Obj *m = ti->structEntity->members; m; m = m->next) {
+        for (Obj *m = ti->structDef->members; m; m = m->next) {
             int a = alignOf(m->type);
             if (a > align)
                 align = a;
@@ -826,6 +830,10 @@ static Node *decl(void) {
                 errorAt(obj->token->str,
                         "Cannot declare variable with type \"void\"");
 
+            if (sizeOf(obj->type) < 0) {
+                errorAt(obj->token->str, "Variable has incomplete type.");
+            }
+
             gvar = newGVar(obj);
             gvar->next = globals.globalVars;
             globals.globalVars = gvar;
@@ -999,6 +1007,7 @@ static Struct *structDeclaration(const ObjAttr *attr) {
 
     if (matchReserved("{")) {
         Struct *s = NULL;
+        int registerStruct = 0;
         if (tagName) {
             s = findStruct(tagName->str, tagName->len);
             if (s && s->hasImpl) {
@@ -1007,13 +1016,17 @@ static Struct *structDeclaration(const ObjAttr *attr) {
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
         }
-        if (!s)
+        if (!s) {
             s = newStruct();
+            registerStruct = 1;
+        }
         s->tagName = tagName;
         s->hasImpl = 1;
         structBody(s);
-        s->next = globals.currentEnv->structs;
-        globals.currentEnv->structs = s;
+        if (registerStruct) {
+            s->next = globals.currentEnv->structs;
+            globals.currentEnv->structs = s;
+        }
 
         return s;
     } else if (tagName) {
@@ -1058,7 +1071,7 @@ static void structBody(Struct *s) {
             if (!member->token) {
                 errorAt(tokenMember->str, "Member name required.");
             } else if (member->type->type == TypeStruct &&
-                    member->type->structEntity == s) {
+                    member->type->structDef == s) {
                 errorAt(tokenMember->str, "Cannot use struct itself for member type.");
             }
 
@@ -1111,19 +1124,25 @@ static Enum *enumDeclaration(const ObjAttr *attr) {
     // TODO: Prohibit declaring new enum at function parameter.
     if (matchReserved("{")) {
         Enum *e = NULL;
+        int registerEnum = 0;
         if (tagName) {
-            Enum *e = findEnum(tagName->str, tagName->len);
+            e = findEnum(tagName->str, tagName->len);
             if (e && e->hasImpl)
                 errorAt(tokenEnum->str, "Redefinition of enum.");
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
-        e = (Enum *)safeAlloc(sizeof(Enum));
+        if (!e) {
+            e = (Enum *)safeAlloc(sizeof(Enum));
+            registerEnum = 1;
+        }
         e->tagName = tagName;
         e->hasImpl = 1;
         enumBody(e);
-        e->next = globals.currentEnv->enums;
-        globals.currentEnv->enums = e;
+        if (registerEnum) {
+            e->next = globals.currentEnv->enums;
+            globals.currentEnv->enums = e;
+        }
         return e;
     } else if (tagName) {
         Enum *e = findEnum(tagName->str, tagName->len);
@@ -1264,6 +1283,10 @@ static Node *varDeclaration(void) {
                 n = n->next;
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
             errorAt(globals.token->str, "Initializer list required.");
+        }
+
+        if (sizeOf(varType) < 0) {
+            errorAt(varObj->token->str, "Variable has incomplete type.");
         }
 
 
@@ -1429,7 +1452,7 @@ static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initia
     else if (initializer->kind != NodeExprList)
         errorAt(initializer->token->str, "Initializer-list is expected here.");
 
-    member = varNode->type->structEntity->members;
+    member = varNode->type->structDef->members;
     init = initializer->body;
     for (;;) {
         Node *memberNode = NULL;
@@ -1659,28 +1682,37 @@ static Node *unary(void) {
         Node *rhs = unary();
         n = newNodeBinary(NodeNot, NULL, rhs, rhs->type);
     } else if (consumeCertainTokenType(TokenSizeof)) {
-        Token *token_save = globals.token;
+        Token *tokenSave = globals.token;
         TypeInfo *type = NULL;
+        int size = -1;
 
         // First, do check for "sizeof(type)".
         if (consumeReserved("(")) {
             type = parseBaseType(NULL);
             if (type) {
                 Obj *obj = parseAdvancedTypeDeclaration(type, 0);
+                if (obj->token)
+                    errorAt(obj->token->str, "Unexpected ident.");
                 type = obj->type;
                 expectReserved(")");
             }
         }
 
-        // Then, if "sizeof(type)" didn't match the case, do check for
-        // "sizeof {unary-expr}".
-        if (!type) {
-            globals.token = token_save;
+        if (type) {
+            size = sizeOf(type);
+            if (size < 0)
+                errorAt(tokenSave->str, "Incomplete type.");
+        } else {
+            // Then, if "sizeof(type)" didn't match the case, do check for
+            // "sizeof {unary-expr}".
+            globals.token = tokenSave;
             type = unary()->type;
+            size = sizeOf(type);
+            if (size < 0)
+                errorAt(tokenSave->str, "Variable has incomplete type.");
         }
 
-        // TODO: Check returned size.  (If size < 0 then the type is invalid)
-        n = newNodeNum(sizeOf(type));
+        n = newNodeNum(size);
     } else {
         return postfix();
     }
@@ -1754,7 +1786,7 @@ static Node *postfix(void) {
                 errorAt(n->token->str, "Struct required.");
 
             ident = expectIdent();
-            member = findStructMember(n->type->structEntity, ident->str, ident->len);
+            member = findStructMember(n->type->structDef, ident->str, ident->len);
             if (!member)
                 errorAt(ident->str, "No such struct member.");
 

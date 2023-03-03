@@ -48,10 +48,10 @@ struct TypeInfo {
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
-    Struct *structEntity; // Valid when type is TypeStruct
-    TypeInfo *retType; // Valid when type is TypeFunction
+    Struct *structDef;  // Valid when type is TypeStruct
+    Enum *enumDef;      // Valid when type is TypeEnum
+    TypeInfo *retType;  // Valid when type is TypeFunction
     TypeInfo *argTypes; // Valid when type is TypeFunction
-    Token *tagName; // Valid when type is TypeStruct or TypeEnum
 };
 
 extern struct Types {

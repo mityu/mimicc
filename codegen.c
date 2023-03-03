@@ -308,7 +308,7 @@ static void genCodeLVal(const Node *n) {
         puts("  push rax");
     } else if (n->kind == NodeMemberAccess) {
         Obj *m = findStructMember(
-                n->lhs->type->structEntity, n->token->str, n->token->len);
+                n->lhs->type->structDef, n->token->str, n->token->len);
         genCodeLVal(n->lhs);
         puts("  pop rax");
         printf("  add rax, %d\n", m->offset);
