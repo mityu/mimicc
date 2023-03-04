@@ -3,6 +3,17 @@ TARGET=./mimic
 SRC=main.c tokenizer.c parser.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
 
+HOME_SELF=./test/self
+TARGET_SELF=$(TARGET:./%=$(HOME_SELF)/%)
+OBJ_SELF=$(OBJ:obj/%=$(HOME_SELF)/%)
+
+HOME_SELFSELF=./test/selfself
+TARGET_SELFSELF=$(TARGET:./%=$(HOME_SELFSELF)/%)
+OBJ_SELFSELF=$(OBJ:obj/%=$(HOME_SELFSELF)/%)
+
+INCLUDE=./headers
+HEADERS=$(wildcard $(INCLUDE)/*)
+
 TESTCC=$(TARGET)
 TEST_SOURCES=$(wildcard ./test/*.c)
 TEST_EXECUTABLES=$(TEST_SOURCES:./test/%.c=./test/Xtmp/%.exe)
@@ -29,21 +40,48 @@ clean:
 .PHONY: all
 all: clean $(TARGET);
 
-# Compilation: 2nd gen
-# TODO:
-
-# Compilation: 3rd gen
-# TODO:
-
-# Tests
-
-# Test by 1st gen compiler
 .PHONY: test
 test: test_basic test_advanced test_advanced_errors;
 
 .PHONY: test_prepair
 test_prepair: ./test/Xtmp;
 
+
+# Compilation: 2nd gen
+$(TARGET_SELF): $(TARGET) self_prepair $(OBJ_SELF)
+
+.PHONY: self
+self: $(TARGET_SELF);
+
+.PHONY: self_prepair
+self_prepair: $(HOME_SELF);
+
+# TODO: Do test_basic and test_advanced_errors
+.PHONY: test_self
+test_self: $(TARGET_SELF) test_prepair test_self_prepair test_advanced;
+
+.PHONY: test_self_prepair
+test_self_prepair:
+	$(eval TESTCC=$(TARGET_SELF))
+
+.PHONY: test_self_clean
+test_self_clean:
+	rm $(HOME_SELF)/Xtmp*
+
+$(HOME_SELF):
+	mkdir $(HOME_SELF)
+
+$(HOME_SELF)/%.o: $(HOME_SELF)/%.s
+	gcc -o $@ -c $<
+
+$(HOME_SELF)/%.s: $(HOME_SELF)/%.c $(TARGET)
+	$(TARGET) -o $@ -S $<
+
+$(HOME_SELF)/%.c: ./%.c mimic.h $(HEADERS)
+	gcc -o $@ -I$(INCLUDE) -E -P $<
+
+# Compilation: 3rd gen
+# TODO:
 
 # Test by gcc (To find bugs in tests)
 .PHONY: test_test
@@ -57,6 +95,7 @@ test_test_prepair:
 	$(eval TEST_EXECUTABLES:=$(filter-out %/sizeof.exe,$(TEST_EXECUTABLES)))
 
 
+# Test system
 .PHONY: test_basic
 test_basic: $(TARGET) test_prepair
 	./test/basic_functionalities.sh
