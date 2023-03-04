@@ -45,6 +45,7 @@ assert_fcall() {
   fi
 }
 
+assert 0 'int main(void) {}'
 assert 42 'int main(void){ return 42;}'
 assert 42 'int main(void){ return 42; return 10;}'
 assert 42 'int main(void) { if (35 == 35) { return 42;} else { return 10;} return 35;}'

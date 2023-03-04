@@ -384,11 +384,14 @@ static void genCodeReturn(const Node *n) {
     if (!n)
         return;
 
-    genCode(n->lhs);
-    dumps("  pop rax");
-    dumps("  mov rsp, rbp");
-    dumps("  pop rbp");
-    dumps("  ret");
+    if (n->lhs) {
+        if (!isExprNode(n->lhs))
+            errorAt(n->lhs->token->str, "Expression doesn't left value.");
+        genCode(n->lhs);
+        dumps("  pop rax");
+    }
+    dumpf("  jmp .Lreturn_%.*s\n",
+            dumpEnv.currentFunc->token->len, dumpEnv.currentFunc->token->str);
 }
 
 static void genCodeIf(const Node *n) {
@@ -613,6 +616,9 @@ static void genCodeFunction(const Node *n) {
     genCode(n->body);
 
     // Epilogue
+    if (n->obj->token->len == 4 && memcmp(n->obj->token->str, "main", 4) == 0)
+        dumps("  mov rax, 0");
+    dumpf(".Lreturn_%.*s:\n", n->obj->token->len, n->obj->token->str);
     dumps("  mov rsp, rbp");
     dumps("  pop rbp");
     dumps("  ret");
