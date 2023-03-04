@@ -107,16 +107,6 @@
 
 static int loopBlockID = 0;
 
-static void printn(const char* str) {
-    for (; *str; ++str)
-        putchar(*str);
-}
-
-static void printlen(const char* str, int len) {
-    for (int i = 0; i < len; ++i)
-        putchar(str[i]);
-}
-
 static int isExprNode(const Node *n) {
     // All cases in this switch uses fallthrough.
     switch (n->kind) {
@@ -269,12 +259,9 @@ void genCodeGlobals(void) {
         if (v->isExtern)
             continue;
         if (!v->isStatic) {
-            printn(".globl ");
-            printlen(v->token->str, v->token->len);
-            putchar('\n');
+            printf(".globl %.*s\n", v->token->len, v->token->str);
         }
-        printlen(v->token->str, v->token->len);
-        puts(":");
+        printf("%.*s:\n", v->token->len, v->token->str);
         printf("  .zero %d\n", sizeOf(v->type));
     }
     for (GVar *v = globals.staticVars; v; v = v->next) {
@@ -303,9 +290,7 @@ static void genCodeLVal(const Node *n) {
     // not on rbp, because rbp must NOT be changed until exiting from a
     // function.
     if (n->kind == NodeGVar || (n->kind == NodeLVar && n->obj->isExtern)) {
-        printn("  lea rax, ");
-        printlen(n->token->str, n->token->len);
-        puts("[rip]");
+        printf("  lea rax, %.*s[rip]\n", n->token->len, n->token->str);
         puts("  push rax");
     } else if (n->kind == NodeMemberAccess) {
         Obj *m = findStructMember(
@@ -549,12 +534,7 @@ static void genCodeFCall(const Node *n) {
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
     puts("  mov al, 0");
-
-    printf("  call ");
-    for (int i = 0; i < n->fcall->len; ++i) {
-        putchar(n->fcall->name[i]);
-    }
-    putchar('\n');
+    printf("  call %.*s\n", n->fcall->len, n->fcall->name);
 
     stackAlignState = stackAlignStateSave;
     if (exCapAlignRSP)
@@ -577,12 +557,9 @@ static void genCodeFunction(const Node *n) {
 
     putchar('\n');
     if (!n->obj->isStatic) {
-        printn(".globl ");
-        printlen(n->obj->token->str, n->obj->token->len);
-        putchar('\n');
+        printf(".globl %.*s\n", n->obj->token->len, n->obj->token->str);
     }
-    printlen(n->obj->token->str, n->obj->token->len);
-    puts(":");
+    printf("%.*s:\n", n->obj->token->len, n->obj->token->str);
 
     // Prologue.
     puts("  push rbp");
