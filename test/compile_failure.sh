@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd $(dirname $0)
+
 assert_fail() {
   echo "$1" > ./Xtmp/tmp.c
   ../mimic ./Xtmp/tmp.c

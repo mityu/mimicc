@@ -2,6 +2,8 @@
 # Basic functionalities test to guarantee functions in test.framework (mainly
 # assert* functions) works correctly.
 
+cd $(dirname $0)
+
 assert() {
   expected="$1"
   input="$2"
