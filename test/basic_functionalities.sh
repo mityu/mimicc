@@ -9,7 +9,7 @@ assert() {
   input="$2"
 
   echo "$input" > ./Xtmp/tmp.c
-  ../mimic ./Xtmp/tmp.c > ./Xtmp/tmp.s || exit 1
+  ../mimic -o ./Xtmp/tmp.s ./Xtmp/tmp.c || exit 1
   gcc -o ./Xtmp/tmp ./Xtmp/tmp.s || exit 1
   ./Xtmp/tmp
   actual="$?"
@@ -28,7 +28,7 @@ assert_fcall() {
   restcode="$3"
 
   echo "$input" > ./Xtmp/tmp1.c
-  ../mimic ./Xtmp/tmp1.c > ./Xtmp/tmp1.s || exit 1
+  ../mimic -o ./Xtmp/tmp1.s ./Xtmp/tmp1.c || exit 1
   gcc -c -o ./Xtmp/tmp1.o ./Xtmp/tmp1.s || exit 1
   gcc -c -o ./Xtmp/tmp2.o -x c <(echo "$restcode") || exit 1
   gcc -o ./Xtmp/tmp ./Xtmp/tmp1.o ./Xtmp/tmp2.o || exit 1

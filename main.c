@@ -24,6 +24,7 @@ void error(const char *fmt, ...) {
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
+    va_end(ap);
     exit(1);
 }
 
@@ -56,7 +57,36 @@ _Noreturn void errorAt(char *loc, const char *fmt, ...) {
     fprintf(stderr, "^ ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
+    va_end(ap);
     exit(1);
+}
+
+// Like putchar(), but dump character into output file.
+int dumpc(int c) {
+    if (!globals.destFile)
+        errorUnreachable();
+    return fputc(c, globals.destFile);
+}
+
+// Like puts(), but dump string into output file.
+int dumps(const char *s) {
+    if (!globals.destFile)
+        errorUnreachable();
+    return fprintf(globals.destFile, "%s\n", s);
+}
+
+// Like printf(), but dump string into output file.
+int dumpf(const char *fmt, ...) {
+    va_list ap;
+    int retval;
+
+    if (!globals.destFile)
+        errorUnreachable();
+
+    va_start(ap, fmt);
+    retval = vfprintf(globals.destFile, fmt, ap);
+    va_end(ap);
+    return retval;
 }
 
 static char *readFile(const char *path) {
@@ -87,11 +117,39 @@ static char *readFile(const char *path) {
     return buf;
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Invalid arguments\n");
-        return 1;
+_Noreturn void cmdlineArgsError(int argc, char *argv[], int at, const char *msg) {
+    int len = 0;
+    for (int i = 0; i < argc; ++i) {
+        fprintf(stderr, "%s ", argv[i]);
+        if (i <= at)
+            len += strlen(argv[i]) + 1;
     }
+    fprintf(stderr, "\n%*s %s\n", len, "^", msg);
+    exit(1);
+}
+
+int main(int argc, char *argv[]) {
+    char *inFile = NULL;
+    char *outFile = NULL;
+
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-o") == 0) {
+            if ((++i) == argc)
+                cmdlineArgsError(argc, argv, i, "File name must follow after \"-o\"");
+            outFile = argv[i];
+        } else if (strcmp(argv[i], "-S") == 0) {
+            // Just ignore
+        } else if (!inFile) {
+            inFile = argv[i];
+        } else {
+            cmdlineArgsError(argc, argv, i - 1, "Invalid argument");
+        }
+    }
+
+    if (!inFile)
+        cmdlineArgsError(argc, argv, argc, "No input file is specified");
+    else if (!outFile)
+        cmdlineArgsError(argc, argv, argc, "No output file is specified");
 
 #define PrimitiveType(type) (TypeInfo){NULL, type, NULL, 0, NULL, NULL, NULL}
     Types.None   = PrimitiveType(TypeNone),
@@ -103,7 +161,7 @@ int main(int argc, char *argv[]) {
 
     memset(&globals, 0, sizeof(globals));
     globals.currentEnv = &globals.globalEnv;
-    globals.sourceFile = argv[1];
+    globals.sourceFile = inFile;
     globals.source = readFile(globals.sourceFile);
     globals.token = tokenize();
     program();
@@ -111,9 +169,15 @@ int main(int argc, char *argv[]) {
     verifyType(globals.code);
     verifyFlow(globals.code);
 
-    puts(".intel_syntax noprefix");
+    globals.destFile = fopen(outFile, "wb");
+    if (!globals.destFile)
+        error("Failed to open file: %s", outFile);
+
+    dumps(".intel_syntax noprefix");
     genCode(globals.code);
     genCodeGlobals();
+
+    fclose(globals.destFile);
 
     return 0;
 }

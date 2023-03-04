@@ -4,7 +4,7 @@ cd $(dirname $0)
 
 assert_fail() {
   echo "$1" > ./Xtmp/tmp.c
-  ../mimic ./Xtmp/tmp.c
+  ../mimic -o ./Xtmp/tmp.s ./Xtmp/tmp.c
   if [ $? -ne 1 ]; then
     echo "Other than 1 returned."
     exit 1
@@ -64,7 +64,7 @@ assert_fail 'typedef int Int[]; int main(void) {sizeof(Int);}'
 assert_fail 'int main(void) {int a[]; sizeof(a);}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
-../mimic ./Xtmp/tmp.c > ./Xtmp/tmp.s || exit 1
+../mimic -o ./Xtmp/tmp.s ./Xtmp/tmp.c || exit 1
 gcc ./Xtmp/tmp.s
 if [ $? -eq 0 ]; then
   echo "Other than 0 returned."

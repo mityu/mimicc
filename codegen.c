@@ -235,7 +235,7 @@ void genCodeGlobals(void) {
     if (globals.globalVars == NULL && globals.staticVars == NULL &&
             globals.strings == NULL)
         return;
-    puts("\n.data");
+    dumps("\n.data");
     if (globals.literalStringCount) {
         LiteralString **strings = (LiteralString **)safeAlloc(
                 globals.literalStringCount * sizeof(LiteralString *));
@@ -248,8 +248,8 @@ void genCodeGlobals(void) {
 
         for (int i = 0; i < globals.literalStringCount; ++i) {
             LiteralString *s = strings[i];
-            printf(".LiteralString%d:\n", s->id);
-            printf("  .string  \"%s\"\n", s->string);
+            dumpf(".LiteralString%d:\n", s->id);
+            dumpf("  .string  \"%s\"\n", s->string);
         }
 
         safeFree(strings);
@@ -259,14 +259,14 @@ void genCodeGlobals(void) {
         if (v->isExtern)
             continue;
         if (!v->isStatic) {
-            printf(".globl %.*s\n", v->token->len, v->token->str);
+            dumpf(".globl %.*s\n", v->token->len, v->token->str);
         }
-        printf("%.*s:\n", v->token->len, v->token->str);
-        printf("  .zero %d\n", sizeOf(v->type));
+        dumpf("%.*s:\n", v->token->len, v->token->str);
+        dumpf("  .zero %d\n", sizeOf(v->type));
     }
     for (GVar *v = globals.staticVars; v; v = v->next) {
-        printf(".StaticVar%d:\n", v->obj->staticVarID);
-        printf("  .zero %d\n", sizeOf(v->obj->type));
+        dumpf(".StaticVar%d:\n", v->obj->staticVarID);
+        dumpf("  .zero %d\n", sizeOf(v->obj->type));
     }
 }
 
@@ -290,22 +290,22 @@ static void genCodeLVal(const Node *n) {
     // not on rbp, because rbp must NOT be changed until exiting from a
     // function.
     if (n->kind == NodeGVar || (n->kind == NodeLVar && n->obj->isExtern)) {
-        printf("  lea rax, %.*s[rip]\n", n->token->len, n->token->str);
-        puts("  push rax");
+        dumpf("  lea rax, %.*s[rip]\n", n->token->len, n->token->str);
+        dumps("  push rax");
     } else if (n->kind == NodeMemberAccess) {
         Obj *m = findStructMember(
                 n->lhs->type->structDef, n->token->str, n->token->len);
         genCodeLVal(n->lhs);
-        puts("  pop rax");
-        printf("  add rax, %d\n", m->offset);
-        puts("  push rax");
+        dumps("  pop rax");
+        dumpf("  add rax, %d\n", m->offset);
+        dumps("  push rax");
     } else if (n->kind == NodeLVar && n->obj->isStatic) {
-        printf("  lea rax, .StaticVar%d[rip]\n", n->obj->staticVarID);
-        puts("  push rax");
+        dumpf("  lea rax, .StaticVar%d[rip]\n", n->obj->staticVarID);
+        dumps("  push rax");
     } else {
-        puts("  mov rax, rbp");
-        printf("  sub rax, %d\n", n->obj->offset);
-        puts("  push rax");
+        dumps("  mov rax, rbp");
+        dumpf("  sub rax, %d\n", n->obj->offset);
+        dumps("  push rax");
     }
 }
 
@@ -316,23 +316,23 @@ static void genCodeDeref(const Node *n) {
         return;
 
     genCodeLVal(n);
-    puts("  mov rax, [rsp]");
+    dumps("  mov rax, [rsp]");
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov rax, [rax]");
+        dumps("  mov rax, [rax]");
         break;
     case 4:
-        puts("  mov eax, DWORD PTR [rax]");
-        puts("  movsx rax, eax");
+        dumps("  mov eax, DWORD PTR [rax]");
+        dumps("  movsx rax, eax");
         break;
     case 1:
-        puts("  mov al, BYTE PTR [rax]");
-        puts("  movsx rax, al");
+        dumps("  mov al, BYTE PTR [rax]");
+        dumps("  movsx rax, al");
         break;
     default:
         errorUnreachable();
     }
-    puts("  mov [rsp], rax");
+    dumps("  mov [rsp], rax");
 }
 
 static void genCodeAssign(const Node *n) {
@@ -357,22 +357,22 @@ static void genCodeAssign(const Node *n) {
     // +---------------------+
     // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
-    puts("  pop rdi");
-    puts("  pop rax");
+    dumps("  pop rdi");
+    dumps("  pop rax");
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov [rax], rdi");
+        dumps("  mov [rax], rdi");
         break;
     case 4:
-        puts("  mov DWORD PTR [rax], edi");
+        dumps("  mov DWORD PTR [rax], edi");
         break;
     case 1:
-        puts("  mov BYTE PTR [rax], dil");
+        dumps("  mov BYTE PTR [rax], dil");
         break;
     default:
         errorUnreachable();
     }
-    puts("  push rdi");
+    dumps("  push rdi");
 }
 
 static void genCodeReturn(const Node *n) {
@@ -380,10 +380,10 @@ static void genCodeReturn(const Node *n) {
         return;
 
     genCode(n->lhs);
-    puts("  pop rax");
-    puts("  mov rsp, rbp");
-    puts("  pop rbp");
-    puts("  ret");
+    dumps("  pop rax");
+    dumps("  mov rsp, rbp");
+    dumps("  pop rbp");
+    dumps("  ret");
 }
 
 static void genCodeIf(const Node *n) {
@@ -392,39 +392,39 @@ static void genCodeIf(const Node *n) {
 
     int elseblockCount = 0;
     genCode(n->condition);
-    puts("  pop rax");
-    puts("  cmp rax, 0");
+    dumps("  pop rax");
+    dumps("  cmp rax, 0");
     if (n->elseblock) {
-        printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+        dumpf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
     } else {
-        printf("  je .Lend%d\n", n->blockID);
+        dumpf("  je .Lend%d\n", n->blockID);
     }
     genCode(n->body);
     if (isExprNode(n->body)) {
-        puts("  pop rax");
+        dumps("  pop rax");
     }
 
     if (n->elseblock) {
-        printf("  jmp .Lend%d\n", n->blockID);
+        dumpf("  jmp .Lend%d\n", n->blockID);
     }
     if (n->elseblock) {
         for (Node *e = n->elseblock; e; e = e->next) {
-            printf(".Lelse%d_%d:\n", n->blockID, elseblockCount);
+            dumpf(".Lelse%d_%d:\n", n->blockID, elseblockCount);
             ++elseblockCount;
             if (e->kind == NodeElseif) {
                 genCode(e->condition);
-                puts("  pop rax");
-                puts("  cmp rax, 0");
+                dumps("  pop rax");
+                dumps("  cmp rax, 0");
                 if (e->next)
-                    printf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
+                    dumpf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
                 else  // Last 'else' is omitted.
-                    printf("  je .Lend%d\n", n->blockID);
+                    dumpf("  je .Lend%d\n", n->blockID);
             }
             genCode(e->body);
-            printf("  jmp .Lend%d\n", n->blockID);
+            dumpf("  jmp .Lend%d\n", n->blockID);
         }
     }
-    printf(".Lend%d:\n", n->blockID);
+    dumpf(".Lend%d:\n", n->blockID);
 }
 
 static void genCodeFor(const Node *n) {
@@ -439,28 +439,28 @@ static void genCodeFor(const Node *n) {
         // Not always initializer statement left a value on stack.  E.g.
         // Variable declarations won't left values on stack.
         if (isExprNode(n->initializer))
-            puts("  pop rax");
+            dumps("  pop rax");
     }
-    printf(".Lbegin%d:\n", n->blockID);
+    dumpf(".Lbegin%d:\n", n->blockID);
     if (n->condition) {
         genCode(n->condition);
     } else {
-        puts("  push 1");
+        dumps("  push 1");
     }
-    puts("  pop rax");
-    puts("  cmp rax, 0");
-    printf("  je .Lend%d\n", n->blockID);
+    dumps("  pop rax");
+    dumps("  cmp rax, 0");
+    dumpf("  je .Lend%d\n", n->blockID);
     genCode(n->body);
     if (isExprNode(n->body)) {
-        puts("  pop rax");
+        dumps("  pop rax");
     }
-    printf(".Literator%d:\n", n->blockID);
+    dumpf(".Literator%d:\n", n->blockID);
     if (n->iterator) {
         genCode(n->iterator);
-        puts("  pop rax");
+        dumps("  pop rax");
     }
-    printf("  jmp .Lbegin%d\n", n->blockID);
-    printf(".Lend%d:\n", n->blockID);
+    dumpf("  jmp .Lbegin%d\n", n->blockID);
+    dumpf(".Lend%d:\n", n->blockID);
     loopBlockID = loopBlockIDSave;
 }
 
@@ -470,18 +470,18 @@ static void genCodeDoWhile(const Node *n) {
         return;
 
     loopBlockID = n->blockID;
-    printf(".Lbegin%d:\n", n->blockID);
+    dumpf(".Lbegin%d:\n", n->blockID);
 
     genCode(n->body);
     if (isExprNode(n->body)) {
-        puts("  pop rax");
+        dumps("  pop rax");
     }
-    printf(".Literator%d:\n", n->blockID);
+    dumpf(".Literator%d:\n", n->blockID);
     genCode(n->condition);
-    puts("  pop rax");
-    puts("  cmp rax, 0");
-    printf("  jne .Lbegin%d\n", n->blockID);
-    printf(".Lend%d:\n", n->blockID);
+    dumps("  pop rax");
+    dumps("  cmp rax, 0");
+    dumpf("  jne .Lbegin%d\n", n->blockID);
+    dumpf(".Lend%d:\n", n->blockID);
 
     loopBlockID = loopBlockIDSave;
 }
@@ -524,27 +524,27 @@ static void genCodeFCall(const Node *n) {
 
     if (exCapAlignRSP)
         // Align RSP to multiple of 16.
-        printf("  sub rsp, %d /* RSP alignment */\n", exCapAlignRSP);
+        dumpf("  sub rsp, %d /* RSP alignment */\n", exCapAlignRSP);
 
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
     for (int i = 0; i < regargs; ++i)
-        printf("  pop %s\n", getReg(argRegs[i], ONE_WORD_BYTES));
+        dumpf("  pop %s\n", getReg(argRegs[i], ONE_WORD_BYTES));
 
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
-    puts("  mov al, 0");
-    printf("  call %.*s\n", n->fcall->len, n->fcall->name);
+    dumps("  mov al, 0");
+    dumpf("  call %.*s\n", n->fcall->len, n->fcall->name);
 
     stackAlignState = stackAlignStateSave;
     if (exCapAlignRSP)
-        printf("  add rsp, %d /* RSP alignment */\n", exCapAlignRSP);
+        dumpf("  add rsp, %d /* RSP alignment */\n", exCapAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
     if (stackArgSize)
-        printf("  add rsp, %d\n", stackArgSize);
+        dumpf("  add rsp, %d\n", stackArgSize);
 
-    puts("  push rax");
+    dumps("  push rax");
 }
 
 static void genCodeFunction(const Node *n) {
@@ -555,15 +555,15 @@ static void genCodeFunction(const Node *n) {
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
-    putchar('\n');
+    dumpc('\n');
     if (!n->obj->isStatic) {
-        printf(".globl %.*s\n", n->obj->token->len, n->obj->token->str);
+        dumpf(".globl %.*s\n", n->obj->token->len, n->obj->token->str);
     }
-    printf("%.*s:\n", n->obj->token->len, n->obj->token->str);
+    dumpf("%.*s:\n", n->obj->token->len, n->obj->token->str);
 
     // Prologue.
-    puts("  push rbp");
-    puts("  mov rbp, rsp");
+    dumps("  push rbp");
+    dumps("  mov rbp, rsp");
 
     // Push arguments onto stacks from registers.
     if (regargs) {
@@ -579,7 +579,7 @@ static void genCodeFunction(const Node *n) {
             arg = arg->next;
         }
 
-        printf("  sub rsp, %d\n", totalOffset);
+        dumpf("  sub rsp, %d\n", totalOffset);
         for (int i = 0; i < regargs; ++i) {
             const char *fmt;
             switch (size[i]) {
@@ -595,16 +595,16 @@ static void genCodeFunction(const Node *n) {
             default:
                 errorUnreachable();
             }
-            printf(fmt, -offsets[i], getReg(argRegs[i], size[i]));
+            dumpf(fmt, -offsets[i], getReg(argRegs[i], size[i]));
         }
     }
 
     genCode(n->body);
 
     // Epilogue
-    puts("  mov rsp, rbp");
-    puts("  pop rbp");
-    puts("  ret");
+    dumps("  mov rsp, rbp");
+    dumps("  pop rbp");
+    dumps("  ret");
 }
 
 static void genCodeIncrement(const Node *n, int prefix) {
@@ -613,19 +613,19 @@ static void genCodeIncrement(const Node *n, int prefix) {
 
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
-    puts("  pop rax");
-    puts("  mov rdi, rax");
+    dumps("  pop rax");
+    dumps("  mov rdi, rax");
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov rax, [rax]");
+        dumps("  mov rax, [rax]");
         break;
     case 4:
-        puts("  mov eax, DWORD PTR [rax]");
-        puts("  movsx rax, eax");
+        dumps("  mov eax, DWORD PTR [rax]");
+        dumps("  movsx rax, eax");
         break;
     case 1:
-        puts("  mov al, BYTE PTR [rax]");
-        puts("  movsx rax, al");
+        dumps("  mov al, BYTE PTR [rax]");
+        dumps("  movsx rax, al");
         break;
     default:
         errorUnreachable();
@@ -633,19 +633,19 @@ static void genCodeIncrement(const Node *n, int prefix) {
 
     // Postfix increment operator refers the value before increment.
     if (!prefix)
-        puts("  push rax");
+        dumps("  push rax");
 
     switch (sizeOf(n->type)) {
     case 8:
-        printf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
+        dumpf("  add rax, %d\n", getAlternativeOfOneForType(n->type));
         break;
     case 4:
-        printf("  add eax, %d\n", getAlternativeOfOneForType(n->type));
-        puts("  movsx rax, eax");
+        dumpf("  add eax, %d\n", getAlternativeOfOneForType(n->type));
+        dumps("  movsx rax, eax");
         break;
     case 1:
-        printf("  add al, %d\n", getAlternativeOfOneForType(n->type));
-        puts("  movsx rax, al");
+        dumpf("  add al, %d\n", getAlternativeOfOneForType(n->type));
+        dumps("  movsx rax, al");
         break;
     default:
         errorUnreachable();
@@ -653,18 +653,18 @@ static void genCodeIncrement(const Node *n, int prefix) {
 
     // Prefix increment operator refers the value after increment.
     if (prefix)
-        puts("  push rax");
+        dumps("  push rax");
 
     // Reflect the expression result on variable.
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov [rdi], rax");
+        dumps("  mov [rdi], rax");
         break;
     case 4:
-        puts("  mov DWORD PTR [rdi], eax");
+        dumps("  mov DWORD PTR [rdi], eax");
         break;
     case 1:
-        puts("  mov BYTE PTR [rdi], al");
+        dumps("  mov BYTE PTR [rdi], al");
         break;
     default:
         errorUnreachable();
@@ -677,19 +677,19 @@ static void genCodeDecrement(const Node *n, int prefix) {
 
     Node *expr = prefix ? n->rhs : n->lhs;
     genCodeLVal(expr);
-    puts("  pop rax");
-    puts("  mov rdi, rax");
+    dumps("  pop rax");
+    dumps("  mov rdi, rax");
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov rax, [rax]");
+        dumps("  mov rax, [rax]");
         break;
     case 4:
-        puts("  mov eax, DWORD PTR [rax]");
-        puts("  movsx rax, eax");
+        dumps("  mov eax, DWORD PTR [rax]");
+        dumps("  movsx rax, eax");
         break;
     case 1:
-        puts("  mov al, BYTE PTR [rax]");
-        puts("  movsx rax, al");
+        dumps("  mov al, BYTE PTR [rax]");
+        dumps("  movsx rax, al");
         break;
     default:
         errorUnreachable();
@@ -697,19 +697,19 @@ static void genCodeDecrement(const Node *n, int prefix) {
 
     // Postfix decrement operator refers the value before decrement.
     if (!prefix)
-        puts("  push rax");
+        dumps("  push rax");
 
     switch (sizeOf(n->type)) {
     case 8:
-        printf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
+        dumpf("  sub rax, %d\n", getAlternativeOfOneForType(n->type));
         break;
     case 4:
-        printf("  sub eax, %d\n", getAlternativeOfOneForType(n->type));
-        puts("  movsx rax, eax");
+        dumpf("  sub eax, %d\n", getAlternativeOfOneForType(n->type));
+        dumps("  movsx rax, eax");
         break;
     case 1:
-        printf("  sub al, %d\n", getAlternativeOfOneForType(n->type));
-        puts("  movsx rax, al");
+        dumpf("  sub al, %d\n", getAlternativeOfOneForType(n->type));
+        dumps("  movsx rax, al");
         break;
     default:
         errorUnreachable();
@@ -717,18 +717,18 @@ static void genCodeDecrement(const Node *n, int prefix) {
 
     // Prefix decrement operator refers the value after decrement.
     if (prefix)
-        puts("  push rax");
+        dumps("  push rax");
 
     // Reflect the expression result on variable.
     switch (sizeOf(n->type)) {
     case 8:
-        puts("  mov [rdi], rax");
+        dumps("  mov [rdi], rax");
         break;
     case 4:
-        puts("  mov DWORD PTR [rdi], eax");
+        dumps("  mov DWORD PTR [rdi], eax");
         break;
     case 1:
-        puts("  mov BYTE PTR [rdi], al");
+        dumps("  mov BYTE PTR [rdi], al");
         break;
     default:
         errorUnreachable();
@@ -746,35 +746,35 @@ static void genCodeAdd(const Node *n) {
     if (isWorkLikePointer(n->lhs->type) || isWorkLikePointer(n->rhs->type)) {
         // Load integer to RAX and pointer to RDI in either case.
         if (isWorkLikePointer(n->lhs->type)) { // ptr + num
-            puts("  pop rax");
-            puts("  pop rdi");
+            dumps("  pop rax");
+            dumps("  pop rdi");
         } else {  // num + ptr
-            puts("  pop rdi");
-            puts("  pop rax");
+            dumps("  pop rdi");
+            dumps("  pop rax");
         }
-        printf("  mov rsi, %d\n", altOne);
-        puts("  imul rax, rsi");
-        puts("  add rax, rdi");
-        puts("  push rax");
+        dumpf("  mov rsi, %d\n", altOne);
+        dumps("  imul rax, rsi");
+        dumps("  add rax, rdi");
+        dumps("  push rax");
     } else {
-        puts("  pop rdi");
-        puts("  pop rax");
+        dumps("  pop rdi");
+        dumps("  pop rax");
         switch (sizeOf(n->lhs->type)) {
         case 8:
-            puts("  add rax, rdi");
+            dumps("  add rax, rdi");
             break;
         case 4:
-            puts("  add eax, edi");
-            puts("  movsx rax, eax");
+            dumps("  add eax, edi");
+            dumps("  movsx rax, eax");
             break;
         case 1:
-            puts("  add al, dil");
-            puts("  movsx rax, al");
+            dumps("  add al, dil");
+            dumps("  movsx rax, al");
             break;
         default:
             errorUnreachable();
         }
-        puts("  push rax");
+        dumps("  push rax");
     }
 }
 
@@ -786,26 +786,26 @@ static void genCodeSub(const Node *n) {
     genCode(n->lhs);
     genCode(n->rhs);
 
-    puts("  pop rdi");
-    puts("  pop rax");
+    dumps("  pop rdi");
+    dumps("  pop rax");
     if (altOne != 1) {
-        printf("  mov rsi, %d\n", altOne);
-        puts("  imul rdi, rsi");
-        puts("  sub rax, rdi");
-        puts("  push rax");
+        dumpf("  mov rsi, %d\n", altOne);
+        dumps("  imul rdi, rsi");
+        dumps("  sub rax, rdi");
+        dumps("  push rax");
     } else {
         switch (sizeOf(n->type)) {
         case 4:
-            puts("  sub eax, edi");
-            puts("  movsx rax, eax");
+            dumps("  sub eax, edi");
+            dumps("  movsx rax, eax");
             break;
         case 1:
-            puts("  sub al, dil");
-            puts("  movsx rax, al");
+            dumps("  sub al, dil");
+            dumps("  movsx rax, al");
         default:
             errorUnreachable();
         }
-        puts("  push rax");
+        dumps("  push rax");
     }
 }
 
@@ -816,17 +816,17 @@ void genCode(const Node *n) {
     if (n->kind == NodeClearStack) {
         int entire, rest;
         entire = rest = sizeOf(n->rhs->type);
-        puts("  mov rax, rbp");
-        printf("  sub rax, %d\n", n->rhs->obj->offset);
+        dumps("  mov rax, rbp");
+        dumpf("  sub rax, %d\n", n->rhs->obj->offset);
         while (rest) {
             if (rest >= 8) {
-                printf("  mov QWORD PTR %d[rax], 0\n", entire - rest);
+                dumpf("  mov QWORD PTR %d[rax], 0\n", entire - rest);
                 rest -= 8;
             } else if (rest >= 4) {
-                printf("  mov DWORD PTR %d[rax], 0\n", entire - rest);
+                dumpf("  mov DWORD PTR %d[rax], 0\n", entire - rest);
                 rest -= 4;
             } else {
-                printf("  mov BYTE PTR %d[rax], 0\n", entire - rest);
+                dumpf("  mov BYTE PTR %d[rax], 0\n", entire - rest);
                 rest -= 1;
             }
         }
@@ -840,39 +840,39 @@ void genCode(const Node *n) {
         if (destSize >= 8)
             return;
 
-        puts("  pop rax");
+        dumps("  pop rax");
         switch (destSize) {
         case 4:
-            puts("  movsx rax, eax");  // We only have signed variables yet.
+            dumps("  movsx rax, eax");  // We only have signed variables yet.
             break;
         case 1:
-            puts("  movsx rax, al");  // We only have signed variable yet.
+            dumps("  movsx rax, al");  // We only have signed variable yet.
             break;
         default:
             errorUnreachable();
         }
-        puts("  push rax");
+        dumps("  push rax");
     } else if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
     } else if (n->kind == NodeBlock) {
         if (n->env->varSize)
-            printf("  sub rsp, %d\n", n->env->varSize);
+            dumpf("  sub rsp, %d\n", n->env->varSize);
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
             // be thrown away. (But Block node does not put any value, so do
             // not pop value.)
             if (isExprNode(c)) {
-                puts("  pop rax");
+                dumps("  pop rax");
             }
         }
         if (n->env->varSize)
-            printf("  add rsp, %d\n", n->env->varSize);
+            dumpf("  add rsp, %d\n", n->env->varSize);
     } else if (n->kind == NodeExprList) {
         if (!n->body) {
-            puts("  push 0  /* Represents NOP */");
+            dumps("  push 0  /* Represents NOP */");
             return;
         }
         for (Node *c = n->body; c; c = c->next) {
@@ -881,46 +881,46 @@ void genCode(const Node *n) {
             // expression is the exception and its result value may be used in
             // next statement.
             if (isExprNode(c) && c->next)
-                puts("  pop rax");
+                dumps("  pop rax");
         }
     } else if (n->kind == NodeNot) {
         // TODO: Make sure n->rhs lefts a value on stack
         genCode(n->rhs);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        puts("  sete al");
-        puts("  movzb rax, al");
-        puts("  push rax");
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumps("  sete al");
+        dumps("  movzb rax, al");
+        dumps("  push rax");
     } else if (n->kind == NodeLogicalAND) {
         // TODO: Make sure n->rhs lefts a value on stack
         genCode(n->lhs);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf("  je .Llogicaland%d\n", n->blockID);
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumpf("  je .Llogicaland%d\n", n->blockID);
         genCode(n->rhs);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf(".Llogicaland%d:\n", n->blockID);
-        puts("  setne al");
-        puts("  movzb rax, al");
-        puts("  push rax");
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumpf(".Llogicaland%d:\n", n->blockID);
+        dumps("  setne al");
+        dumps("  movzb rax, al");
+        dumps("  push rax");
     } else if (n->kind == NodeLogicalOR) {
         genCode(n->lhs);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf("  jne .Llogicalor%d\n", n->blockID);
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumpf("  jne .Llogicalor%d\n", n->blockID);
         genCode(n->rhs);
-        puts("  pop rax");
-        puts("  cmp rax, 0");
-        printf(".Llogicalor%d:\n", n->blockID);
-        puts("  setne al");
-        puts("  movzb rax, al");
-        puts("  push rax");
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumpf(".Llogicalor%d:\n", n->blockID);
+        dumps("  setne al");
+        dumps("  movzb rax, al");
+        dumps("  push rax");
     } else if (n->kind == NodeNum) {
-        printf("  push %d\n", n->val);
+        dumpf("  push %d\n", n->val);
     } else if (n->kind == NodeLiteralString) {
-        printf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
-        puts("  push rax");
+        dumpf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
+        dumps("  push rax");
     } else if (n->kind == NodeLVar || n->kind == NodeGVar ||
             n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
@@ -934,30 +934,30 @@ void genCode(const Node *n) {
 
         // In order to change this lvalue into rvalue, push a value of a
         // variable to the top of the stack.
-        puts("  pop rax");
+        dumps("  pop rax");
         switch (sizeOf(n->type)) {
         case 8:
-            puts("  mov rax, [rax]");
+            dumps("  mov rax, [rax]");
             break;
         case 4:
-            puts("  mov eax, DWORD PTR [rax]");
-            puts("  movsx rax, eax");
+            dumps("  mov eax, DWORD PTR [rax]");
+            dumps("  movsx rax, eax");
             break;
         case 1:
-            puts("  mov al, BYTE PTR [rax]");
-            puts("  movsx rax, al");
+            dumps("  mov al, BYTE PTR [rax]");
+            dumps("  movsx rax, al");
             break;
         default:
             errorUnreachable();
         }
-        puts("  push rax");
+        dumps("  push rax");
 
     } else if (n->kind == NodeAssign) {
         genCodeAssign(n);
     } else if (n->kind == NodeBreak) {
-        printf("  jmp .Lend%d\n", loopBlockID);
+        dumpf("  jmp .Lend%d\n", loopBlockID);
     } else if (n->kind == NodeContinue) {
-        printf("  jmp .Literator%d\n", loopBlockID);
+        dumpf("  jmp .Literator%d\n", loopBlockID);
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
     } else if (n->kind == NodeIf) {
@@ -982,38 +982,38 @@ void genCode(const Node *n) {
         genCode(n->lhs);
         genCode(n->rhs);
 
-        puts("  pop rdi");
-        puts("  pop rax");
+        dumps("  pop rdi");
+        dumps("  pop rax");
 
         // Maybe these oprands should use only 8bytes registers.
         if (n->kind == NodeMul) {
-            puts("  imul rax, rdi");
+            dumps("  imul rax, rdi");
         } else if (n->kind == NodeDiv) {
-            puts("  cqo");
-            puts("  idiv rdi");
+            dumps("  cqo");
+            dumps("  idiv rdi");
         } else if (n->kind == NodeDivRem) {
-            puts("  cqo");
-            puts("  idiv rdi");
-            puts("  push rdx");
+            dumps("  cqo");
+            dumps("  idiv rdi");
+            dumps("  push rdx");
             return;
         } else if (n->kind == NodeEq) {
-            puts("  cmp rax, rdi");
-            puts("  sete al");
-            puts("  movzb rax, al");
+            dumps("  cmp rax, rdi");
+            dumps("  sete al");
+            dumps("  movzb rax, al");
         } else if (n->kind == NodeNeq) {
-            puts("  cmp rax, rdi");
-            puts("  setne al");
-            puts("  movzb rax, al");
+            dumps("  cmp rax, rdi");
+            dumps("  setne al");
+            dumps("  movzb rax, al");
         } else if (n->kind == NodeLT) {
-            puts("  cmp rax, rdi");
-            puts("  setl al");
-            puts("  movzb rax, al");
+            dumps("  cmp rax, rdi");
+            dumps("  setl al");
+            dumps("  movzb rax, al");
         } else if (n->kind == NodeLE) {
-            puts("  cmp rax, rdi");
-            puts("  setle al");
-            puts("  movzb rax, al");
+            dumps("  cmp rax, rdi");
+            dumps("  setle al");
+            dumps("  movzb rax, al");
         }
 
-        puts("  push rax");
+        dumps("  push rax");
     }
 }

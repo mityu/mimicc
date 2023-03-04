@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define REG_ARGS_MAX_COUNT  (6)
 #define ONE_WORD_BYTES  (8)
@@ -270,6 +271,7 @@ struct Globals {
     Token *token;              // Token currently watches.
     char *source;              // The source code (input).
     char *sourceFile;          // The source file path.
+    FILE *destFile;            // The output file.
 };
 extern Globals globals;
 
@@ -277,6 +279,9 @@ extern Globals globals;
 void *safeAlloc(size_t size);
 _Noreturn void error(const char *fmt, ...);
 _Noreturn void errorAt(char *loc, const char *fmt, ...);
+int dumpc(int c);
+int dumps(const char *s);
+int dumpf(const char *fmt, ...);
 
 // codegen.c
 void genCode(const Node *n);

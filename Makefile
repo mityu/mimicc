@@ -96,11 +96,7 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 	gcc -o $@ -c $<
 
 ./test/Xtmp/%.s: ./test/Xtmp/%.c
-	if [ "$(basename $(notdir $(TARGET)))" = "$(basename $(notdir $(TESTCC)))" ]; then \
-		$(TESTCC) $< > $@; \
-	else \
-		$(TESTCC) -o $@ -S $<; \
-	fi
+	$(TESTCC) -o $@ -S $<
 
 ./test/Xtmp/%.c: ./test/%.c ./test/test.h
 	gcc -o $@ -E -P $<
