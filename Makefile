@@ -56,7 +56,6 @@ self: $(TARGET_SELF);
 .PHONY: self_prepair
 self_prepair: $(HOME_SELF);
 
-# TODO: Do test_basic and test_advanced_errors
 .PHONY: test_self
 test_self: $(TARGET_SELF) test_prepair test_self_prepair
 test_self: test_advanced test_advanced_errors;

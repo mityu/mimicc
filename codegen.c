@@ -149,6 +149,7 @@ static int isExprNode(const Node *n) {
     case NodeReturn:
     case NodeFunction:
     case NodeClearStack:
+    case NodeNop:
         return 0;
     }
     errorUnreachable();
@@ -813,7 +814,9 @@ void genCode(const Node *n) {
     if (!n)
         return;
 
-    if (n->kind == NodeClearStack) {
+    if (n->kind == NodeNop) {
+        return;
+    } else if (n->kind == NodeClearStack) {
         int entire, rest;
         entire = rest = sizeOf(n->rhs->type);
         dumps("  mov rax, rbp");

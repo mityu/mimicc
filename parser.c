@@ -1200,16 +1200,14 @@ static void enumBody(Enum *e) {
 // Parse local variable declaration. If there's no variable declaration,
 // returns NULL.
 static Node *varDeclaration(void) {
-    Node *initblock = newNode(NodeBlock, &Types.None);
-    Node headNode;
+    Node *initNode = NULL;
+    Node headNode = {};
     Node *n = &headNode;
     ObjAttr attr = {};
     int totalVarSize = 0;
     int currentVarSize = 0;
     TypeInfo *baseType = NULL;
     TypeInfo *varType = NULL;
-
-    headNode.next = NULL;
 
     baseType = parseBaseType(&attr);
     if (!baseType) {
@@ -1243,7 +1241,7 @@ static Node *varDeclaration(void) {
         if (attr.isTypedef) {
             expectReserved(";");
             registerTypedef(newTypedef(varObj));
-            return initblock;
+            return newNode(NodeNop, &Types.None);
         }
 
         varObj->offset = -1;
@@ -1322,8 +1320,11 @@ static Node *varDeclaration(void) {
 
     expectReserved(";");
 
-    initblock->body = headNode.next;
-    return initblock;
+    enterNewEnv();
+    initNode = newNode(NodeBlock, &Types.None);
+    exitCurrentEnv();
+    initNode->body = headNode.next;
+    return initNode;
 }
 
 static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {

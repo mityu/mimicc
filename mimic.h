@@ -110,6 +110,7 @@ struct Env {
 };
 
 typedef enum {
+    NodeNop,
     NodeAdd,           // +
     NodeSub,           // -
     NodeMul,           // *
