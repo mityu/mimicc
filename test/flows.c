@@ -235,6 +235,17 @@ void test_for_continue_3(void) {
     ASSERT(3, j);
 }
 
+void test_for_continue_4(void) {
+    int flag_stay = 1;
+    int n = 13;
+    for (; flag_stay;) {
+        n++;
+        flag_stay = 0;
+        continue;
+    }
+    ASSERT(14, n);
+}
+
 int test_while_return_1(void) {
     while(1)
         return 10;
@@ -283,7 +294,7 @@ void test_do_while_break(void) {
     ASSERT(5, n);
 }
 
-void test_do_while_continue(void) {
+void test_do_while_continue_1(void) {
     int n = 5, m = 13;
     int count = 0;
     ASSERT(5, n);
@@ -294,9 +305,18 @@ void test_do_while_continue(void) {
         m += 5;
         break;
         n += 2;
-    } while(0);
+    } while(1);
     ASSERT(5, n);
     ASSERT(18, m);
+}
+
+void test_do_while_continue_2(void) {
+    int n = 13;
+    do {
+        n++;
+        continue;
+    } while(0);
+    ASSERT(14, n);
 }
 
 // TODO: These should be in another file?
@@ -381,13 +401,15 @@ int main(void) {
     test_for_continue_1();
     test_for_continue_2();
     test_for_continue_3();
+    test_for_continue_4();
     ASSERT(10, test_while_return_1());
     ASSERT(10, test_while_1());
     ASSERT(50, test_while_2());
     ASSERT(20, test_while_3());
     test_do_while();
     test_do_while_break();
-    test_do_while_continue();
+    test_do_while_continue_1();
+    test_do_while_continue_2();
     test_comma_1();
     test_comma_2();
     test_cond_not();

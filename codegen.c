@@ -486,13 +486,12 @@ static void genCodeDoWhile(const Node *n) {
 
     loopBlockID = n->blockID;
     printf(".Lbegin%d:\n", n->blockID);
-    // "continue" statement needs iterator label.
-    printf(".Literator%d:\n", n->blockID);
 
     genCode(n->body);
     if (isExprNode(n->body)) {
         puts("  pop rax");
     }
+    printf(".Literator%d:\n", n->blockID);
     genCode(n->condition);
     puts("  pop rax");
     puts("  cmp rax, 0");
