@@ -34,6 +34,7 @@ static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
 static Node *mul(void);
+static Node *typecast(void);
 static Node *unary(void);
 static Node *postfix(void);
 static FCall *funcArgList(void);
@@ -1627,19 +1628,19 @@ static Node *add(void) {
 }
 
 static Node *mul(void) {
-    Node *n = unary();
+    Node *n = typecast();
     for (;;) {
         Token *t = globals.token;
         if (consumeReserved("*")) {
-            Node *rhs = unary();
+            Node *rhs = typecast();
             TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
             n = newNodeBinary(NodeMul, n, rhs, type);
         } else if (consumeReserved("/")) {
-            Node *rhs = unary();
+            Node *rhs = typecast();
             TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
             n = newNodeBinary(NodeDiv, n, rhs, type);
         } else if (consumeReserved("%")) {
-            Node *rhs = unary();
+            Node *rhs = typecast();
             TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
             n = newNodeBinary(NodeDivRem, n, rhs, type);
         } else {
@@ -1649,22 +1650,53 @@ static Node *mul(void) {
     }
 }
 
+static Node *typecast(void) {
+    Token *tokenSave = globals.token;
+    if (consumeReserved("(")) {
+        TypeInfo *type = NULL;
+        Obj *obj = NULL;
+        Node *n = NULL;
+
+        type = parseBaseType(NULL);
+        if (!type) {
+            globals.token = tokenSave;
+            return unary();
+        }
+
+        obj = parseAdvancedTypeDeclaration(type, 0);
+
+        if (obj->token)
+            errorAt(obj->token->str, "Unexpected identifier.");
+
+        expectReserved(")");
+
+        if (sizeOf(obj->type) < 0) {
+            errorAt(tokenSave->next->str, "Incomplete type.");
+        }
+
+        n = newNodeBinary(NodeTypeCast, NULL, typecast(), obj->type);
+        n->token = tokenSave;
+        return n;
+    }
+    return unary();
+}
+
 static Node *unary(void) {
     Token *tokenOperator = globals.token;
     Node *n = NULL;
     if (consumeReserved("+")) {
-        Node *rhs = postfix();
+        Node *rhs = typecast();
         n = newNodeBinary(NodeAdd, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("-")) {
-        Node *rhs = postfix();
+        Node *rhs = typecast();
         n = newNodeBinary(NodeSub, newNodeNum(0), rhs, rhs->type);
     } else if (consumeReserved("&")) {
-        Node *rhs = unary();
+        Node *rhs = typecast();
         TypeInfo *type = newTypeInfo(TypePointer);
         type->baseType = rhs->type;
         n = newNodeBinary(NodeAddress, NULL, rhs, type);
     } else if (consumeReserved("*")) {
-        Node *rhs = unary();
+        Node *rhs = typecast();
         TypeKind typeKind = rhs->type->type;
         if (!(rhs->type && (typeKind == TypePointer || typeKind == TypeArray))) {
             errorAt(tokenOperator->str,
@@ -1679,7 +1711,7 @@ static Node *unary(void) {
         Node *rhs = unary();
         n = newNodeBinary(NodePreDecl, NULL, rhs, rhs->type);
     } else if (consumeReserved("!")) {
-        Node *rhs = unary();
+        Node *rhs = typecast();
         n = newNodeBinary(NodeNot, NULL, rhs, rhs->type);
     } else if (consumeCertainTokenType(TokenSizeof)) {
         Token *tokenSave = globals.token;

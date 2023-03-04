@@ -145,6 +145,7 @@ typedef enum {
     NodeReturn,        // return {expr};
     NodeFunction,
     NodeGVar,          // Global variable, work as lvar.
+    NodeTypeCast,      // Type casting.
     NodeClearStack,    // Clear certain range of stack with 0.
 } NodeKind;
 

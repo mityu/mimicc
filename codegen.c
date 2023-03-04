@@ -146,6 +146,7 @@ static int isExprNode(const Node *n) {
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
+    case NodeTypeCast:
         return 1;
     case NodeIf:
     case NodeElseif:
@@ -853,6 +854,28 @@ void genCode(const Node *n) {
                 rest -= 1;
             }
         }
+    } else if (n->kind == NodeTypeCast) {
+        int destSize;
+        destSize = sizeOf(n->type);
+
+        genCode(n->rhs);
+
+        // Currently, cast is needed only when destSize < 8.
+        if (destSize >= 8)
+            return;
+
+        puts("  pop rax");
+        switch (destSize) {
+        case 4:
+            puts("  movsx rax, eax");  // We only have signed variables yet.
+            break;
+        case 1:
+            puts("  movsx rax, al");  // We only have signed variable yet.
+            break;
+        default:
+            errorUnreachable();
+        }
+        puts("  push rax");
     } else if (n->kind == NodeAddress) {
         genCodeLVal(n->rhs);
     } else if (n->kind == NodeDeref) {

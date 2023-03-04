@@ -180,6 +180,10 @@ void verifyType(const Node *n) {
                     );
         }
         verifyType(value);
+    } else if (n->kind == NodeTypeCast) {
+        // TODO: Check n->rhs lefts a value (?)
+        // TODO: Check cast operation can be carried out.
+        verifyType(n->rhs);
     }
 }
 
