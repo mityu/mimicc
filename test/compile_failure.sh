@@ -2,11 +2,13 @@
 
 cd $(dirname $0)
 
+TESTCC=${TESTCC:-../mimic}
+
 assert_fail() {
   echo "$1" > ./Xtmp/tmp.c
-  ../mimic -o ./Xtmp/tmp.s ./Xtmp/tmp.c
-  if [ $? -ne 1 ]; then
-    echo "Other than 1 returned."
+  $TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c
+  if [ $? -eq 0 ]; then
+    echo "Unexpected 0 is returned."
     exit 1
   fi
 }
@@ -64,9 +66,9 @@ assert_fail 'typedef int Int[]; int main(void) {sizeof(Int);}'
 assert_fail 'int main(void) {int a[]; sizeof(a);}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
-../mimic -o ./Xtmp/tmp.s ./Xtmp/tmp.c || exit 1
+$TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c || exit 1
 gcc ./Xtmp/tmp.s
 if [ $? -eq 0 ]; then
-  echo "Other than 0 returned."
+  echo "Unexpected 0 is returned."
   exit 1
 fi

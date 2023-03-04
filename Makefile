@@ -20,7 +20,6 @@ TEST_EXECUTABLES=$(TEST_SOURCES:./test/%.c=./test/Xtmp/%.exe)
 TEST_FRAMEWORK=./test/test.framework
 TEST_FRAMEWORK_OBJ=$(TEST_FRAMEWORK:./test/%=./test/Xtmp/%.o)
 
-
 # Compilation: 1st gen
 $(TARGET): $(OBJ)
 	gcc $(CFLAGS) -o $@ $^
@@ -41,9 +40,10 @@ clean:
 all: clean $(TARGET);
 
 .PHONY: test
-test: test_basic test_advanced test_advanced_errors;
+test: $(TARGET) test_basic test_advanced test_advanced_errors;
 
 .PHONY: test_prepair
+
 test_prepair: ./test/Xtmp;
 
 
@@ -58,7 +58,8 @@ self_prepair: $(HOME_SELF);
 
 # TODO: Do test_basic and test_advanced_errors
 .PHONY: test_self
-test_self: $(TARGET_SELF) test_prepair test_self_prepair test_advanced;
+test_self: $(TARGET_SELF) test_prepair test_self_prepair
+test_self: test_advanced test_advanced_errors;
 
 .PHONY: test_self_prepair
 test_self_prepair:
@@ -85,7 +86,7 @@ $(HOME_SELF)/%.c: ./%.c mimic.h $(HEADERS)
 
 # Test by gcc (To find bugs in tests)
 .PHONY: test_test
-test_test: test_prepair test_test_prepair test_advanced;
+test_test: test_test_prepair test_prepair test_advanced;
 
 .PHONY: test_test_prepair
 test_test_prepair:
@@ -97,8 +98,10 @@ test_test_prepair:
 
 # Test system
 .PHONY: test_basic
-test_basic: $(TARGET) test_prepair
-	./test/basic_functionalities.sh
+test_basic: ABSPATH=$(abspath $(TESTCC))
+test_basic: CCPATH=$(shell [ -f '$(ABSPATH)' ] && echo '$(ABSPATH)' || echo '$(TESTCC)')
+test_basic: test_prepair
+	TESTCC=$(CCPATH) ./test/basic_functionalities.sh
 	@echo OK
 	@echo
 
@@ -113,8 +116,10 @@ test_advanced: test_prepair test_clean test_basic $(TEST_EXECUTABLES)
 	@echo
 
 .PHONY: test_advanced_errors
+test_advanced_errors: ABSPATH=$(abspath $(TESTCC))
+test_advanced_errors: CCPATH=$(shell [ -f '$(ABSPATH)' ] && echo '$(ABSPATH)' || echo '$(TESTCC)')
 test_advanced_errors: test_prepair ./test/compile_failure.sh
-	./test/compile_failure.sh
+	TESTCC=$(CCPATH) ./test/compile_failure.sh
 	@echo OK
 	@echo
 
