@@ -105,7 +105,11 @@
 //                         .    (Local variables or tmp values exprs left)
 //                         .
 
-static int loopBlockID = 0;
+typedef struct {
+    Obj *currentFunc;
+    int loopBlockID;
+} DumpEnv;
+static DumpEnv dumpEnv;
 
 static int isExprNode(const Node *n) {
     // All cases in this switch uses fallthrough.
@@ -432,8 +436,8 @@ static void genCodeFor(const Node *n) {
     if (!n)
         return;
 
-    int loopBlockIDSave = loopBlockID;
-    loopBlockID = n->blockID;
+    int loopBlockIDSave = dumpEnv.loopBlockID;
+    dumpEnv.loopBlockID = n->blockID;
     if (n->initializer) {
         genCode(n->initializer);
 
@@ -462,15 +466,15 @@ static void genCodeFor(const Node *n) {
     }
     dumpf("  jmp .Lbegin%d\n", n->blockID);
     dumpf(".Lend%d:\n", n->blockID);
-    loopBlockID = loopBlockIDSave;
+    dumpEnv.loopBlockID = loopBlockIDSave;
 }
 
 static void genCodeDoWhile(const Node *n) {
-    int loopBlockIDSave = loopBlockID;
+    int loopBlockIDSave = dumpEnv.loopBlockID;
     if (!n)
         return;
 
-    loopBlockID = n->blockID;
+    dumpEnv.loopBlockID = n->blockID;
     dumpf(".Lbegin%d:\n", n->blockID);
 
     genCode(n->body);
@@ -484,7 +488,7 @@ static void genCodeDoWhile(const Node *n) {
     dumpf("  jne .Lbegin%d\n", n->blockID);
     dumpf(".Lend%d:\n", n->blockID);
 
-    loopBlockID = loopBlockIDSave;
+    dumpEnv.loopBlockID = loopBlockIDSave;
 }
 
 static void genCodeFCall(const Node *n) {
@@ -549,10 +553,16 @@ static void genCodeFCall(const Node *n) {
 }
 
 static void genCodeFunction(const Node *n) {
+    int regargs = 0;
+
     if (!n)
         return;
+    else if (dumpEnv.currentFunc)
+        errorUnreachable();
 
-    int regargs = n->obj->func->argsCount;
+    dumpEnv.currentFunc = n->obj;
+
+    regargs = n->obj->func->argsCount;
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
@@ -606,6 +616,8 @@ static void genCodeFunction(const Node *n) {
     dumps("  mov rsp, rbp");
     dumps("  pop rbp");
     dumps("  ret");
+
+    dumpEnv.currentFunc = NULL;
 }
 
 static void genCodeIncrement(const Node *n, int prefix) {
@@ -958,9 +970,9 @@ void genCode(const Node *n) {
     } else if (n->kind == NodeAssign) {
         genCodeAssign(n);
     } else if (n->kind == NodeBreak) {
-        dumpf("  jmp .Lend%d\n", loopBlockID);
+        dumpf("  jmp .Lend%d\n", dumpEnv.loopBlockID);
     } else if (n->kind == NodeContinue) {
-        dumpf("  jmp .Literator%d\n", loopBlockID);
+        dumpf("  jmp .Literator%d\n", dumpEnv.loopBlockID);
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
     } else if (n->kind == NodeIf) {
