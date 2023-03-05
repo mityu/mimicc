@@ -500,9 +500,9 @@ static void genCodeFCall(const Node *n) {
 
     static int stackAlignState = -1;  // RSP % 16
     int stackAlignStateSave = 0;
-    int stackVarSize = 0; // Size of local variables on stack.
-    int stackArgSize = 0;  // Size (not count) of arguments on stack.
-    int exCapAlignRSP = 0; // Extra memory size to capture to align RSP.
+    int stackVarSize = 0;  // Size of local variables on stack.
+    int stackArgSize = 0;  // Size of arguments (passed to function) on stack.
+    int exCapToAlignRSP = 0; // Extra memory size to capture in order to align RSP.
     int regargs = n->fcall->argsCount;
 
     if (regargs > REG_ARGS_MAX_COUNT)
@@ -510,8 +510,7 @@ static void genCodeFCall(const Node *n) {
 
     if (stackAlignState == -1) {
         stackAlignState = 0;
-        for (Env *env = n->env; env; env = env->outer)
-            stackVarSize += env->varSize;
+        stackVarSize = dumpEnv.currentFunc->func->capStackSize;
     }
 
     if ((n->fcall->argsCount - regargs) > 0) {
@@ -528,11 +527,11 @@ static void genCodeFCall(const Node *n) {
     stackAlignStateSave = stackAlignState;
     stackAlignState = (stackAlignState + stackVarSize) % 16;
     if (stackAlignState)
-        exCapAlignRSP = 16 - stackAlignState;
+        exCapToAlignRSP = 16 - stackAlignState;
 
-    if (exCapAlignRSP)
+    if (exCapToAlignRSP)
         // Align RSP to multiple of 16.
-        dumpf("  sub rsp, %d /* RSP alignment */\n", exCapAlignRSP);
+        dumpf("  sub rsp, %d /* RSP alignment */\n", exCapToAlignRSP);
 
     for (Node *c = n->fcall->args; c; c = c->next)
         genCode(c);
@@ -545,8 +544,8 @@ static void genCodeFCall(const Node *n) {
     dumpf("  call %.*s\n", n->fcall->len, n->fcall->name);
 
     stackAlignState = stackAlignStateSave;
-    if (exCapAlignRSP)
-        dumpf("  add rsp, %d /* RSP alignment */\n", exCapAlignRSP);
+    if (exCapToAlignRSP)
+        dumpf("  add rsp, %d /* RSP alignment */\n", exCapToAlignRSP);
 
     // Adjust RSP value when we used stack to pass arguments.
     if (stackArgSize)
@@ -578,6 +577,8 @@ static void genCodeFunction(const Node *n) {
     // Prologue.
     dumps("  push rbp");
     dumps("  mov rbp, rsp");
+    if (n->obj->func->capStackSize)
+        dumpf("  sub rsp, %d\n", n->obj->func->capStackSize);
 
     // Push arguments onto stacks from registers.
     if (regargs) {
@@ -593,7 +594,6 @@ static void genCodeFunction(const Node *n) {
             arg = arg->next;
         }
 
-        dumpf("  sub rsp, %d\n", totalOffset);
         for (int i = 0; i < regargs; ++i) {
             const char *fmt;
             switch (size[i]) {
@@ -878,8 +878,6 @@ void genCode(const Node *n) {
     } else if (n->kind == NodeDeref) {
         genCodeDeref(n);
     } else if (n->kind == NodeBlock) {
-        if (n->env->varSize)
-            dumpf("  sub rsp, %d\n", n->env->varSize);
         for (Node *c = n->body; c; c = c->next) {
             genCode(c);
             // Statement lefts a value on the top of the stack, and it should
@@ -889,8 +887,6 @@ void genCode(const Node *n) {
                 dumps("  pop rax");
             }
         }
-        if (n->env->varSize)
-            dumpf("  add rsp, %d\n", n->env->varSize);
     } else if (n->kind == NodeExprList) {
         if (!n->body) {
             dumps("  push 0  /* Represents NOP */");

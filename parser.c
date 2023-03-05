@@ -788,6 +788,7 @@ static Node *decl(void) {
                     }
                 }
             }
+            globals.currentFunction->func->capStackSize = n->env->varSize;
 
             // Handle function body
             n->body = stmt();
@@ -1319,6 +1320,9 @@ static Node *varDeclaration(void) {
     }
 
     expectReserved(";");
+
+    if (globals.currentFunction->func->capStackSize < totalVarSize)
+        globals.currentFunction->func->capStackSize = totalVarSize;
 
     enterNewEnv();
     initNode = newNode(NodeBlock, &Types.None);

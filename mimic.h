@@ -187,6 +187,7 @@ struct Function {
     int haveVaArgs;    // TRUE if function have variadic arguments
     int haveImpl;      // TRUE when implementation is given.  FALSE if
                        // only declaration is given.
+    int capStackSize;  // Size of stack which this function uses.
     Obj *args;         // Function arguments.  NOT IN REVERSED ORDER.
     TypeInfo *retType; // Type of return value.
 };
