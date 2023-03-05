@@ -2,7 +2,7 @@ main: main.s
 	gcc -o main main.s
 
 main.s: main.c mimic_cc
-	../mimic main.c > main.s
+	../mimic -o main.s -S main.c
 
 mimic_cc:
 	cd ../ && make
