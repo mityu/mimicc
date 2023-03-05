@@ -528,6 +528,7 @@ static void genCodeFCall(const Node *n) {
     stackAlignState = (stackAlignState + stackVarSize) % 16;
     if (stackAlignState)
         exCapToAlignRSP = 16 - stackAlignState;
+    stackAlignState = 0;
 
     if (exCapToAlignRSP)
         // Align RSP to multiple of 16.
