@@ -119,6 +119,43 @@ void test_decl_global_struct_without_tag(void) {
     ASSERT(0, gObjWithoutTag.s[2]);
 }
 
+void test_struct_assign(void) {
+    typedef struct S {
+        int a[5];
+        char c;
+        int n;
+    } S;
+    S s1 = {{11, 13, 17, 19, 23}, 'a', 29};
+    S s2 = {}, s3 = {};
+
+    s3 = s2 = s1;
+    ASSERT(11, s2.a[0]);
+    ASSERT(13, s2.a[1]);
+    ASSERT(17, s2.a[2]);
+    ASSERT(19, s2.a[3]);
+    ASSERT(23, s2.a[4]);
+    ASSERT(97, s2.c);
+    ASSERT(29, s2.n);
+    ASSERT(11, s3.a[0]);
+    ASSERT(13, s3.a[1]);
+    ASSERT(17, s3.a[2]);
+    ASSERT(19, s3.a[3]);
+    ASSERT(23, s3.a[4]);
+    ASSERT(97, s3.c);
+    ASSERT(29, s3.n);
+    ASSERT(11, s1.a[0]);
+    ASSERT(13, s1.a[1]);
+    ASSERT(17, s1.a[2]);
+    ASSERT(19, s1.a[3]);
+    ASSERT(23, s1.a[4]);
+    ASSERT(97, s1.c);
+    ASSERT(29, s1.n);
+
+    s1.a[2] = 31;
+    ASSERT(31, s1.a[2]);
+    ASSERT(17, s2.a[2]);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
@@ -126,5 +163,6 @@ int main(void) {
     test_struct_member_access();
     test_decl_local_struct_without_tag();
     test_decl_global_struct_without_tag();
+    test_struct_assign();
     return 0;
 }

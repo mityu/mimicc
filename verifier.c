@@ -112,6 +112,15 @@ void verifyType(const Node *n) {
             return;
         }
         verifyType(n->rhs);
+    } else if (n->kind == NodeAssignStruct) {
+        if (n->lhs->type->type != TypeStruct)
+            errorUnreachable();
+        else if (n->rhs->type->type != TypeStruct)
+            errorAt(n->rhs->token->str, "Struct required.");
+        else if (n->lhs->type->structDef != n->rhs->type->structDef)
+            errorAt(n->token->str, "Different struct.");
+
+        verifyType(n->rhs);
     } else if (n->kind == NodeEq || n->kind == NodeNeq ||
             n->kind == NodeLE || n->kind == NodeLT) {
         verifyType(n->lhs);

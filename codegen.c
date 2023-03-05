@@ -137,6 +137,7 @@ static int isExprNode(const Node *n) {
     case NodeLiteralString:
     case NodeLVar:
     case NodeAssign:
+    case NodeAssignStruct:
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
@@ -945,9 +946,9 @@ void genCode(const Node *n) {
         // rvalue, not a lvalue.
         genCodeLVal(n);
 
-        // But, array is an exception.  It works like a pointer even when it's
-        // being a rvalue.
-        if (n->type->type == TypeArray)
+        // But, array and struct is an exception.  It works like a pointer even
+        // when it's being a rvalue.
+        if (n->type->type == TypeArray || n->type->type == TypeStruct)
             return;
 
         // In order to change this lvalue into rvalue, push a value of a
@@ -972,6 +973,29 @@ void genCode(const Node *n) {
 
     } else if (n->kind == NodeAssign) {
         genCodeAssign(n);
+    } else if (n->kind == NodeAssignStruct) {
+        int total, rest;
+        total = rest = sizeOf(n->type);
+        genCodeLVal(n->lhs);
+        genCode(n->rhs);
+        dumps("  pop rdi");
+        dumps("  pop rax");
+        while (rest) {
+            if (rest >= 8) {
+                dumpf("  mov rsi, QWORD PTR %d[rdi]\n", total - rest);
+                dumpf("  mov QWORD PTR %d[rax], rsi\n", total - rest);
+                rest -= 8;
+            } else if (rest >= 4) {
+                dumpf("  mov esi, DWORD PTR %d[rdi]\n", total - rest);
+                dumpf("  mov DWORD PTR %d[rax], esi\n", total - rest);
+                rest -= 4;
+            } else {
+                dumpf("  mov sil, BYTE PTR %d[rdi]\n", total - rest);
+                dumpf("  mov BYTE PTR %d[rax], sil\n", total - rest);
+                rest -= 1;
+            }
+        }
+        dumps("  push rax");
     } else if (n->kind == NodeBreak) {
         dumpf("  jmp .Lend%d\n", dumpEnv.loopBlockID);
     } else if (n->kind == NodeContinue) {

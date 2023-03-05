@@ -1539,7 +1539,11 @@ static Node *assign(void) {
     Node *n = logicalOR();
     Token *t = globals.token;
     if (consumeReserved("=")) {
-        n = newNodeBinary(NodeAssign, n, assign(), n->type);
+        if (n->type->type == TypeStruct) {
+            n = newNodeBinary(NodeAssignStruct, n, assign(), n->type);
+        } else {
+            n = newNodeBinary(NodeAssign, n, assign(), n->type);
+        }
         n->token = t;
     } else if (consumeReserved("+=")) {
         Node *lhs = n;

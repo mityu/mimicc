@@ -134,6 +134,7 @@ typedef enum {
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)
     NodeAssign,        // {lhs} = {rhs};
+    NodeAssignStruct,  // Assignment, but only for structs
     NodeFCall,         // Function calls,
     NodeIf,
     NodeElseif,
