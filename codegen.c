@@ -284,9 +284,18 @@ static void genCodeLVal(const Node *n) {
         genCode(n->rhs);
         // Address for variable must be on the top of the stack.
         return;
-    } else if (!(n->kind == NodeLVar || n->kind == NodeGVar ||
-                n->kind == NodeMemberAccess)) {
-        error("Lhs of assignment is not a variable.");
+    } else if (n->kind == NodeExprList) {
+        Node *expr = n->body;
+        if (!expr)
+            errorAt(n->token->str, "Not a lvalue");
+        while (expr->next)
+            expr = expr->next;
+        if (!isLvalue(expr))
+            errorAt(expr->token->str, "Not a lvalue");
+        genCode(n);
+        return;
+    } else if (!isLvalue(n)) {
+        errorAt(n->token->str, "Not a lvalue");
     }
 
     // Make sure the value on the top of the stack is the memory address to lhs

@@ -156,6 +156,38 @@ void test_struct_assign(void) {
     ASSERT(17, s2.a[2]);
 }
 
+void test_compound_literal(void) {
+    typedef struct S {
+        int n;
+        int m;
+    } S;
+    {
+        S s;
+        s = (S){13, 19};
+        ASSERT(13, s.n);
+        ASSERT(19, s.m);
+    }
+    {
+        S s = (S){23, 29};
+        ASSERT(23, s.n);
+        ASSERT(29, s.m);
+    }
+    {
+        int m = (S){31, 37}.m;
+        ASSERT(37, m);
+    }
+    {
+        S s1 = {}, s2 = {41, 43};
+        s1 = (S){47, 53} = s2;
+        ASSERT(41, s1.n);
+        ASSERT(43, s1.m);
+    }
+    {
+        int m = (&(S){57, 59})->m;
+        ASSERT(57, m);
+    }
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();

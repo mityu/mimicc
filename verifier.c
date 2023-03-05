@@ -8,7 +8,6 @@ static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);
 static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
-static int isLvalue(const Node *n);
 
 void verifyFlow(const Node *n) {
     static int loopDepth = 0;
@@ -352,7 +351,7 @@ static int isArithmeticType(const TypeInfo *t) {
 }
 
 // Return TRUE is `n` is lvalue.
-static int isLvalue(const Node *n) {
+int isLvalue(const Node *n) {
     return n->kind == NodeLVar || n->kind == NodeGVar ||
         n->kind == NodeDeref || n->kind == NodeMemberAccess;
 }

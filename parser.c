@@ -1679,6 +1679,12 @@ static Node *typecast(void) {
 
         expectReserved(")");
 
+        if (matchReserved("{")) {  // Compound literal.  Not a type cast.
+            globals.token = tokenSave;
+            return postfix();
+        }
+
+
         if (sizeOf(obj->type) < 0) {
             errorAt(tokenSave->next->str, "Incomplete type.");
         }
@@ -1764,7 +1770,8 @@ static Node *unary(void) {
 static Node *postfix(void) {
     Token *tokenSave = globals.token;
     Token *ident = consumeIdent();
-    Node *n;
+    Node *head = NULL;
+    Node *n = NULL;
 
     if (ident && matchReserved("(")) {
         FCall *arg;
@@ -1787,7 +1794,62 @@ static Node *postfix(void) {
         safeFree(arg);  // Do NOT free its members! They've been used!
     } else {
         globals.token = tokenSave;
-        n = primary();
+
+        if (consumeReserved("(")) {
+            TypeInfo *type = NULL;
+
+            type = parseBaseType(NULL);
+            if (type && type->type == TypeStruct) {
+                expectReserved(")");
+                if (matchReserved("{")) {
+                    Node *init = NULL;
+                    Node *objNode = NULL;
+                    Obj *obj = NULL;
+                    Token *token = NULL;
+
+                    // Size of newly captured memory for this temporal object.
+                    int newCap = 0;
+                    int offset = 0;
+                    int align = 0;
+
+                    newCap = sizeOf(type);
+                    if (newCap < 0)
+                        errorAt(tokenSave->next->str, "Incomplete type.");
+
+                    align = alignOf(type);
+                    for (Env *env = globals.currentEnv; env; env = env->outer)
+                        offset += env->varSize;
+
+                    if (offset % align)
+                        newCap += align - (offset % align);
+
+                    offset += newCap;
+                    globals.currentEnv->varSize += newCap;
+                    if (globals.currentFunction->func->capStackSize < offset)
+                        globals.currentFunction->func->capStackSize = offset;
+
+                    token = tokenSave;
+
+                    obj = newObj(token, type, offset);
+                    objNode = newNodeLVar(obj);
+                    init = varInitializer();
+
+                    n = newNode(NodeExprList, type);
+                    n->body = buildStructInitNodes(objNode, type, init);
+                    for (Node *c = n->body; c; c = c->next) {
+                        if (!c->next) {
+                            c->next = objNode;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!n) {
+            globals.token = tokenSave;
+            n = primary();
+        }
     }
 
     for (;;) {
@@ -1837,6 +1899,8 @@ static Node *postfix(void) {
         }
     }
 
+    if (head)
+        return head;
     return n;
 }
 
