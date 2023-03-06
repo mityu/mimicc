@@ -948,6 +948,7 @@ static Node *stmt(void) {
 
         n = newNode(NodeSwitchCase, &Types.None);
         n->condition = expr();
+        n->blockID = switchNode->blockID;
         expectReserved(":");
 
         if (n->condition->kind != NodeNum)
@@ -976,6 +977,7 @@ static Node *stmt(void) {
                     "\"default\" label not within a switch statement");
 
         n = newNode(NodeSwitchCase, &Types.None);
+        n->blockID = switchNode->blockID;
 
         thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
         thisCase->node = n;

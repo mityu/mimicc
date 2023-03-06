@@ -450,14 +450,10 @@ static void genCodeIf(const Node *n) {
 }
 
 static void genCodeSwitch(const Node *n) {
-    int loopBlockIDSave;
     int haveDefaultLabel = 0;
 
     if (!n)
         return;
-
-    loopBlockIDSave = dumpEnv.loopBlockID;
-    dumpEnv.loopBlockID = n->blockID;
 
 
     genCode(n->condition);
@@ -470,18 +466,16 @@ static void genCodeSwitch(const Node *n) {
         dumpf("  mov rdi, %d\n", c->node->condition->val);
         dumps("  cmp rax, rdi");
         dumpf("  je .Lswitch_case_%d_%d\n",
-                dumpEnv.loopBlockID, c->node->condition->val);
+                n->blockID, c->node->condition->val);
     }
     if (haveDefaultLabel)
-        dumpf("  jmp .Lswitch_default_%d\n", dumpEnv.loopBlockID);
+        dumpf("  jmp .Lswitch_default_%d\n", n->blockID);
     else
-        dumpf("  jmp .Lend%d\n", dumpEnv.loopBlockID);
+        dumpf("  jmp .Lend%d\n", n->blockID);
 
     genCode(n->body);
 
-    dumpf(".Lend%d:\n", dumpEnv.loopBlockID);
-
-    dumpEnv.loopBlockID = loopBlockIDSave;
+    dumpf(".Lend%d:\n", n->blockID);
 }
 
 static void genCodeSwitchCase(const Node *n) {
@@ -489,9 +483,9 @@ static void genCodeSwitchCase(const Node *n) {
         return;
 
     if (n->condition)
-        dumpf(".Lswitch_case_%d_%d:\n", dumpEnv.loopBlockID, n->condition->val);
+        dumpf(".Lswitch_case_%d_%d:\n", n->blockID, n->condition->val);
     else
-        dumpf(".Lswitch_default_%d:\n", dumpEnv.loopBlockID);
+        dumpf(".Lswitch_default_%d:\n", n->blockID);
 }
 
 static void genCodeFor(const Node *n) {

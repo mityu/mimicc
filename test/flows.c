@@ -186,6 +186,32 @@ void test_switch_scope(void) {
     }
 }
 
+// Ref: https://hotnews8.net/programming/tricky-code/statement03
+// This test code is modification version of code introduced at above website.
+int strcmp(const char *, const char *);
+void test_switch_duffs_device(void) {
+    char s1[100] = {};
+    char s2[] = "abcdefghijklmnopqrstuvwxyz";
+    char *to   = s1;
+    char *from = s2;
+
+    int count = sizeof(s2);
+
+    switch (count % 8) {
+       case 0:  do {  *to++ = *from++;
+       case 7:        *to++ = *from++;
+       case 6:        *to++ = *from++;
+       case 5:        *to++ = *from++;
+       case 4:        *to++ = *from++;
+       case 3:        *to++ = *from++;
+       case 2:        *to++ = *from++;
+       case 1:        *to++ = *from++;
+                } while ((count -= 8) > 0);
+     }
+
+    ASSERT(0, strcmp(s1, s2));
+}
+
 int test_for_return_1(void) {
     for (;;)
         return 10;
@@ -511,6 +537,7 @@ int main(void) {
     test_switch_no_default();
     test_switch_fallthrough();
     test_switch_scope();
+    test_switch_duffs_device();
     ASSERT(10, test_for_return_1());
     ASSERT(10, test_for_return_2());
     ASSERT(10, test_for_return_3());
