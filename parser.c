@@ -1335,16 +1335,19 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
     Node head = {};
     Node *n = &head;
     if (varType->type == TypeArray) {
-        if (initializer->kind == NodeExprList || initializer->kind == NodeLiteralString) {
+        if (initializer->kind == NodeInitList || initializer->kind == NodeLiteralString) {
             n->next = buildArrayInitNodes(varNode, varType, initializer);
         } else {
             errorAt(initializer->token->str,
                     "Initializer-list is expected here.");
         }
     } else if (varType->type == TypeStruct) {
-        n->next = buildStructInitNodes(varNode, varType, initializer);
+        if (initializer->type->type == TypeStruct)
+            n->next = newNodeBinary(NodeAssignStruct, varNode, initializer, varType);
+        else
+            n->next = buildStructInitNodes(varNode, varType, initializer);
     } else {
-        if (initializer->kind == NodeExprList) {
+        if (initializer->kind == NodeInitList) {
             errorAt(initializer->token->str,
                     "Initializer-list is not expected here.");
         }
@@ -1358,7 +1361,7 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
         int elemCount = 0;
         int arraySize = varType->arraySize;
 
-        if (initializer->kind == NodeExprList) {
+        if (initializer->kind == NodeInitList) {
             int index = 0;
             Node head = {};
             Node *node = &head;
@@ -1455,7 +1458,7 @@ static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initia
 
     if (varType->type != TypeStruct)
         errorUnreachable();
-    else if (initializer->kind != NodeExprList)
+    else if (initializer->kind != NodeInitList)
         errorAt(initializer->token->str, "Initializer-list is expected here.");
 
     member = varNode->type->structDef->members;
@@ -1483,7 +1486,7 @@ static Node *varInitializer(void) {
     Node *initializer = NULL;
 
     if (consumeReserved("{")) {
-        initializer = newNode(NodeExprList, &Types.None);
+        initializer = newNode(NodeInitList, &Types.None);
         if (!consumeReserved("}")) {
             initializer->body = varInitializerList();
             expectReserved("}");
@@ -1500,7 +1503,7 @@ static Node *varInitializerList(void) {
 
     for (;;) {
         if (consumeReserved("{")) {
-            elem->next = newNode(NodeExprList, &Types.None);
+            elem->next = newNode(NodeInitList, &Types.None);
             if (!consumeReserved("}")) {
                 elem->next->body = varInitializerList();
                 expectReserved("}");

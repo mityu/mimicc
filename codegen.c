@@ -156,6 +156,8 @@ static int isExprNode(const Node *n) {
     case NodeClearStack:
     case NodeNop:
         return 0;
+    case NodeInitList:
+        errorUnreachable();
     }
     errorUnreachable();
     return 0;
@@ -911,6 +913,8 @@ void genCode(const Node *n) {
             if (isExprNode(c) && c->next)
                 dumps("  pop rax");
         }
+    } else if (n->kind == NodeInitList) {
+        errorUnreachable();
     } else if (n->kind == NodeNot) {
         // TODO: Make sure n->rhs lefts a value on stack
         genCode(n->rhs);

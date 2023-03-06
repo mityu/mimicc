@@ -142,6 +142,7 @@ typedef enum {
     NodeFor,
     NodeDoWhile,
     NodeExprList,      // Expressions concatenated by commas.
+    NodeInitList,      // Initializer list
     NodeBlock,         // { ... }
     NodeBreak,         // break;
     NodeContinue,      // continue;
