@@ -1389,9 +1389,7 @@ static Node *varDeclaration(void) {
     if (globals.currentFunction->func->capStackSize < totalVarSize)
         globals.currentFunction->func->capStackSize = totalVarSize;
 
-    enterNewEnv();
     initNode = newNode(NodeBlock, &Types.None);
-    exitCurrentEnv();
     initNode->body = headNode.next;
     return initNode;
 }

@@ -107,14 +107,12 @@ void verifyType(const Node *n) {
     } else if (n->kind == NodeFCall) {
         verifyTypeFCall(n);
     } else if (n->kind == NodeAssign) {
-        if (!isLvalue(n->lhs)) {
+        if (!isLvalue(n->lhs))
             errorAt(n->token->str, "Not a lvalue. Cannot assign.");
-            return;
-        }
-        if (!checkAssignable(n->lhs->type, n->rhs->type)) {
+
+        if (!checkAssignable(n->lhs->type, n->rhs->type))
             errorAt(n->token->str, "Type mismatch. Cannot assign.");
-            return;
-        }
+
         verifyType(n->rhs);
     } else if (n->kind == NodeAssignStruct) {
         if (n->lhs->type->type != TypeStruct)
@@ -130,21 +128,17 @@ void verifyType(const Node *n) {
         verifyType(n->lhs);
         if (!checkComparable(n->lhs->type, n->rhs->type)) {
             errorAt(n->token->str, "Type mismatch. Cannot compare these.");
-            return;
         }
         verifyType(n->rhs);
-        return;
     } else if (n->kind == NodeAdd) {
         verifyType(n->lhs);
         if (isWorkLikePointer(n->lhs->type)) {
             if (!isIntegerType(n->rhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
-                return;
             }
         } else if (isWorkLikePointer(n->rhs->type)) {
             if (!isIntegerType(n->lhs->type)) {
                 errorAt(n->token->str, "Invalid operation for pointer.");
-                return;
             }
         } else if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
             errorAt(n->token->str, "This operation is not supported.");
@@ -172,14 +166,12 @@ void verifyType(const Node *n) {
             errorAt(n->token->str, "This operation is not supported.");
         }
         verifyType(n->rhs);
-        return;
     } else if (n->kind == NodeDivRem) {
         verifyType(n->lhs);
         if (!(isIntegerType(n->lhs->type) && isIntegerType(n->rhs->type))) {
             errorAt(n->token->str, "This operation is not supported.");
         }
         verifyType(n->rhs);
-        return;
     } else if (n->kind == NodePostIncl || n->kind == NodePostDecl ||
             n->kind == NodePreIncl || n->kind == NodePreDecl) {
         Node *value =

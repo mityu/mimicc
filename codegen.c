@@ -893,7 +893,7 @@ void genCode(const Node *n) {
         return;
 
     if (n->kind == NodeNop) {
-        return;
+        // Do nothing.
     } else if (n->kind == NodeClearStack) {
         int entire, rest;
         entire = rest = sizeOf(n->rhs->type);

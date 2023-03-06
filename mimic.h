@@ -276,7 +276,6 @@ struct Globals {
     GVar *globalVars;          // Global variable list.
     GVar *staticVars;          // Static local variable list.
     LiteralString *strings;    // Literal string list.
-    Node *currentBlock;        // Current block.
     Env *currentEnv;
     Obj *currentFunction;      // Function currently parsed.
     int blockCount;            // The number of blocks appeared in program.
