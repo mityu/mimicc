@@ -883,10 +883,17 @@ static Node *stmt(void) {
         expectReserved(";");
         return n;
     } else if (consumeCertainTokenType(TokenReturn)) {
-        Node *n = expr();
-        expectReserved(";");
-        n = newNodeBinary(NodeReturn, n, NULL, n->type);
-        n->token = n->token->prev;
+        Node *n = NULL;
+        Node *expression = NULL;
+        Token *tokenReturn = globals.token->prev;
+        if (!consumeReserved(";")) {
+            expression = expr();
+            expectReserved(";");
+        }
+        n = newNodeBinary(NodeReturn, expression, NULL, &Types.Void);
+        n->token = tokenReturn;
+        if (expression)
+            n->type = expression->type;
         return n;
     } else if (consumeCertainTokenType(TokenIf)) {
         Node *n = newNode(NodeIf, &Types.None);

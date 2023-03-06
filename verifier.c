@@ -93,7 +93,7 @@ void verifyType(const Node *n) {
         verifyType(n->lhs);
 
         // Check the returned value's types.
-        if (!checkAssignable(currentFunction->func->retType, n->lhs->type)) {
+        if (!checkAssignable(currentFunction->func->retType, n->type)) {
             errorAt(n->token->str, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {

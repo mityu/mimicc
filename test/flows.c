@@ -482,6 +482,21 @@ void test_not(void) {
     ASSERT(5, p);
 }
 
+void make_value_13(int *n) {
+    do {
+        *n = 13;
+        return;
+    } while(0);
+    *n = 17;
+}
+
+void test_return_without_expr(void) {
+    int n = 0;
+    ASSERT(0, n);
+    make_value_13(&n);
+    ASSERT(13, n);
+}
+
 int main(void) {
     ASSERT(42, test_if_return_1());
     ASSERT(42, test_if_return_2());
