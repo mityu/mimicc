@@ -852,6 +852,7 @@ static Node *decl(void) {
 }
 
 static Node *stmt(void) {
+    static Node *switchNode = NULL;
     Node *varDeclNode = NULL;
 
     varDeclNode = varDeclaration();
@@ -916,6 +917,70 @@ static Node *stmt(void) {
             lastElse = lastElse->next;
         }
         n->elseblock = elseblock.next;
+
+        return n;
+    } else if (consumeCertainTokenType(TokenSwitch)) {
+        Node *switchNodeSave = switchNode;
+        Node *n = newNode(NodeSwitch, &Types.None);
+
+        switchNode = n;
+        n->blockID = globals.blockCount++;
+        expectReserved("(");
+        n->condition = expr();
+        expectReserved(")");
+        n->body = stmt();
+        switchNode = switchNodeSave;
+        return n;
+    } else if (consumeCertainTokenType(TokenCase)) {
+        Node *n;
+        SwitchCase *thisCase;
+
+        if (!switchNode)
+            errorAt(globals.token->prev->str,
+                    "\"case\" label not within a switch statement");
+
+        n = newNode(NodeSwitchCase, &Types.None);
+        n->condition = expr();
+        expectReserved(":");
+
+        if (n->condition->kind != NodeNum)
+            errorAt(n->token->str, "Constant expression required.");
+
+        thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
+        thisCase->node = n;
+
+        if (switchNode->cases) {
+            SwitchCase *cases = switchNode->cases;
+            while (cases->next)
+                cases = cases->next;
+            cases->next = thisCase;
+        } else {
+            switchNode->cases = thisCase;
+        }
+
+        return n;
+    } else if (consumeCertainTokenType(TokenDefault)) {
+        Node *n;
+        SwitchCase *thisCase;
+
+        expectReserved(":");
+        if (!switchNode)
+            errorAt(globals.token->prev->str,
+                    "\"default\" label not within a switch statement");
+
+        n = newNode(NodeSwitchCase, &Types.None);
+
+        thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
+        thisCase->node = n;
+
+        if (switchNode->cases) {
+            SwitchCase *cases = switchNode->cases;
+            while (cases->next)
+                cases = cases->next;
+            cases->next = thisCase;
+        } else {
+            switchNode->cases = thisCase;
+        }
 
         return n;
     } else if (consumeCertainTokenType(TokenFor)) {

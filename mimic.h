@@ -74,6 +74,9 @@ typedef enum {
     TokenIf,
     TokenElseif,
     TokenElse,
+    TokenSwitch,
+    TokenCase,
+    TokenDefault,
     TokenFor,
     TokenWhile,
     TokenDo,
@@ -139,6 +142,8 @@ typedef enum {
     NodeIf,
     NodeElseif,
     NodeElse,
+    NodeSwitch,
+    NodeSwitchCase,
     NodeFor,
     NodeDoWhile,
     NodeExprList,      // Expressions concatenated by commas.
@@ -154,6 +159,7 @@ typedef enum {
 } NodeKind;
 
 typedef struct Function Function;
+typedef struct SwitchCase SwitchCase;
 typedef struct FCall FCall;
 typedef struct Node Node;
 struct Node {
@@ -161,8 +167,8 @@ struct Node {
     Env *env;
     Node *lhs;
     Node *rhs;
-    Node *condition;   // Used by if/for/while/switch(?) statements.
-    Node *body;        // Used by if/for/while/switch statements, block and functions.
+    Node *condition;   // Used by if/for/while/switch statements.
+    Node *body;        // Used by if/for/while statements, block and functions.
     Node *elseblock;   // Used by if statement. Holds "else if" and "else" blocks.
     Node *initializer; // Used by for statement.
     Node *iterator;    // Used by for statement.
@@ -171,6 +177,7 @@ struct Node {
     TypeInfo *type;    // Type of this node's result value.
     Token *token;      // Token which gave this node.
     FCall *fcall;      // Called function information used when kind is NodeFCall.
+    SwitchCase *cases; // "case" or "default" nodes within switch statement.
     Obj *obj;
     int val;           // Used when kind is NodeNum.
     int blockID;       // Unique ID for jump labels. Valid only when the node
@@ -182,6 +189,11 @@ struct FCall {
     int len;       // Function name length.
     int argsCount; // The number of arguments.
     Node *args;    // Function arguments in reversed order.
+};
+
+struct SwitchCase {
+    SwitchCase *next;
+    Node *node;
 };
 
 struct Function {

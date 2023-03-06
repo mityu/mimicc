@@ -78,6 +78,113 @@ int test_if_return_9(void) {
     return 42;
 }
 
+void test_switch_case_default(void) {
+    {
+        int n = 3;
+        int validation = 0;
+        switch (n) {
+        case 3:
+            validation = 11;
+            break;
+        case 4:
+            validation = 13;
+            break;
+        default:
+            validation = 17;
+            break;
+        }
+        ASSERT(11, validation);
+    }
+    {
+        int n = 4;
+        int validation = 0;
+        switch (n) {
+        case 3:
+            validation = 11;
+            break;
+        case 4:
+            validation = 13;
+            break;
+        default:
+            validation = 17;
+            break;
+        }
+        ASSERT(13, validation);
+    }
+    {
+        int n = 100;
+        int validation = 0;
+        switch (n) {
+        case 3:
+            validation = 11;
+            break;
+        case 4:
+            validation = 13;
+            break;
+        default:
+            validation = 17;
+            break;
+        }
+        ASSERT(17, validation);
+    }
+    {
+        int n = 4;
+        int validation = 0;
+        switch (n) {
+        case 3:
+            validation = 7;
+            break;
+        case 4:
+            validation += 11;
+            validation += 13;
+            break;
+        default:
+            validation = 17;
+            break;
+        }
+        ASSERT(24, validation);
+    }
+}
+
+void test_switch_no_default(void) {
+    int n = 100;
+    int validation = 7;
+    switch (n) {
+    case 3:
+        validation = 11;
+        break;
+    case 4:
+        validation = 13;
+        break;
+    }
+    ASSERT(7, validation);
+}
+
+void test_switch_fallthrough(void) {
+    int n = 3;
+    int validation = 7;
+    switch (n) {
+    case 3:
+        validation += 11;
+    case 4:
+        validation += 13;
+        break;
+    }
+    ASSERT(31, validation);
+}
+
+void test_switch_scope(void) {
+    int n = 2;
+    switch (n) {
+        int a = 3;
+    case 1:
+        a = 5;
+    case 2:
+        a = 7;
+    default:
+        ASSERT(7, a);
+    }
+}
 
 int test_for_return_1(void) {
     for (;;)
@@ -385,6 +492,10 @@ int main(void) {
     ASSERT(42, test_if_return_7());
     ASSERT(42, test_if_return_8());
     ASSERT(42, test_if_return_9());
+    test_switch_case_default();
+    test_switch_no_default();
+    test_switch_fallthrough();
+    test_switch_scope();
     ASSERT(10, test_for_return_1());
     ASSERT(10, test_for_return_2());
     ASSERT(10, test_for_return_3());

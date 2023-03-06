@@ -21,6 +21,11 @@ void verifyFlow(const Node *n) {
         for (Node *c = n->body; c; c = c->next) {
             verifyFlow(c);
         }
+    } else if (n->kind == NodeSwitch) {
+        loopDepth++;
+        verifyFlow(n->body);
+        loopDepth--;
+        runtimeAssert(loopDepth >= 0);
     } else if (n->kind == NodeFor) {
         loopDepth++;
         verifyFlow(n->body);

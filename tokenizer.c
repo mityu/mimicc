@@ -171,6 +171,24 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "switch")) {
+            current = newToken(TokenSwitch, current, p, 6);
+            p += 6;
+            continue;
+        }
+
+        if (isToken(p, "case")) {
+            current = newToken(TokenCase, current, p, 4);
+            p += 4;
+            continue;
+        }
+
+        if (isToken(p, "default")) {
+            current = newToken(TokenDefault, current, p, 7);
+            p += 7;
+            continue;
+        }
+
         if (isToken(p, "for")) {
             current = newToken(TokenFor, current, p, 3);
             p += 3;
@@ -229,7 +247,7 @@ Token *tokenize(void) {
             p += 2;
             continue;
         }
-        if (strchr("!+-*/%()=;[]<>{},&.", *p)) {
+        if (strchr("!+-*/%()=;[]<>{},&.:", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }
