@@ -228,6 +228,23 @@ void test_switch_break_in_loop(void) {
     ASSERT(29, n2);
 }
 
+void test_switch_nest(void) {
+    int inner = 23;
+    int outer = 29;
+    switch (5) {
+    case 5:
+        switch (7) {
+        case 7:
+            inner = 31;
+            break;
+        }
+        outer = 37;
+        break;
+    }
+    ASSERT(31, inner);
+    ASSERT(37, outer);
+}
+
 int test_for_return_1(void) {
     for (;;)
         return 10;
@@ -555,6 +572,7 @@ int main(void) {
     test_switch_scope();
     test_switch_duffs_device();
     test_switch_break_in_loop();
+    test_switch_nest();
     ASSERT(10, test_for_return_1());
     ASSERT(10, test_for_return_2());
     ASSERT(10, test_for_return_3());
