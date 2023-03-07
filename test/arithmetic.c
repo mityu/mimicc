@@ -1,6 +1,6 @@
 #include "test.h"
 
-int main(void) {
+void testArithmeticComputation(void) {
     ASSERT(4, 5-3+2);
     ASSERT(6, 5+3-2);
     ASSERT(3, 6/2);
@@ -35,5 +35,22 @@ int main(void) {
     ASSERT(0, 1 >= 2);
     ASSERT(1, 2 >= 2);
     ASSERT(1, 3 >= 2);
+}
+
+void testArithmeticAssignment(void) {
+    int n;
+
+    n = 13;
+    n *= 23;
+    ASSERT(299, n);
+
+    n = 39;
+    n /= 3;
+    ASSERT(13, n);
+}
+
+int main(void) {
+    testArithmeticComputation();
+    testArithmeticAssignment();
     return 0;
 }

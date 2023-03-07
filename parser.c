@@ -1857,6 +1857,22 @@ static Node *assign(void) {
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
+    } else if (consumeReserved("*=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeMul, lhs, rhs, type);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
+    } else if (consumeReserved("/=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeDiv, lhs, rhs, type);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
     }
     return n;
 }

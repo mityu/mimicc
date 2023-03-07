@@ -246,6 +246,7 @@ Token *tokenize(void) {
         if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
                 hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
                 hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
+                hasPrefix(p, "*=") || hasPrefix(p, "/=") ||
                 hasPrefix(p, "++") || hasPrefix(p, "--") ||
                 hasPrefix(p, "&&") || hasPrefix(p, "||") ||
                 hasPrefix(p, "->")) {
