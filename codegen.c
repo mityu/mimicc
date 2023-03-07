@@ -138,7 +138,6 @@ static int isExprNode(const Node *n) {
     case NodeLVar:
     case NodeAssign:
     case NodeAssignStruct:
-    case NodeConditional:
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
@@ -159,6 +158,10 @@ static int isExprNode(const Node *n) {
     case NodeClearStack:
     case NodeNop:
         return 0;
+    case NodeConditional:
+        if (n->lhs->type->type == TypeVoid)
+            return 0;
+        return 1;
     case NodeInitList:
         errorUnreachable();
     }
