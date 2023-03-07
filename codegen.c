@@ -266,7 +266,17 @@ static void genCodeGVarInit(GVarInit *initializer) {
         } else if (elem->kind == GVarInitString) {
             dumpf("  .string \"%s\"\n", elem->rhs->token->literalStr->string);
         } else if (elem->kind == GVarInitPointer) {
-            error("Not implemented yet.");
+            if (elem->rhs->kind == NodeLiteralString) {
+                dumpf("  .quad .LiteralString%d\n",
+                        elem->rhs->token->literalStr->id);
+            } else if (elem->rhs->kind == NodeGVar) {
+                Token *token = initializer->rhs->token;
+                dumpf("  .quad %.*s\n", token->len, token->str);
+            } else if (elem->rhs->kind == NodeLVar) {
+                dumpf("  .quad .StaticVar%d\n", elem->rhs->obj->staticVarID);
+            } else {
+                errorUnreachable();
+            }
         } else {
             errorUnreachable();
         }

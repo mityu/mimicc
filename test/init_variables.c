@@ -14,6 +14,7 @@ typedef struct {
 } GS1;
 
 int gnum = 101;
+int *gptr1 = &gnum;
 char gchar = 'u';
 int gnumar1[5] = {17, 19, 23};
 int gnumar2[] = {29, 31, 37};
@@ -22,11 +23,16 @@ int gnumarar2[][3] = {{59, 61, 67}};
 char gstr1[10] = "abc";
 char gstr2[] = "xyz";
 char gstr3[] = {'d', 'e'};
+char *gstr4 = "asdf";
 char gstrar[2][5] = {"jjj", "kkk"};
 GS0 gs0 = {69, 71};
 GS0 gs0ar[2] = {{73, 79}};
 GS1 gs1 = {{83, 87}, 'w', "goodbye", {89, 97}};
 GS1 gs1rest = {{103, 107}, 'g', "space"};
+GS0 gs0_cmpd = (GS0){109, 113};
+GS1 gs1_cmpd = (GS1){{}, 0, {}, (GS0){119, 123}};
+GS0 *gs0_cmpd_ptr1 = &(GS0){3, 5};
+GS0 *gs0_cmpd_ptr2 = &gs0;
 
 
 void test_init_local_variables(void) {
@@ -283,6 +289,11 @@ void test_init_global_primitives(void) {
     ASSERT(117, gchar);
 }
 
+void test_init_global_pointers(void) {
+    ASSERT(0, strcmp(gstr4, "asdf"));
+    ASSERT(1, &gnum == gptr1);
+}
+
 void test_init_global_arrays(void) {
     ASSERT(5 * sizeof(int), sizeof(gnumar1));
     ASSERT(17, gnumar1[0]);
@@ -353,6 +364,19 @@ void test_init_global_structs(void) {
     ASSERT(0, gs1rest.str[8]);
     ASSERT(0, gs1rest.s0.n);
     ASSERT(0, gs1rest.s0.c);
+
+    ASSERT(109, gs0_cmpd.n);
+    ASSERT(113, gs0_cmpd.c);
+
+    ASSERT(119, gs1_cmpd.s0.n);
+    ASSERT(123, gs1_cmpd.s0.c);
+
+    ASSERT(3, gs0_cmpd_ptr1->n);
+    ASSERT(5, gs0_cmpd_ptr1->c);
+
+    ASSERT(1, gs0_cmpd_ptr2 == &gs0);
+    ASSERT(69, gs0_cmpd_ptr2->n);
+    ASSERT(71, gs0_cmpd_ptr2->c);
 }
 
 void test_init_static_primitives(void) {
@@ -360,6 +384,15 @@ void test_init_static_primitives(void) {
     static int n = 13;
     ASSERT(0, zero);
     ASSERT(13, n);
+}
+
+void test_init_static_pointers(void) {
+    static int num;
+    static int *ptr = &num;
+    static char *str = "bar";
+
+    ASSERT(1, ptr == &num);
+    ASSERT(0, strcmp(str, "bar"));
 }
 
 void test_init_static_arrays(void) {
@@ -431,6 +464,10 @@ void test_init_static_structs(void) {
     static S0 s0ar[2] = {{13, 17}};
     static S1 s1 = {{19, 23}, 'x', "hello", {29, 31}};
     static S1 s1rest = {{37, 41}, 'h', "world"};
+    // TODO: Make this work
+    // static S0 s0_cmpd = (S0){43, 47};
+    // static S1 s1_cmpd = (S1){{}, 0, {}, (S0){53, 57}};
+    // static S0 *s0_cmpd_ptr = &s0_cmpd;
 
     ASSERT(7, s0.n);
     ASSERT(11, s0.c);
@@ -458,6 +495,16 @@ void test_init_static_structs(void) {
     ASSERT(0, s1rest.str[8]);
     ASSERT(0, s1rest.s0.n);
     ASSERT(0, s1rest.s0.c);
+
+    // ASSERT(43, s0_cmpd.n);
+    // ASSERT(47, s0_cmpd.c);
+    // 
+    // ASSERT(53, s1_cmpd.s0.n);
+    // ASSERT(57, s1_cmpd.s0.c);
+    // 
+    // ASSERT(1, s0_cmpd_ptr == &s0);
+    // ASSERT(43, s0_cmpd_ptr->n);
+    // ASSERT(47, s0_cmpd_ptr->c);
 }
 
 int main(void) {
@@ -466,9 +513,11 @@ int main(void) {
     test_zero_clear_local_array();
     test_zero_clear_local_struct();
     test_init_global_primitives();
+    test_init_global_pointers();
     test_init_global_arrays();
     test_init_global_structs();
     test_init_static_primitives();
+    test_init_static_pointers();
     test_init_static_arrays();
     test_init_static_structs();
 }

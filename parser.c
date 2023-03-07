@@ -37,6 +37,7 @@ static Node *add(void);
 static Node *mul(void);
 static Node *typecast(void);
 static Node *unary(void);
+static Node *compoundLiteral(void);
 static Node *postfix(void);
 static FCall *funcArgList(void);
 static Node *primary(void);
@@ -673,6 +674,11 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
     errorUnreachable();
 }
 
+static int isNamelessObject(Obj *obj) {
+    return obj->token->len >= 12 &&
+        memcmp(obj->token->str, "nameless-object-", 12) == 0;
+}
+
 static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
     if (!initializer) {
         return newGVarInit(GVarInitZero, NULL, sizeOf(varType));
@@ -732,6 +738,19 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         int initLen = 0, memberCount = 0;
         int prevOffset = 0;
 
+        // Compound-literal is given.  Re-use the initialzier of it.
+        if (checkTypeEqual(varType, initializer->type)) {
+            Obj *tmpObj = initializer->obj;
+
+            if (tmpObj->isStatic && isNamelessObject(tmpObj)) {
+                for (GVar *var = globals.staticVars; var; var = var->next) {
+                    if (matchToken(var->obj->token,
+                                tmpObj->token->str, tmpObj->token->len))
+                        return var->initializer;
+                }
+            }
+        }
+
         if (initializer->kind != NodeInitList)
             errorAt(initializer->token->str, "Initialzier-list required");
 
@@ -769,7 +788,31 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
 
         return head.next;
     } else if (varType->type == TypePointer) {
-        errorAt(initializer->token->str, "Initializer for pointer is not supported yet");
+        int size = sizeOf(varType);
+        if (initializer->type->type == TypeArray) {
+            if (!checkTypeEqual(varType->baseType, initializer->type->baseType)) {
+                errorAt(initializer->token->str, "Different type.");
+            }
+
+            if (initializer->kind == NodeGVar ||
+                    initializer->kind == NodeLVar ||
+                    initializer->kind == NodeLiteralString) {
+                return newGVarInit(GVarInitPointer, initializer, size);
+            }
+        } else {
+            if (!checkTypeEqual(varType, initializer->type)) {
+                errorAt(initializer->token->str, "Different type.");
+            }
+
+            if (initializer->kind == NodeAddress) {
+                Node *varNode = initializer->rhs;
+                if (varNode->kind == NodeGVar ||
+                        (varNode->kind == NodeLVar && varNode->obj->isStatic)) {
+                    return newGVarInit(GVarInitPointer, varNode, size);
+                }
+            }
+        }
+        errorAt(initializer->token->str, "Constant value required.");
     } else {
         int size = sizeOf(varType);
         int modBySize = initializer->val;
@@ -2034,6 +2077,92 @@ static Node *unary(void) {
     return n;
 }
 
+static Node *compoundLiteral(void) {
+    Token * tokenSave = globals.token;
+    TypeInfo *type = NULL;
+
+    if (!consumeReserved("("))
+        return NULL;
+
+
+    type = parseBaseType(NULL);
+    if (!type || type->type != TypeStruct) {
+        globals.token = tokenSave;
+        return NULL;
+    }
+
+    expectReserved(")");
+    if (!matchReserved("{")) {
+        globals.token = tokenSave;
+        return NULL;
+    }
+
+    if (sizeOf(type) < 0)
+        errorAt(tokenSave->next->str, "Incomplete type.");
+
+    if (globals.currentEnv == &globals.globalEnv) {
+        // Compound-literal at global scope.
+        Node *init = NULL;
+        Obj *obj = NULL;
+        GVar *gvar = NULL;
+
+        gvar = newGVar(NULL);
+        init = varInitializer();
+
+        obj = newObj(tokenSave, type, -1);
+        obj->staticVarID = globals.staticVarCount++;
+        obj->isStatic = 1;
+        obj->token = buildTagNameForNamelessObject(obj->staticVarID);
+        gvar->obj = obj;
+        gvar->initializer = buildGVarInitSection(type, init);
+
+        gvar->next = globals.staticVars;
+        globals.staticVars = gvar;
+
+        return newNodeLVar(obj);
+    } else {
+        // Compound-literal at local scope.
+        Node *n = NULL;
+        Node *init = NULL;
+        Node *objNode = NULL;
+        Obj *obj = NULL;
+
+        // Size of newly captured memory for this temporal object.
+        int newCap = 0;
+        int offset = 0;
+        int align = 0;
+
+        newCap = sizeOf(type);
+
+        align = alignOf(type);
+        for (Env *env = globals.currentEnv; env; env = env->outer)
+            offset += env->varSize;
+
+        if (offset % align)
+            newCap += align - (offset % align);
+
+        offset += newCap;
+        globals.currentEnv->varSize += newCap;
+        if (globals.currentFunction->func->capStackSize < offset)
+            globals.currentFunction->func->capStackSize = offset;
+
+        obj = newObj(NULL, type, offset);
+        obj->token = tokenSave;
+        objNode = newNodeLVar(obj);
+        init = varInitializer();
+
+        n = newNode(NodeExprList, type);
+        n->body = buildStructInitNodes(objNode, type, init);
+        for (Node *c = n->body; c; c = c->next) {
+            if (!c->next) {
+                c->next = objNode;
+                break;
+            }
+        }
+        return n;
+    }
+}
+
 static Node *postfix(void) {
     Token *tokenSave = globals.token;
     Token *ident = consumeIdent();
@@ -2062,58 +2191,12 @@ static Node *postfix(void) {
     } else {
         globals.token = tokenSave;
 
-        if (consumeReserved("(")) {
-            TypeInfo *type = NULL;
+        n = compoundLiteral();
 
-            type = parseBaseType(NULL);
-            if (type && type->type == TypeStruct) {
-                expectReserved(")");
-                if (matchReserved("{")) {
-                    Node *init = NULL;
-                    Node *objNode = NULL;
-                    Obj *obj = NULL;
-                    Token *token = NULL;
-
-                    // Size of newly captured memory for this temporal object.
-                    int newCap = 0;
-                    int offset = 0;
-                    int align = 0;
-
-                    newCap = sizeOf(type);
-                    if (newCap < 0)
-                        errorAt(tokenSave->next->str, "Incomplete type.");
-
-                    align = alignOf(type);
-                    for (Env *env = globals.currentEnv; env; env = env->outer)
-                        offset += env->varSize;
-
-                    if (offset % align)
-                        newCap += align - (offset % align);
-
-                    offset += newCap;
-                    globals.currentEnv->varSize += newCap;
-                    if (globals.currentFunction->func->capStackSize < offset)
-                        globals.currentFunction->func->capStackSize = offset;
-
-                    token = tokenSave;
-
-                    obj = newObj(token, type, offset);
-                    objNode = newNodeLVar(obj);
-                    init = varInitializer();
-
-                    n = newNode(NodeExprList, type);
-                    n->body = buildStructInitNodes(objNode, type, init);
-                    for (Node *c = n->body; c; c = c->next) {
-                        if (!c->next) {
-                            c->next = objNode;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!n) {
+        if (n) {
+            while (n->next)
+                n = n->next;
+        } else {
             globals.token = tokenSave;
             n = primary();
         }

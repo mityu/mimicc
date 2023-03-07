@@ -335,7 +335,9 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
         if (arg2)
             return 0;
     } else if (t1->type == TypeStruct) {
-        // TODO: Implement
+        return t1->structDef == t2->structDef;
+    } else if (t1->type == TypeEnum) {
+        return t1->enumDef == t2->enumDef;
     }
     return 1;
 }
