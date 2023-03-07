@@ -274,6 +274,8 @@ static void genCodeGVarInit(GVarInit *initializer) {
                 dumpf("  .quad %.*s\n", token->len, token->str);
             } else if (elem->rhs->kind == NodeLVar) {
                 dumpf("  .quad .StaticVar%d\n", elem->rhs->obj->staticVarID);
+            } else if (elem->rhs->kind == NodeNum) {
+                dumpf("  .long %d\n", elem->rhs->val);
             } else {
                 errorUnreachable();
             }
@@ -377,29 +379,24 @@ static void genCodeDeref(const Node *n) {
         return;
 
     genCodeLVal(n);
-    if (n->type->type == TypeArray) {
-        dumps("  mov rax, [rsp]");
+    dumps("  mov rax, [rsp]");
+    switch (sizeOf(n->type)) {
+    case 8:
+        dumps("  mov rax, [rax]");
+        break;
+    case 4:
+        dumps("  mov eax, DWORD PTR [rax]");
+        dumps("  movsx rax, eax");
+        break;
+    case 1:
+        dumps("  mov al, BYTE PTR [rax]");
+        dumps("  movsx rax, al");
+        break;
+    default:
         dumps("  lea rax, [rax]");
-        dumps("  mov [rsp], rax");
-    } else {
-        dumps("  mov rax, [rsp]");
-        switch (sizeOf(n->type)) {
-        case 8:
-            dumps("  mov rax, [rax]");
-            break;
-        case 4:
-            dumps("  mov eax, DWORD PTR [rax]");
-            dumps("  movsx rax, eax");
-            break;
-        case 1:
-            dumps("  mov al, BYTE PTR [rax]");
-            dumps("  movsx rax, al");
-            break;
-        default:
-            errorUnreachable();
-        }
-        dumps("  mov [rsp], rax");
+        break;
     }
+    dumps("  mov [rsp], rax");
 }
 
 static void genCodeAssign(const Node *n) {
@@ -921,6 +918,9 @@ static void genCodeSub(const Node *n) {
         dumps("  push rax");
     } else {
         switch (sizeOf(n->type)) {
+        case 8:
+            dumps("  sub rax, rdi");
+            break;
         case 4:
             dumps("  sub eax, edi");
             dumps("  movsx rax, eax");
@@ -928,6 +928,7 @@ static void genCodeSub(const Node *n) {
         case 1:
             dumps("  sub al, dil");
             dumps("  movsx rax, al");
+            break;
         default:
             errorUnreachable();
         }
