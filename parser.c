@@ -1738,11 +1738,21 @@ static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initia
     Node *node = &head;
     Node *init = NULL;
     Obj *member = NULL;
+    int initLen = 0;
+    int memberCount = 0;
 
     if (varType->type != TypeStruct)
         errorUnreachable();
     else if (initializer->kind != NodeInitList)
         errorAt(initializer->token->str, "Initializer-list is expected here.");
+
+    for (Node *c = initializer->body; c; c = c->next)
+        initLen++;
+    for (member = varNode->type->structDef->members; member; member = member->next)
+        memberCount++;
+
+    if (initLen > memberCount)
+        errorAt(initializer->token->str, "Too much items are given.");
 
     member = varNode->type->structDef->members;
     init = initializer->body;
