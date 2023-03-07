@@ -138,6 +138,7 @@ static int isExprNode(const Node *n) {
     case NodeLVar:
     case NodeAssign:
     case NodeAssignStruct:
+    case NodeConditional:
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
@@ -1095,6 +1096,16 @@ void genCode(const Node *n) {
         dumpf("  jmp .Literator%d\n", dumpEnv.loopBlockID);
     } else if (n->kind == NodeReturn) {
         genCodeReturn(n);
+    } else if (n->kind == NodeConditional) {
+        genCode(n->condition);
+        dumps("  pop rax");
+        dumps("  cmp rax, 0");
+        dumpf("  je .Lcond_falsy_%d\n", n->blockID);
+        genCode(n->lhs);
+        dumpf("  jmp .Lcond_end_%d\n", n->blockID);
+        dumpf(".Lcond_falsy_%d:\n", n->blockID);
+        genCode(n->rhs);
+        dumpf(".Lcond_end_%d:\n", n->blockID);
     } else if (n->kind == NodeIf) {
         genCodeIf(n);
     } else if (n->kind == NodeSwitch) {

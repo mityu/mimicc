@@ -1,5 +1,7 @@
 #include "test.h"
 
+int g_test_cond_operator_validator;
+
 int test_if_return_1(void) {
     if (1)
         return 42;
@@ -556,6 +558,35 @@ void test_return_without_expr(void) {
     ASSERT(13, n);
 }
 
+int helper_conditional_operator_set_13(void) {
+    g_test_cond_operator_validator = 13;
+    return 0;
+}
+
+void test_conditional_operator(void) {
+    int n = 1 ? 13 : 19;
+    ASSERT(13, n);
+
+    n = 0 ? 23 : 29;
+    ASSERT(29, n);
+
+    n = 1 ? 1 ? 31 : 37 : 41;
+    ASSERT(31, n);
+
+    n = 1 ? 0 ? 47 : 53 : 59;
+    ASSERT(53, n);
+
+    n = 0 ? 0 ? 61 : 67 : 1 ? 71 : 73;
+    ASSERT(71, n);
+
+    g_test_cond_operator_validator = 0;
+    n = 0 ? helper_conditional_operator_set_13() : 19;
+    ASSERT(0, g_test_cond_operator_validator);
+
+    n = 1 ? helper_conditional_operator_set_13() : 19;
+    ASSERT(13, g_test_cond_operator_validator);
+}
+
 int main(void) {
     ASSERT(42, test_if_return_1());
     ASSERT(42, test_if_return_2());
@@ -602,5 +633,6 @@ int main(void) {
     test_comma_2();
     test_cond_not();
     test_not();
+    test_conditional_operator();
     return 0;
 }

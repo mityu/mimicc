@@ -139,6 +139,7 @@ typedef enum {
     NodeAssign,        // {lhs} = {rhs};
     NodeAssignStruct,  // Assignment, but only for structs
     NodeFCall,         // Function calls,
+    NodeConditional,   // {expr} ? {expr} : {expr}
     NodeIf,
     NodeElseif,
     NodeElse,

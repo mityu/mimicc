@@ -28,6 +28,7 @@ static Node *varInitializer(void);
 static Node *varInitializerList(void);
 static Node *expr(void);
 static Node *assign(void);
+static Node *conditional(void);
 static Node *logicalOR(void);
 static Node *logicalAND(void);
 static Node *equality(void);
@@ -1777,7 +1778,7 @@ static Node *expr(void) {
 }
 
 static Node *assign(void) {
-    Node *n = logicalOR();
+    Node *n = conditional();
     Token *t = globals.token;
     if (consumeReserved("=")) {
         if (n->type->type == TypeStruct) {
@@ -1803,6 +1804,29 @@ static Node *assign(void) {
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
     }
+    return n;
+}
+
+static Node *conditional(void) {
+    static int condOpCount = 0;
+    Node *n = logicalOR();
+
+    if (consumeReserved("?")) {
+        Node *cond = n;
+        Node *lhs = NULL;
+        Node *rhs = NULL;
+
+        lhs = expr();
+        expectReserved(":");
+        rhs = conditional();
+
+        n = newNode(NodeConditional, lhs->type);
+        n->condition = cond;
+        n->lhs = lhs;
+        n->rhs = rhs;
+        n->blockID = condOpCount++;
+    }
+
     return n;
 }
 

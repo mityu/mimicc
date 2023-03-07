@@ -80,6 +80,9 @@ void verifyType(const Node *n) {
         verifyType(n->body);
     } else if (n->kind == NodeExprList) {
         verifyType(n->body);
+    } else if (n->kind == NodeConditional) {
+        // TODO: Check type of n->lhs and n->rhs matches or not.
+        // For the details, see P.90 on C11 draft.
     } else if (n->kind == NodeIf) {
         verifyType(n->condition);
         verifyType(n->body);
