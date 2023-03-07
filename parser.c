@@ -611,6 +611,8 @@ int sizeOf(const TypeInfo *ti) {
     } else if (ti->type == TypePointer) {
         return 8;
     } else if (ti->type == TypeArray) {
+        if (ti->arraySize < 0)
+            return -1;
         return sizeOf(ti->baseType) * ti->arraySize;
     } else if (ti->type == TypeStruct) {
         return ti->structDef->totalSize;
