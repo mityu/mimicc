@@ -3,6 +3,9 @@
 int g_num1;
 int *g_ptr, g_array[3], g_marray1[2][3], g_marray2[2][3][4], g_num2;
 
+extern int gExternVar;
+int gExternVar;
+
 void test_global_variables(void) {
     int i, j;
 
@@ -338,6 +341,11 @@ void test_access_results_in_array(void) {
     ASSERT(29, par[4]);
 }
 
+void test_extern_variable(void) {
+    gExternVar = 101;
+    ASSERT(101, gExternVar);
+}
+
 int main(void) {
     test_local_variables();
     test_increment_or_decrement_array_element();
@@ -345,5 +353,6 @@ int main(void) {
     ASSERT(10, local_var_independent());
     test_static_local_variable();
     test_access_results_in_array();
+    test_extern_variable();
     return 0;
 }

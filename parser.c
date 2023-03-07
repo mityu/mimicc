@@ -948,16 +948,31 @@ static Node *decl(void) {
         } else {
             // Global variable declaration
             GVar *gvar = NULL;
-            if (findGlobalVar(obj->token->str, obj->token->len))
+            GVar *existingVar = NULL;
+            existingVar = findGlobalVar(obj->token->str, obj->token->len);
+            if (existingVar && !existingVar->obj->isExtern)
                 errorAt(obj->token->str, "Redefinition of variable.");
             else if (obj->type->type == TypeVoid)
                 errorAt(obj->token->str,
                         "Cannot declare variable with type \"void\"");
 
-            gvar = newGVar(obj);
+            if (existingVar) {
+                gvar = existingVar;
+                if (!attr.isExtern)
+                    gvar->obj->isExtern = 0;
+            } else {
+                gvar = newGVar(obj);
+            }
+
 
             if (consumeReserved("=")) {
-                Node *init = varInitializer();
+                Node *init = NULL;
+
+                if (attr.isExtern)
+                    errorAt(globals.token->prev->str,
+                            "Extern variable cannot have initializers");
+
+                init = varInitializer();
                 gvar->initializer = buildGVarInitSection(obj->type, init);
             } else {
                 gvar->initializer = buildGVarInitSection(obj->type, NULL);
@@ -967,8 +982,10 @@ static Node *decl(void) {
                 errorAt(obj->token->str, "Variable has incomplete type.");
             }
 
-            gvar->next = globals.globalVars;
-            globals.globalVars = gvar;
+            if (!existingVar) {
+                gvar->next = globals.globalVars;
+                globals.globalVars = gvar;
+            }
         }
 
         if (!consumeReserved(","))
@@ -1465,7 +1482,7 @@ static Node *varDeclaration(void) {
 
         // Variable size is not defined when array with size omitted, so do not
         // compute variable offset here.  It will be computed after parsing
-        // initialzier statement.
+        // initializer statement.
         varNode = newNodeLVar(varObj);
         varNode->obj = varObj;
         if (varObj->isStatic) {
@@ -1473,9 +1490,15 @@ static Node *varDeclaration(void) {
             varObj->staticVarID = globals.staticVarCount++;
         }
 
-        // Parse initialzier statement
+        // Parse initializer statement
         if (consumeReserved("=")) {
-            Node *initializer = varInitializer();
+            Node *initializer = NULL;
+
+            if (attr.isExtern)
+                errorAt(globals.token->prev->str,
+                        "Extern variable cannot have initializers");
+
+            initializer = varInitializer();
 
             if (varObj->isStatic) {
                 gvarObj->initializer = buildGVarInitSection(varType, initializer);
