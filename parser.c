@@ -573,6 +573,11 @@ static Function *parseFuncArgDeclaration(void) {
             break;
         }
 
+        // Read array as pointer when it appears on function arguments.
+        for (TypeInfo *type = (*arg)->type; type->type == TypeArray; type = type->baseType) {
+            type->type = TypePointer;
+        }
+
         func->argsCount++;
 
         if (!consumeReserved(","))
