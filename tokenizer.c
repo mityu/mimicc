@@ -168,7 +168,7 @@ Token *tokenize(void) {
                 ++q;
             if (isToken(q, "if")) {
                 q += 2;
-                current = newToken(TokenElseif, current, p, q - p);
+                current = newToken(TokenElseif, current, p, (int)(q - p));
                 p = q;
             } else {
                 current = newToken(TokenElse, current, p, 4);
@@ -261,7 +261,7 @@ Token *tokenize(void) {
             current = newToken(TokenNumber, current, p, 0);
             char *q = p;
             current->val = strtol(p, &p, 10);
-            current->len = p - q;
+            current->len = (int)(p - q);
             continue;
         }
 
@@ -284,7 +284,7 @@ Token *tokenize(void) {
             if (*(++p) != '\'') {
                 errorAt(p, "Character literal is too long.");
             }
-            current = newToken(TokenNumber, current, q, p - q + 1);
+            current = newToken(TokenNumber, current, q, (int)(p - q + 1));
             current->val = (int)c;
             p++;
             continue;
@@ -326,7 +326,7 @@ Token *tokenize(void) {
             str->next = globals.strings;
             globals.strings = str;
 
-            current = newToken(TokenLiteralString, current, q, p - q + 1);
+            current = newToken(TokenLiteralString, current, q, (int)(p - q + 1));
             current->literalStr = str;
 
             p++;  // Skip closing double quote.
@@ -337,7 +337,7 @@ Token *tokenize(void) {
             char *q = p;
             while (isAlnum(*p))
                 ++p;
-            current = newToken(TokenIdent, current, q, p - q);
+            current = newToken(TokenIdent, current, q, (int)(p - q));
             continue;
         }
 
