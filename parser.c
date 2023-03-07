@@ -380,7 +380,6 @@ static Enum *findEnum(const char *name, int len) {
 }
 
 static EnumItem *findEnumItem(const char *name, int len) {
-    Enum *e = NULL;
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Enum *e = env->enums; e; e = e->next) {
             for (EnumItem *item = e->items; item; item = item->next) {
@@ -1214,12 +1213,12 @@ static Node *stmt(void) {
         if (!consumeReserved(";")) {
             Token *tokenSave = globals.token;
             if (parseBaseType(NULL)) {
-                Node *block = newNode(NodeBlock, &Types.None);
+                Node *blockInit = newNode(NodeBlock, &Types.None);
 
                 globals.token = tokenSave;
-                block->body = varDeclaration();
+                blockInit->body = varDeclaration();
 
-                n->initializer = block;
+                n->initializer = blockInit;
             } else {
                 n->initializer = expr();
                 expectReserved(";");
@@ -2225,7 +2224,7 @@ static Node *postfix(void) {
         } else if (consumeReserved("--")) {
             n = newNodeBinary(NodePostDecl, n, NULL, n->type);
         } else if (consumeReserved(".") || consumeReserved("->")) {
-            Token *ident;
+            Token *memberToken;
             Obj *member;
 
             if (globals.token->prev->str[0] == '-') {
@@ -2238,10 +2237,10 @@ static Node *postfix(void) {
             if (n->type->type != TypeStruct)
                 errorAt(n->token->str, "Struct required.");
 
-            ident = expectIdent();
-            member = findStructMember(n->type->structDef, ident->str, ident->len);
+            memberToken = expectIdent();
+            member = findStructMember(n->type->structDef, memberToken->str, memberToken->len);
             if (!member)
-                errorAt(ident->str, "No such struct member.");
+                errorAt(memberToken->str, "No such struct member.");
 
             n = newNodeBinary(NodeMemberAccess, n, NULL, member->type);
         } else {
