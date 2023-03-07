@@ -212,6 +212,22 @@ void test_switch_duffs_device(void) {
     ASSERT(0, strcmp(s1, s2));
 }
 
+void test_switch_break_in_loop(void) {
+    int n1 = 13;
+    int n2 = 17;
+    while (1) {
+        switch (5) {
+        case 5:
+            n1 = 23;
+            break;
+        }
+        n2 = 29;
+        break;
+    }
+    ASSERT(23, n1);
+    ASSERT(29, n2);
+}
+
 int test_for_return_1(void) {
     for (;;)
         return 10;
@@ -538,6 +554,7 @@ int main(void) {
     test_switch_fallthrough();
     test_switch_scope();
     test_switch_duffs_device();
+    test_switch_break_in_loop();
     ASSERT(10, test_for_return_1());
     ASSERT(10, test_for_return_2());
     ASSERT(10, test_for_return_3());

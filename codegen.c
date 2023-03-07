@@ -451,11 +451,14 @@ static void genCodeIf(const Node *n) {
 
 static void genCodeSwitch(const Node *n) {
     int haveDefaultLabel = 0;
+    int loopBlockIDSave;
 
     if (!n)
         return;
 
 
+    loopBlockIDSave = dumpEnv.loopBlockID;
+    dumpEnv.loopBlockID = n->blockID;
     genCode(n->condition);
     dumps("  pop rax");
     for (SwitchCase *c = n->cases; c; c = c->next) {
@@ -476,6 +479,8 @@ static void genCodeSwitch(const Node *n) {
     genCode(n->body);
 
     dumpf(".Lend%d:\n", n->blockID);
+
+    dumpEnv.loopBlockID = loopBlockIDSave;
 }
 
 static void genCodeSwitchCase(const Node *n) {
