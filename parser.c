@@ -404,6 +404,14 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
     return t;
 }
 
+static GVarInit *newGVarInit(GVarInitKind kind, Node *rhs, int size) {
+    GVarInit *init = (GVarInit *)safeAlloc(sizeof(GVarInit));
+    init->kind = kind;
+    init->rhs = rhs;
+    init->size = size;
+    return init;
+}
+
 // Parse base of declared type and return its information.  Return NULL if type
 // doesn't appear.
 static TypeInfo *parseBaseType(ObjAttr *attr) {
@@ -655,6 +663,119 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
     errorUnreachable();
 }
 
+static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
+    if (!initializer) {
+        return newGVarInit(GVarInitZero, NULL, sizeOf(varType));
+    } else if (varType->type == TypeArray &&
+            varType->baseType->type == TypeChar &&
+            initializer->kind == NodeLiteralString) {
+        GVarInit head = {};
+        GVarInit *init = &head;
+        int strSize = initializer->token->literalStr->len;
+        int arraySize = varType->arraySize;
+
+        if (arraySize < 0)
+            varType->arraySize = strSize;
+        else if (strSize > arraySize)
+            errorAt(initializer->token->str,
+                    "%d items given to array sized %d.", strSize, arraySize);
+
+        init->next = newGVarInit(GVarInitString, initializer, strSize);
+        init = init->next;
+
+        if (strSize < arraySize)
+            init->next = newGVarInit(GVarInitZero, NULL, arraySize - strSize);
+
+        return head.next;
+    } else if (varType->type == TypeArray) {
+        GVarInit head = {};
+        GVarInit *init = &head;
+        int initLen = 0;
+
+        if (initializer->kind != NodeInitList)
+            errorAt(initializer->token->str, "Initialzier-list required");
+
+        for (Node *c = initializer->body; c; c = c->next)
+            initLen++;
+
+        if (varType->arraySize < 0)
+            varType->arraySize = initLen;
+        else if (initLen > varType->arraySize)
+            errorAt(initializer->token->str,
+                    "%d items given to array sized %d.", initLen, varType->arraySize);
+
+        for (Node *c = initializer->body; c; c = c->next) {
+            init->next = buildGVarInitSection(varType->baseType, c);
+            while (init->next)
+                init = init->next;
+        }
+
+        if (initLen < varType->arraySize)
+            init->next = newGVarInit(GVarInitZero, NULL,
+                    sizeOf(varType->baseType) * (varType->arraySize - initLen));
+
+        return head.next;
+    } else if (varType->type == TypeStruct) {
+        GVarInit head = {};
+        GVarInit *init = &head;
+        Obj *member = NULL;
+        int initLen = 0, memberCount = 0;
+        int prevOffset = 0;
+
+        if (initializer->kind != NodeInitList)
+            errorAt(initializer->token->str, "Initialzier-list required");
+
+        for (Node *c = initializer->body; c; c = c->next)
+            initLen++;
+
+        for (member = varType->structDef->members; member; member = member->next)
+            memberCount++;
+
+        if (initLen > memberCount)
+            errorAt(initializer->token->str, "Too much items are given.");
+
+        member = varType->structDef->members;
+        for (Node *c = initializer->body; c; c = c->next) {
+            int offset = member->offset;
+            int padding = offset - prevOffset;
+
+            padding = offset - prevOffset;
+            if (padding) {
+                init->next = newGVarInit(GVarInitZero, NULL, padding);
+                init = init->next;
+            }
+
+            init->next = buildGVarInitSection(member->type, c);
+            while (init->next)
+                init = init->next;
+
+            prevOffset = offset + sizeOf(member->type);
+            member = member->next;
+        }
+
+        if (varType->structDef->totalSize - prevOffset)
+            init->next = newGVarInit(
+                    GVarInitZero, NULL, varType->structDef->totalSize - prevOffset);
+
+        return head.next;
+    } else if (varType->type == TypePointer) {
+        errorAt(initializer->token->str, "Initializer for pointer is not supported yet");
+    } else {
+        int size = sizeOf(varType);
+        int modBySize = initializer->val;
+        if (size < 4)
+            modBySize &= ((1 << size * 8) - 1);
+
+        if (initializer->kind != NodeNum) {
+            errorAt(initializer->token->str, "Constant value required.");
+        } else if (modBySize != initializer->val) {
+            errorAt(initializer->token->str,
+                    "Value overflows: value will be %d.", modBySize);
+        }
+        return newGVarInit(GVarInitNum, initializer, size);
+    }
+}
+
 void program(void) {
     Node body;
     Node *last = &body;
@@ -833,11 +954,19 @@ static Node *decl(void) {
                 errorAt(obj->token->str,
                         "Cannot declare variable with type \"void\"");
 
+            gvar = newGVar(obj);
+
+            if (consumeReserved("=")) {
+                Node *init = varInitializer();
+                gvar->initializer = buildGVarInitSection(obj->type, init);
+            } else {
+                gvar->initializer = buildGVarInitSection(obj->type, NULL);
+            }
+
             if (sizeOf(obj->type) < 0) {
                 errorAt(obj->token->str, "Variable has incomplete type.");
             }
 
-            gvar = newGVar(obj);
             gvar->next = globals.globalVars;
             globals.globalVars = gvar;
         }
@@ -1305,6 +1434,7 @@ static Node *varDeclaration(void) {
         Node *varNode = NULL;
         Obj *varObj = NULL;
         Obj *existingVar = NULL;
+        GVar *gvarObj = NULL;
         int varPadding = 0;
         int varAlignment = 0;
 
@@ -1338,23 +1468,25 @@ static Node *varDeclaration(void) {
         // initialzier statement.
         varNode = newNodeLVar(varObj);
         varNode->obj = varObj;
+        if (varObj->isStatic) {
+            gvarObj = newGVar(varObj);
+            varObj->staticVarID = globals.staticVarCount++;
+        }
 
         // Parse initialzier statement
         if (consumeReserved("=")) {
-            Node *initializer = NULL;
+            Node *initializer = varInitializer();
 
             if (varObj->isStatic) {
-                errorAt(globals.token->prev->str,
-                        "Initializer for static variable is not implemented yet.");
-            }
-
-            initializer = varInitializer();
-            n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
-            n = n->next;
-            n->next = buildVarInitNodes(varNode, varType, initializer);
-
-            while (n->next)
+                gvarObj->initializer = buildGVarInitSection(varType, initializer);
+            } else {
+                n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
                 n = n->next;
+                n->next = buildVarInitNodes(varNode, varType, initializer);
+
+                while (n->next)
+                    n = n->next;
+            }
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
             errorAt(globals.token->str, "Initializer list required.");
         }
@@ -1365,10 +1497,14 @@ static Node *varDeclaration(void) {
 
 
         if (varObj->isStatic) {
-            GVar *gvar = newGVar(varObj);
-            gvar->next = globals.staticVars;
-            globals.staticVars = gvar;
-            varObj->staticVarID = globals.staticVarCount++;
+            // Register static variable.
+            gvarObj->next = globals.staticVars;
+            globals.staticVars = gvarObj;
+
+            // If no initializer is given, initializer section is not builded
+            // yet, so create it here.
+            if (!gvarObj->initializer)
+                gvarObj->initializer = buildGVarInitSection(varType, NULL);
         } else if (varObj->isExtern) {
             // Do nothing.
         } else {

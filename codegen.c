@@ -241,6 +241,34 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
     RDI, RSI, RDX, RCX, R8, R9
 };
 
+static void genCodeGVarInit(GVarInit *initializer) {
+    for (GVarInit *elem = initializer; elem; elem = elem->next) {
+        if (elem->kind == GVarInitZero) {
+            dumpf("  .zero %d\n", elem->size);
+        } else if (elem->kind == GVarInitNum) {
+            switch (elem->size) {
+            case 8:
+                dumpf("  .quad %d\n", elem->rhs->val);
+                break;
+            case 4:
+                dumpf("  .long %d\n", elem->rhs->val);
+                break;
+            case 1:
+                dumpf("  .byte %d\n", elem->rhs->val);
+                break;
+            default:
+                errorUnreachable();
+            }
+        } else if (elem->kind == GVarInitString) {
+            dumpf("  .string \"%s\"\n", elem->rhs->token->literalStr->string);
+        } else if (elem->kind == GVarInitPointer) {
+            error("Not implemented yet.");
+        } else {
+            errorUnreachable();
+        }
+    }
+}
+
 void genCodeGlobals(void) {
     if (globals.globalVars == NULL && globals.staticVars == NULL &&
             globals.strings == NULL)
@@ -272,11 +300,11 @@ void genCodeGlobals(void) {
             dumpf(".globl %.*s\n", v->token->len, v->token->str);
         }
         dumpf("%.*s:\n", v->token->len, v->token->str);
-        dumpf("  .zero %d\n", sizeOf(v->type));
+        genCodeGVarInit(gvar->initializer);
     }
     for (GVar *v = globals.staticVars; v; v = v->next) {
         dumpf(".StaticVar%d:\n", v->obj->staticVarID);
-        dumpf("  .zero %d\n", sizeOf(v->obj->type));
+        genCodeGVarInit(v->initializer);
     }
 }
 

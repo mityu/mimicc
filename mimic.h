@@ -228,9 +228,25 @@ struct Obj {
 
 // Struct for global variables.
 typedef struct GVar GVar;
+typedef struct GVarInit GVarInit;
 struct GVar {
     GVar *next;
     Obj *obj;
+    GVarInit *initializer;
+};
+
+typedef enum {
+    GVarInitZero,
+    GVarInitString,
+    GVarInitNum,
+    GVarInitPointer,
+} GVarInitKind;
+
+struct GVarInit {
+    GVarInit *next;
+    GVarInitKind kind;
+    int size;
+    Node *rhs;
 };
 
 struct LiteralString {
