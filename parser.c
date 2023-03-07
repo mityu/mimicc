@@ -331,9 +331,11 @@ static Obj *findLVar(char *name, int len) {
                 return v;
         }
     }
-    for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
-        if (matchToken(v->token, name, len))
-            return v;
+    if (globals.currentFunction) {
+        for (Obj *v = globals.currentFunction->func->args; v; v = v->next) {
+            if (matchToken(v->token, name, len))
+                return v;
+        }
     }
     return NULL;
 }
