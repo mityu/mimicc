@@ -576,6 +576,17 @@ void test_static_local_variable(void) {
     ASSERT(4, helper_countup());
 }
 
+void test_access_results_in_array(void) {
+    int arar[][5] = {{3, 5, 7, 9, 11}, {13, 17, 19, 23, 29}};
+    int *par = arar[1];
+
+    ASSERT(13, par[0]);
+    ASSERT(17, par[1]);
+    ASSERT(19, par[2]);
+    ASSERT(23, par[3]);
+    ASSERT(29, par[4]);
+}
+
 int main(void) {
     test_init_local_variables();
     test_init_local_arrays();
@@ -586,5 +597,6 @@ int main(void) {
     test_global_variables();
     ASSERT(10, local_var_independent());
     test_static_local_variable();
+    test_access_results_in_array();
     return 0;
 }

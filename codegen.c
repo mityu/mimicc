@@ -335,23 +335,29 @@ static void genCodeDeref(const Node *n) {
         return;
 
     genCodeLVal(n);
-    dumps("  mov rax, [rsp]");
-    switch (sizeOf(n->type)) {
-    case 8:
-        dumps("  mov rax, [rax]");
-        break;
-    case 4:
-        dumps("  mov eax, DWORD PTR [rax]");
-        dumps("  movsx rax, eax");
-        break;
-    case 1:
-        dumps("  mov al, BYTE PTR [rax]");
-        dumps("  movsx rax, al");
-        break;
-    default:
-        errorUnreachable();
+    if (n->type->type == TypeArray) {
+        dumps("  mov rax, [rsp]");
+        dumps("  lea rax, [rax]");
+        dumps("  mov [rsp], rax");
+    } else {
+        dumps("  mov rax, [rsp]");
+        switch (sizeOf(n->type)) {
+        case 8:
+            dumps("  mov rax, [rax]");
+            break;
+        case 4:
+            dumps("  mov eax, DWORD PTR [rax]");
+            dumps("  movsx rax, eax");
+            break;
+        case 1:
+            dumps("  mov al, BYTE PTR [rax]");
+            dumps("  movsx rax, al");
+            break;
+        default:
+            errorUnreachable();
+        }
+        dumps("  mov [rsp], rax");
     }
-    dumps("  mov [rsp], rax");
 }
 
 static void genCodeAssign(const Node *n) {
