@@ -93,6 +93,12 @@ Token *tokenize(void) {
             continue;
         }
 
+        if (isToken(p, "_Noreturn")) {
+            // Just ignore it now.
+            p += 9;
+            continue;
+        }
+
         if (isToken(p, "void")) {
             current = newToken(TokenTypeName, current, p, 4);
             current->varType = TypeVoid;
