@@ -686,21 +686,13 @@ static void genCodeFunction(const Node *n) {
 
     // Push arguments onto stacks from registers.
     if (regargs) {
-        int offsets[REG_ARGS_MAX_COUNT] = {};
-        int size[REG_ARGS_MAX_COUNT] = {};
-        int totalOffset = 0;
+        int count = 0;
         Obj *arg = n->obj->func->args;
 
-        for (int i = 0; i < regargs; ++i) {
-            size[i] = sizeOf(arg->type);
-            totalOffset += size[i];
-            offsets[i] = totalOffset;
-            arg = arg->next;
-        }
-
-        for (int i = 0; i < regargs; ++i) {
-            const char *fmt;
-            switch (size[i]) {
+        for (; count < regargs; ++count, arg = arg->next) {
+            int size = sizeOf(arg->type);
+            char *fmt;
+            switch (sizeOf(arg->type)) {
             case 8:
                 fmt = "  mov %d[rbp], %s\n";
                 break;
@@ -713,7 +705,7 @@ static void genCodeFunction(const Node *n) {
             default:
                 errorUnreachable();
             }
-            dumpf(fmt, -offsets[i], getReg(argRegs[i], size[i]));
+            dumpf(fmt, -arg->offset, getReg(argRegs[count], size));
         }
     }
 
