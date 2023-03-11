@@ -621,6 +621,7 @@ static void genCodeFCall(const Node *n) {
 
     if ((n->fcall->argsCount - regargs) > 0) {
         stackArgSize += (n->fcall->argsCount - regargs) * ONE_WORD_BYTES;
+        stackVarSize += stackArgSize;
     }
 
     stackAlignState = (stackAlignState + stackVarSize) % 16;
@@ -719,6 +720,11 @@ static void genCodeFunction(const Node *n) {
     dumps("  mov rbp, rsp");
     if (n->obj->func->capStackSize)
         dumpf("  sub rsp, %d\n", n->obj->func->capStackSize);
+
+    // "main" function does not set return adress on stack, so RSP value slips
+    // by 8 bytes (size of 1 word).  Adjust the difference here.
+    if (n->obj->token->len == 4 && memcmp(n->obj->token->str, "main", 4) == 0)
+        dumpf("  sub rsp, %d\n", ONE_WORD_BYTES);
 
     // Push arguments onto stacks from registers.
     if (regargs) {

@@ -5,7 +5,7 @@ typedef struct {
     int fp_offset;
     void *overflow_arg_area;
     void *reg_save_area;
-} va_list;
+} va_list[1];
 int vsprintf(char *, const char *, va_list);
 
 char *fmt1(const char *fmt, ...) {
