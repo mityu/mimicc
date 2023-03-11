@@ -155,6 +155,13 @@ void testTypedefIncompleteArray(void) {
     ASSERT(4, sizeof(a2));
 }
 
+typedef int GInt[3];
+void helperFuncTakeGInt(GInt);
+void testTypeNotRewritten(void) {
+    // sizeof(GInt) was 8 in the past.
+    ASSERT(12, sizeof(GInt));
+}
+
 int main(void) {
     testGlobalTypedefPrimitive();
     testTypedefPrimitive();
@@ -162,5 +169,6 @@ int main(void) {
     testTypedefStructInPlace();
     testTypedefEnum();
     testTypedefEnumInPlace();
+    testTypeNotRewritten();
     return 0;
 }

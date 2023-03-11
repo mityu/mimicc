@@ -407,6 +407,12 @@ static TypeInfo *newTypeInfo(TypeKind kind) {
     return t;
 }
 
+static TypeInfo *cloneTypeInfo(TypeInfo *type) {
+    TypeInfo *clone = newTypeInfo(TypeNone);
+    *clone = *type;
+    return clone;
+}
+
 static GVarInit *newGVarInit(GVarInitKind kind, Node *rhs, int size) {
     GVarInit *init = (GVarInit *)safeAlloc(sizeof(GVarInit));
     init->kind = kind;
@@ -577,8 +583,9 @@ static Function *parseFuncArgDeclaration(void) {
         }
 
         // Read array as pointer when it appears on function arguments.
-        for (TypeInfo *type = (*arg)->type; type->type == TypeArray; type = type->baseType) {
-            type->type = TypePointer;
+        for (TypeInfo **type = &(*arg)->type; (*type)->type == TypeArray; type = &(*type)->baseType) {
+            *type = cloneTypeInfo(*type);
+            (*type)->type = TypePointer;
         }
 
         func->argsCount++;
