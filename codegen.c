@@ -609,6 +609,8 @@ static void genCodeFCall(const Node *n) {
     int exCapToAlignRSP = 0; // Extra memory size to capture in order to align RSP.
     int regargs = n->fcall->argsCount;
 
+    stackAlignStateSave = stackAlignState;
+
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
@@ -621,7 +623,6 @@ static void genCodeFCall(const Node *n) {
         stackArgSize += (n->fcall->argsCount - regargs) * ONE_WORD_BYTES;
     }
 
-    stackAlignStateSave = stackAlignState;
     stackAlignState = (stackAlignState + stackVarSize) % 16;
     if (stackAlignState)
         exCapToAlignRSP = 16 - stackAlignState;
