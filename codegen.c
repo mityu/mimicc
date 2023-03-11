@@ -156,6 +156,7 @@ static int isExprNode(const Node *n) {
     case NodeReturn:
     case NodeFunction:
     case NodeClearStack:
+    case NodeVaStart:
     case NodeNop:
         return 0;
     case NodeConditional:
@@ -617,14 +618,7 @@ static void genCodeFCall(const Node *n) {
     }
 
     if ((n->fcall->argsCount - regargs) > 0) {
-        Node *arg = n->fcall->args;
-        for (int i = 0; i < regargs; ++i)
-            arg = arg->next;
-        stackArgSize = 0;
-        for (; arg; arg = arg->next) {
-            stackArgSize += ONE_WORD_BYTES;
-        }
-        stackVarSize += stackArgSize;
+        stackArgSize += (n->fcall->argsCount - regargs) * ONE_WORD_BYTES;
     }
 
     stackAlignStateSave = stackAlignState;
@@ -653,9 +647,50 @@ static void genCodeFCall(const Node *n) {
 
     // Adjust RSP value when we used stack to pass arguments.
     if (stackArgSize)
-        dumpf("  add rsp, %d\n", stackArgSize);
+        dumpf("  add rsp, %d /* Pop overflow args */\n", stackArgSize);
 
     dumps("  push rax");
+}
+
+static void genCodeVaStart(const Node *n) {
+    Obj *lastArg = NULL;
+    int offset = 0;  // Currently watching va_list member's offset
+    int argsOverflows = 0;
+
+    for (Obj *arg = n->parentFunc->args; arg; arg = arg->next)
+        if (!arg->next)
+            lastArg = arg;
+
+    genCodeLVal(n->fcall->args->next);
+    dumps("  pop rax");
+
+    if (n->parentFunc->argsCount < REG_ARGS_MAX_COUNT) {
+        dumpf("  mov DWORD PTR %d[rax], %d\n", offset,
+                ONE_WORD_BYTES * (REG_ARGS_MAX_COUNT + 1) - lastArg->offset);
+    } else {
+        dumpf("  mov DWORD PTR %d[rax], %d\n",
+                offset, ONE_WORD_BYTES * REG_ARGS_MAX_COUNT);
+    }
+
+    offset += sizeOf(&Types.Int);
+    dumpf("  mov DWORD PTR %d[rax], %d\n", offset, REG_ARGS_MAX_COUNT * ONE_WORD_BYTES);
+
+    offset += sizeOf(&Types.Int);
+    if (n->parentFunc->argsCount <= REG_ARGS_MAX_COUNT) {
+        dumpf("  lea rdi, %d[rbp]\n", ONE_WORD_BYTES * 2);
+    } else {
+        int overflow_reg_offset = -lastArg->offset + ONE_WORD_BYTES;
+        dumpf("  lea rdi, %d[rbp]\n", overflow_reg_offset);
+    }
+    dumpf("  mov %d[rax], rdi\n", offset);
+
+    offset += ONE_WORD_BYTES;
+    if (n->parentFunc->argsCount >= REG_ARGS_MAX_COUNT) {
+        dumpf("  lea rdi, %d[rbp]\n", -n->parentFunc->args->offset);
+    } else {
+        dumpf("  lea rdi, %d[rbp]\n", -lastArg->offset);
+    }
+    dumpf("  mov %d[rax], rdi\n", offset);
 }
 
 static void genCodeFunction(const Node *n) {
@@ -706,6 +741,18 @@ static void genCodeFunction(const Node *n) {
                 errorUnreachable();
             }
             dumpf(fmt, -arg->offset, getReg(argRegs[count], size));
+        }
+    }
+
+    if (n->obj->func->haveVaArgs && regargs < REG_ARGS_MAX_COUNT) {
+        int offset = 0;
+        for (Obj *arg = n->obj->func->args; arg; arg = arg->next)
+            if (!arg->next)
+                offset = -arg->offset;
+        for (int i = regargs; i < REG_ARGS_MAX_COUNT; ++i) {
+            offset += ONE_WORD_BYTES;
+            dumpf("  mov %d[rbp], %s\n",
+                    offset, getReg(argRegs[i], ONE_WORD_BYTES));
         }
     }
 
@@ -1124,6 +1171,8 @@ void genCode(const Node *n) {
         genCodeDoWhile(n);
     } else if (n->kind == NodeFCall) {
         genCodeFCall(n);
+    } else if (n->kind == NodeVaStart) {
+        genCodeVaStart(n);
     } else if (n->kind == NodeFunction) {
         genCodeFunction(n);
     } else if (n->kind == NodePreIncl || n->kind == NodePostIncl) {

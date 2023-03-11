@@ -157,6 +157,7 @@ typedef enum {
     NodeGVar,          // Global variable, work as lvar.
     NodeTypeCast,      // Type casting.
     NodeClearStack,    // Clear certain range of stack with 0.
+    NodeVaStart,       // Built-in va_args()
 } NodeKind;
 
 typedef struct Function Function;
@@ -180,6 +181,7 @@ struct Node {
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     SwitchCase *cases; // "case" or "default" nodes within switch statement.
     Obj *obj;
+    Function *parentFunc;
     int val;           // Used when kind is NodeNum.
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.

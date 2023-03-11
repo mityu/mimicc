@@ -9,5 +9,6 @@ void assert(char *file, int linenr, int expected, int actual, char *code);
 int *allocInt4();
 void free(void *p);
 int printf(const char *fmt, ...);
+int strcmp(const char *, const char *);
 
 #endif

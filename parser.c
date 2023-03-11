@@ -945,19 +945,32 @@ static Node *decl(void) {
             // Compute argument variables' offset.
             // Note that arguments are all copied onto stack at the head of
             // function.
-            argOffset = 0;
-            argNum = 0;
-            for (Obj *v = obj->func->args; v; v = v->next) {
-                ++argNum;
-                if (argNum > REG_ARGS_MAX_COUNT) {
-                    argOffset -= ONE_WORD_BYTES;
-                    v->offset = argOffset;
-                } else {
-                    argOffset += sizeOf(v->type);
-                    v->offset = argOffset;
-                    n->env->varSize = argOffset;
-                    if (argNum == REG_ARGS_MAX_COUNT) {
-                        argOffset = -ONE_WORD_BYTES;
+            if (obj->func->haveVaArgs) {
+                for (Obj *v = obj->func->args; v; v = v->next) {
+                    ++argNum;
+                    if (argNum > REG_ARGS_MAX_COUNT) {
+                        v->offset = -ONE_WORD_BYTES * (argNum - REG_ARGS_MAX_COUNT + 1);
+                    } else {
+                        v->offset =
+                            (REG_ARGS_MAX_COUNT - argNum + 1) * ONE_WORD_BYTES;
+                    }
+                }
+                n->env->varSize = REG_ARGS_MAX_COUNT * ONE_WORD_BYTES;
+            } else {
+                argOffset = 0;
+                argNum = 0;
+                for (Obj *v = obj->func->args; v; v = v->next) {
+                    ++argNum;
+                    if (argNum > REG_ARGS_MAX_COUNT) {
+                        argOffset -= ONE_WORD_BYTES;
+                        v->offset = argOffset;
+                    } else {
+                        argOffset += sizeOf(v->type);
+                        v->offset = argOffset;
+                        n->env->varSize = argOffset;
+                        if (argNum == REG_ARGS_MAX_COUNT) {
+                            argOffset = -ONE_WORD_BYTES;
+                        }
                     }
                 }
             }
@@ -2198,12 +2211,18 @@ static Node *postfix(void) {
         FCall *arg;
         Obj *f;
 
-        f = findFunction(ident->str, ident->len);
-        if (!f) {
-            errorAt(ident->str, "No such function.");
+        if (matchToken(ident, "__builtin_va_start", 18)) {
+            n = newNodeFCall(&Types.Void);
+            n->kind = NodeVaStart;
+            n->parentFunc = globals.currentFunction->func;
+        } else {
+            f = findFunction(ident->str, ident->len);
+            if (!f) {
+                errorAt(ident->str, "No such function.");
+            }
+            n = newNodeFCall(f->func->retType);
         }
 
-        n = newNodeFCall(f->func->retType);
         arg = funcArgList();
 
         n->fcall->name = ident->str;
