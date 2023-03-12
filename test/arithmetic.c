@@ -46,6 +46,7 @@ void testBitwiseOperations(void) {
     ASSERT(0, 3 | 7 ^ 7);
     ASSERT(2, 1 << 1);
     ASSERT(32, 1 << 5);
+    ASSERT(256, 1 << 8);
     ASSERT(1, 2 >> 1);
     ASSERT(8, 64 >> 3);
     ASSERT(-2, -8 >> 2);

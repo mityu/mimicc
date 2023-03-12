@@ -1090,8 +1090,8 @@ void genCode(const Node *n) {
         genCode(n->lhs);
         genCode(n->rhs);
         dumps("  pop rcx");
-        dumps("  pop rdi");
-        dumpf("  %s edx, cl\n", op);
+        dumps("  pop rax");
+        dumpf("  %s eax, cl\n", op);
         dumps("  movsx rax, eax");
         dumps("  push rax");
     } else if (n->kind == NodeNum) {
