@@ -133,6 +133,9 @@ typedef enum {
     NodeNot,           // !
     NodeLogicalOR,     // ||
     NodeLogicalAND,    // &&
+    NodeBitwiseAND,    // &
+    NodeBitwiseOR,     // |
+    NodeBitwiseXOR,    // ^
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)

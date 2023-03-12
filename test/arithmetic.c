@@ -37,6 +37,15 @@ void testArithmeticComputation(void) {
     ASSERT(1, 3 >= 2);
 }
 
+void testBitwiseOperations(void) {
+    ASSERT(1, 3 & 5);
+    ASSERT(7, 3 | 5);
+    ASSERT(6, 3 ^ 5);
+    ASSERT(5, 7 & 6 ^ 3);
+    ASSERT(3, 3 & 6 | 1 & 1);
+    ASSERT(0, 3 | 7 ^ 7);
+}
+
 void testArithmeticAssignment(void) {
     int n;
 
@@ -47,6 +56,18 @@ void testArithmeticAssignment(void) {
     n = 39;
     n /= 3;
     ASSERT(13, n);
+
+    n = 3;
+    n &= 5;
+    ASSERT(1, n);
+
+    n = 3;
+    n |= 5;
+    ASSERT(7, n);
+
+    n = 3;
+    n ^= 5;
+    ASSERT(6, n);
 }
 
 int main(void) {

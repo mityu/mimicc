@@ -31,6 +31,9 @@ static Node *assign(void);
 static Node *conditional(void);
 static Node *logicalOR(void);
 static Node *logicalAND(void);
+static Node *XORexpr(void);
+static Node *ORexpr(void);
+static Node *ANDexpr(void);
 static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
@@ -1893,6 +1896,30 @@ static Node *assign(void) {
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
+    } else if (consumeReserved("&=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseAND, lhs, rhs, &Types.Number);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
+    } else if (consumeReserved("|=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseOR, lhs, rhs, &Types.Number);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
+    } else if (consumeReserved("^=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseXOR, lhs, rhs, &Types.Number);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
     }
     return n;
 }
@@ -1930,10 +1957,37 @@ static Node *logicalOR(void) {
 }
 
 static Node *logicalAND(void) {
-    Node *n = equality();
+    Node *n = XORexpr();
     while (consumeReserved("&&")) {
-        n = newNodeBinary(NodeLogicalAND, n, equality(), &Types.Number);
+        n = newNodeBinary(NodeLogicalAND, n, XORexpr(), &Types.Number);
         n->blockID = globals.blockCount++;
+    }
+    return n;
+}
+
+static Node *XORexpr(void) {
+    Node *n = ORexpr();
+    while (consumeReserved("^")) {
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseXOR, n, ORexpr(), &Types.Number);
+    }
+    return n;
+}
+
+static Node *ORexpr(void) {
+    Node *n = ANDexpr();
+    while (consumeReserved("|")) {
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseOR, n, ANDexpr(), &Types.Number);
+    }
+    return n;
+}
+
+static Node *ANDexpr(void) {
+    Node *n = equality();
+    while (consumeReserved("&")) {
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeBitwiseAND, n, equality(), &Types.Number);
     }
     return n;
 }

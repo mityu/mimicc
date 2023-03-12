@@ -134,6 +134,9 @@ static int isExprNode(const Node *n) {
     case NodeLogicalAND:
     case NodeLogicalOR:
     case NodeNum:
+    case NodeBitwiseAND:
+    case NodeBitwiseOR:
+    case NodeBitwiseXOR:
     case NodeLiteralString:
     case NodeLVar:
     case NodeAssign:
@@ -1088,6 +1091,27 @@ void genCode(const Node *n) {
         dumpf(".Llogicalor%d:\n", n->blockID);
         dumps("  setne al");
         dumps("  movzb rax, al");
+        dumps("  push rax");
+    } else if (n->kind == NodeBitwiseAND) {
+        genCode(n->lhs);
+        genCode(n->rhs);
+        dumps("  pop rax");
+        dumps("  pop rdi");
+        dumps("  and rax, rdi");
+        dumps("  push rax");
+    } else if (n->kind == NodeBitwiseOR) {
+        genCode(n->lhs);
+        genCode(n->rhs);
+        dumps("  pop rax");
+        dumps("  pop rdi");
+        dumps("  or rax, rdi");
+        dumps("  push rax");
+    } else if (n->kind == NodeBitwiseXOR) {
+        genCode(n->lhs);
+        genCode(n->rhs);
+        dumps("  pop rax");
+        dumps("  pop rdi");
+        dumps("  xor rax, rdi");
         dumps("  push rax");
     } else if (n->kind == NodeNum) {
         dumpf("  push %d\n", n->val);
