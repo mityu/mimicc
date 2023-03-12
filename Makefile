@@ -106,7 +106,7 @@ test_selfself_prepair:
 
 .PHONY: test_selfself_diff
 test_selfself_diff: $(OBJ_SELF:%.o=%.s) $(OBJ_SELFSELF:%.o=%.s)
-	@for $$f in $(notdir OBJ_SELFSELF); do \
+	@for f in $(notdir $(OBJ_SELFSELF:%.o=%.s)); do \
 		echo $$f; \
 		diff -u $(HOME_SELF)/$$f $(HOME_SELFSELF)/$$f || exit 1; \
 	done
