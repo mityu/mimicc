@@ -799,27 +799,34 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         return head.next;
     } else if (varType->type == TypePointer) {
         int size = sizeOf(varType);
-        if (initializer->type->type == TypeArray) {
-            if (!checkTypeEqual(varType->baseType, initializer->type->baseType)) {
-                errorAt(initializer->token->str, "Different type.");
-            }
 
+        if (!checkAssignable(varType, initializer->type)) {
+            errorAt(initializer->token->str, "Different type.");
+        }
+
+        for (int keepGoing = 1; keepGoing;) {
+            switch (initializer->kind) {
+            case NodeTypeCast:  // fallthrough.
+            case NodeAddress:
+                initializer = initializer->rhs;
+                break;
+            default:
+                keepGoing = 0;
+                break;
+            }
+        }
+
+        if (initializer->type->type == TypeArray) {
             if (initializer->kind == NodeGVar ||
                     initializer->kind == NodeLVar ||
-                    initializer->kind == NodeLiteralString) {
+                    initializer->kind == NodeLiteralString ||
+                    initializer->kind == NodeNum) {
                 return newGVarInit(GVarInitPointer, initializer, size);
             }
         } else {
-            if (!checkTypeEqual(varType, initializer->type)) {
-                errorAt(initializer->token->str, "Different type.");
-            }
-
-            if (initializer->kind == NodeAddress) {
-                Node *varNode = initializer->rhs;
-                if (varNode->kind == NodeGVar ||
-                        (varNode->kind == NodeLVar && varNode->obj->isStatic)) {
-                    return newGVarInit(GVarInitPointer, varNode, size);
-                }
+            if (initializer->kind == NodeGVar || initializer->kind == NodeNum ||
+                    (initializer->kind == NodeLVar && initializer->obj->isStatic)) {
+                return newGVarInit(GVarInitPointer, initializer, size);
             }
         }
         errorAt(initializer->token->str, "Constant value required.");

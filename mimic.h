@@ -340,6 +340,7 @@ int sizeOf(const TypeInfo *ti);
 void verifyFlow(const Node *n);
 void verifyType(const Node *n);
 int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
+int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 int isLvalue(const Node *n);
 int isWorkLikePointer(const TypeInfo *t);
 #endif // HEADER_MIMIC_H

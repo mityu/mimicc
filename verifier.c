@@ -4,7 +4,6 @@
 #include "mimic.h"
 
 static void verifyTypeFCall(const Node *n);
-static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);
 static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
@@ -263,7 +262,7 @@ static void verifyTypeFCall(const Node *n) {
 }
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
-static int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
+int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
     if (lhs->type == TypePointer) {
         TypeInfo *t;
         // void* accepts any pointer/array type.

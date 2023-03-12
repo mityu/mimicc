@@ -507,6 +507,11 @@ void test_init_static_structs(void) {
     // ASSERT(47, s0_cmpd_ptr->c);
 }
 
+void test_init_with_NULL(void) {
+    int *p = (void *)0;
+    ASSERT(1, p == 0);
+}
+
 int main(void) {
     test_init_local_variables();
     test_init_local_arrays();
@@ -520,4 +525,5 @@ int main(void) {
     test_init_static_pointers();
     test_init_static_arrays();
     test_init_static_structs();
+    test_init_with_NULL();
 }
