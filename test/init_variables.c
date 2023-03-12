@@ -512,6 +512,11 @@ void test_init_with_NULL(void) {
     ASSERT(1, p == 0);
 }
 
+void test_init_static_primitive_with_negative_value(void) {
+    static int n = -1;
+    ASSERT(-1, n);
+}
+
 int main(void) {
     test_init_local_variables();
     test_init_local_arrays();
@@ -526,4 +531,5 @@ int main(void) {
     test_init_static_arrays();
     test_init_static_structs();
     test_init_with_NULL();
+    test_init_static_primitive_with_negative_value();
 }

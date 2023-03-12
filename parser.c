@@ -832,7 +832,27 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         errorAt(initializer->token->str, "Constant value required.");
     } else {
         int size = sizeOf(varType);
-        int modBySize = initializer->val;
+        int modBySize = 0;
+
+        // TODO: This is workaround.
+        for (int keepGoing = 1; keepGoing;) {
+            switch (initializer->kind) {
+            case NodeSub:
+                if (initializer->lhs->kind == NodeNum &&
+                        initializer->rhs->kind == NodeNum) {
+                    initializer =
+                        newNodeNum(initializer->lhs->val - initializer->rhs->val);
+                } else {
+                    keepGoing = 0;
+                }
+                break;
+            default:
+                keepGoing = 0;
+                break;
+            }
+        }
+
+        modBySize = initializer->val;
         if (size < 4)
             modBySize &= ((1 << size * 8) - 1);
 
