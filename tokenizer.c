@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include "mimic.h"
+#include "mimicc.h"
 
 static int isSpace(char c) {
     return c == ' ' || c == '\n' || c == '\t';

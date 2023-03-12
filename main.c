@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mimic.h"
+#include "mimicc.h"
 
 struct Types Types;
 Globals globals;

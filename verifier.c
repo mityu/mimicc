@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "mimic.h"
+#include "mimicc.h"
 
 static void verifyTypeFCall(const Node *n);
 static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);

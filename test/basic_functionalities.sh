@@ -4,7 +4,7 @@
 
 cd $(dirname $0)
 
-TESTCC=${TESTCC:-../mimic}
+TESTCC=${TESTCC:-../mimicc}
 
 assert() {
   expected="$1"

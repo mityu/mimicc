@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mimic.h"
+#include "mimicc.h"
 
 // TODO: Accept using pointer to unknown type in struct member: e.g.:
 //   struct A { struct B *obj };

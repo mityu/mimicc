@@ -2,7 +2,7 @@
 
 cd $(dirname $0)
 
-TESTCC=${TESTCC:-../mimic}
+TESTCC=${TESTCC:-../mimicc}
 
 assert_fail() {
   echo "$1" > ./Xtmp/tmp.c

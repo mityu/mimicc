@@ -1,5 +1,5 @@
 CFLAGS=-std=c11 -static
-TARGET=./mimic
+TARGET=./mimicc
 SRC=main.c tokenizer.c parser.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
 
@@ -28,7 +28,7 @@ $(TARGET): $(OBJ)
 debug: CFLAGS+=-g -O0
 debug: clean $(TARGET)
 
-obj/%.o: %.c mimic.h
+obj/%.o: %.c mimicc.h
 	@[ -d ./obj ] || mkdir ./obj
 	gcc $(CFLAGS) -o $@ -c $<
 
@@ -78,7 +78,7 @@ $(HOME_SELF)/%.o: $(HOME_SELF)/%.s
 $(HOME_SELF)/%.s: $(HOME_SELF)/%.c $(TARGET)
 	$(TARGET) -o $@ -S $<
 
-$(HOME_SELF)/%.c: ./%.c mimic.h $(HEADERS)
+$(HOME_SELF)/%.c: ./%.c mimicc.h $(HEADERS)
 	gcc -o $@ -I$(INCLUDE) -E -P $<
 
 
@@ -122,7 +122,7 @@ $(HOME_SELFSELF)/%.o: $(HOME_SELFSELF)/%.s
 $(HOME_SELFSELF)/%.s: $(HOME_SELFSELF)/%.c $(TARGET_SELF)
 	$(TARGET_SELF) -o $@ -S $<
 
-$(HOME_SELFSELF)/%.c: ./%.c mimic.h $(HEADERS)
+$(HOME_SELFSELF)/%.c: ./%.c mimicc.h $(HEADERS)
 	gcc -o $@ -I$(INCLUDE) -E -P $<
 
 
@@ -133,7 +133,7 @@ test_test: test_test_prepair test_prepair test_advanced;
 .PHONY: test_test_prepair
 test_test_prepair:
 	$(eval TESTCC=gcc)
-	# Currently "sizeof(size_t)" is 8 for gcc and 4 for mimic, so test/sizeof.c
+	# Currently "sizeof(size_t)" is 8 for gcc and 4 for mimicc, so test/sizeof.c
 	# fails.  Disable it now.
 	$(eval TEST_EXECUTABLES:=$(filter-out %/sizeof.exe,$(TEST_EXECUTABLES)))
 
