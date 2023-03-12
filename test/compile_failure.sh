@@ -65,6 +65,7 @@ assert_fail 'typedef int Int[]; int main(void) {Int array[3] = {};}'
 assert_fail 'typedef int Int[]; int main(void) {sizeof(Int);}'
 assert_fail 'int main(void) {int a[]; sizeof(a);}'
 assert_fail 'typedef struct {} S1; typedef struct {} S2; int main(void) {S1 s1 = (S2){};}'
+assert_fail 'typedef int Ar[2]; int main(void) {Ar array = {3, 5, 7};}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
 $TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c || exit 1
