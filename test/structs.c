@@ -188,6 +188,11 @@ void test_compound_literal(void) {
     }
 }
 
+void test_compare_struct_pointers(void) {
+    struct S {} a;
+    ASSERT(1, &a == &a);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
@@ -196,5 +201,6 @@ int main(void) {
     test_decl_local_struct_without_tag();
     test_decl_global_struct_without_tag();
     test_struct_assign();
+    test_compare_struct_pointers();
     return 0;
 }

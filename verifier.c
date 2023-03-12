@@ -308,7 +308,8 @@ static int checkComparable(const TypeInfo *t1, const TypeInfo *t2) {
             return isWorkLikePointer(t1);
 
         if (isWorkLikePointer(t2)) {
-            return checkComparable(t1->baseType, t2->baseType);
+            return checkComparable(t1->baseType, t2->baseType) ||
+                checkTypeEqual(t1->baseType, t2->baseType);
         }
         return 0;
     }
