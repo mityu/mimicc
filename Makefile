@@ -11,7 +11,7 @@ HOME_SELFSELF=./test/selfself
 TARGET_SELFSELF=$(TARGET:./%=$(HOME_SELFSELF)/%)
 OBJ_SELFSELF=$(OBJ:obj/%=$(HOME_SELFSELF)/%)
 
-INCLUDE=./headers
+INCLUDE=./include
 HEADERS=$(wildcard $(INCLUDE)/*)
 
 TESTCC=$(TARGET)
@@ -49,6 +49,7 @@ test_prepair: ./test/Xtmp;
 
 # Compilation: 2nd gen
 $(TARGET_SELF): $(TARGET) self_prepair $(OBJ_SELF)
+	gcc -no-pie -o $@ $(OBJ_SELF)
 
 .PHONY: self
 self: $(TARGET_SELF);
@@ -56,17 +57,17 @@ self: $(TARGET_SELF);
 .PHONY: self_prepair
 self_prepair: $(HOME_SELF);
 
+.PHONY: self_clean
+self_clean:
+	rm $(HOME_SELF)/* $(HOME_SELF)/Xtmp/*
+
 .PHONY: test_self
-test_self: $(TARGET_SELF) test_prepair test_self_prepair
-test_self: test_advanced test_advanced_errors;
+test_self: $(TARGET_SELF) test_prepair test_self_prepair \
+	test_advanced test_advanced_errors;
 
 .PHONY: test_self_prepair
 test_self_prepair:
 	$(eval TESTCC=$(TARGET_SELF))
-
-.PHONY: test_self_clean
-test_self_clean:
-	rm $(HOME_SELF)/Xtmp*
 
 $(HOME_SELF):
 	mkdir $(HOME_SELF)
@@ -80,8 +81,50 @@ $(HOME_SELF)/%.s: $(HOME_SELF)/%.c $(TARGET)
 $(HOME_SELF)/%.c: ./%.c mimic.h $(HEADERS)
 	gcc -o $@ -I$(INCLUDE) -E -P $<
 
+
 # Compilation: 3rd gen
-# TODO:
+$(TARGET_SELFSELF): $(TARGET_SELF) selfself_prepair $(OBJ_SELFSELF)
+	gcc -no-pie -o $@ $(OBJ_SELFSELF)
+
+.PHONY: selfself
+selfself: $(TARGET_SELFSELF);
+
+.PHONY: selfself_prepair
+selfself_prepair: $(HOME_SELFSELF);
+
+.PHONY: selfself_clean
+selfself_clean:
+	rm $(HOME_SELFSELF)/* $(HOME_SELFSELF)/Xtmp/*
+
+.PHONY: test_selfself
+test_selfself: $(TARGET_SELFSELF) test_prepair test_selfself_prepair \
+	test_advanced test_advanced_errors test_selfself_diff;
+
+.PHONY: test_selfself_prepair
+test_selfself_prepair:
+	$(eval TESTCC=$(TARGET_SELFSELF))
+
+.PHONY: test_selfself_diff
+test_selfself_diff: $(OBJ_SELF:%.o=%.s) $(OBJ_SELFSELF:%.o=%.s)
+	@for $$f in $(notdir OBJ_SELFSELF); do \
+		echo $$f; \
+		diff -u $(HOME_SELF)/$$f $(HOME_SELFSELF)/$$f || exit 1; \
+	done
+	@echo OK
+	@echo
+
+$(HOME_SELFSELF):
+	mkdir $(HOME_SELFSELF)
+
+$(HOME_SELFSELF)/%.o: $(HOME_SELFSELF)/%.s
+	gcc -o $@ -c $<
+
+$(HOME_SELFSELF)/%.s: $(HOME_SELFSELF)/%.c $(TARGET_SELF)
+	$(TARGET_SELF) -o $@ -S $<
+
+$(HOME_SELFSELF)/%.c: ./%.c mimic.h $(HEADERS)
+	gcc -o $@ -I$(INCLUDE) -E -P $<
+
 
 # Test by gcc (To find bugs in tests)
 .PHONY: test_test
