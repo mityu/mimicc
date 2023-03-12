@@ -409,16 +409,16 @@ static void genCodeAssign(const Node *n) {
     if (!n)
         return;
 
-    genCodeLVal(n->lhs);
     genCode(n->rhs);
+    genCodeLVal(n->lhs);
 
     // Stack before assign:
     // |                     |
     // |       ......        |
     // +---------------------+
-    // | Lhs memory address  | --> Load to RAX.
-    // +---------------------+
     // |     Rhs value       | --> Load to RDI.
+    // +---------------------+
+    // | Lhs memory address  | --> Load to RAX.
     // +---------------------+
     //
     // Stack after assign:
@@ -427,8 +427,8 @@ static void genCodeAssign(const Node *n) {
     // +---------------------+
     // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
-    dumps("  pop rdi");
     dumps("  pop rax");
+    dumps("  pop rdi");
     switch (sizeOf(n->type)) {
     case 8:
         dumps("  mov [rax], rdi");
@@ -692,11 +692,7 @@ static void genCodeVaStart(const Node *n) {
     dumpf("  mov %d[rax], rdi\n", offset);
 
     offset += ONE_WORD_BYTES;
-    if (n->parentFunc->argsCount >= REG_ARGS_MAX_COUNT) {
-        dumpf("  lea rdi, %d[rbp]\n", -n->parentFunc->args->offset);
-    } else {
-        dumpf("  lea rdi, %d[rbp]\n", -lastArg->offset);
-    }
+    dumpf("  lea rdi, %d[rbp]\n", -n->parentFunc->args->offset);
     dumpf("  mov %d[rax], rdi\n", offset);
 }
 
@@ -725,11 +721,6 @@ static void genCodeFunction(const Node *n) {
     dumps("  mov rbp, rsp");
     if (n->obj->func->capStackSize)
         dumpf("  sub rsp, %d\n", n->obj->func->capStackSize);
-
-    // "main" function does not set return adress on stack, so RSP value slips
-    // by 8 bytes (size of 1 word).  Adjust the difference here.
-    if (n->obj->token->len == 4 && memcmp(n->obj->token->str, "main", 4) == 0)
-        dumpf("  sub rsp, %d\n", ONE_WORD_BYTES);
 
     // Push arguments onto stacks from registers.
     if (regargs) {
