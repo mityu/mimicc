@@ -211,7 +211,8 @@ const int Reg16 = 2;
 const int Reg32 = 1;
 const int Reg64 = 0;
 
-static const char *RegTable[RegCount][4] = {
+// static const char *RegTable[RegCount][4] = {
+static const char *RegTable[16][4] = {
     {"rax", "eax",  "ax",   "al"},
     {"rdi", "edi",  "di",   "dil"},
     {"rsi", "esi",  "si",   "sil"},
@@ -247,7 +248,8 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 };
 */
 
-static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
+// static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
+static const RegKind argRegs[6] = {
     RDI, RSI, RDX, RCX, R8, R9
 };
 
