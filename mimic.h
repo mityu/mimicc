@@ -136,6 +136,8 @@ typedef enum {
     NodeBitwiseAND,    // &
     NodeBitwiseOR,     // |
     NodeBitwiseXOR,    // ^
+    NodeArithShiftL,   // << (arithmetic)
+    NodeArithShiftR,   // >> (arithmetic)
     NodeNum,           // Integer
     NodeLiteralString, // literal string
     NodeLVar,          // Left hand side value (local variable)

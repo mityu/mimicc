@@ -36,6 +36,7 @@ static Node *ORexpr(void);
 static Node *ANDexpr(void);
 static Node *equality(void);
 static Node *relational(void);
+static Node *shift(void);
 static Node *add(void);
 static Node *mul(void);
 static Node *typecast(void);
@@ -2008,7 +2009,7 @@ static Node *equality(void) {
 }
 
 static Node *relational(void) {
-    Node *n = add();
+    Node *n = shift();
     for (;;) {
         Token *t = globals.token;
         if (consumeReserved("<")) {
@@ -2024,6 +2025,22 @@ static Node *relational(void) {
         }
         n->token = t;
     }
+}
+
+static Node *shift(void) {
+    Node *n = add();
+    for (;;) {
+        if (consumeReserved("<<")) {
+            // TODO: Set proper type.
+            n = newNodeBinary(NodeArithShiftL, n, add(), &Types.Number);
+        } else if (consumeReserved(">>")) {
+            // TODO: Set proper type.
+            n = newNodeBinary(NodeArithShiftR, n, add(), &Types.Number);
+        } else {
+            break;
+        }
+    }
+    return n;
 }
 
 static Node *add(void) {

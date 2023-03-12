@@ -137,6 +137,8 @@ static int isExprNode(const Node *n) {
     case NodeBitwiseAND:
     case NodeBitwiseOR:
     case NodeBitwiseXOR:
+    case NodeArithShiftL:
+    case NodeArithShiftR:
     case NodeLiteralString:
     case NodeLVar:
     case NodeAssign:
@@ -1092,26 +1094,14 @@ void genCode(const Node *n) {
         dumps("  setne al");
         dumps("  movzb rax, al");
         dumps("  push rax");
-    } else if (n->kind == NodeBitwiseAND) {
+    } else if (n->kind == NodeArithShiftL || n->kind == NodeArithShiftR) {
+        char *op = n->kind == NodeArithShiftL ? "sal" : "sar";
         genCode(n->lhs);
         genCode(n->rhs);
-        dumps("  pop rax");
+        dumps("  pop rcx");
         dumps("  pop rdi");
-        dumps("  and rax, rdi");
-        dumps("  push rax");
-    } else if (n->kind == NodeBitwiseOR) {
-        genCode(n->lhs);
-        genCode(n->rhs);
-        dumps("  pop rax");
-        dumps("  pop rdi");
-        dumps("  or rax, rdi");
-        dumps("  push rax");
-    } else if (n->kind == NodeBitwiseXOR) {
-        genCode(n->lhs);
-        genCode(n->rhs);
-        dumps("  pop rax");
-        dumps("  pop rdi");
-        dumps("  xor rax, rdi");
+        dumpf("  %s edx, cl\n", op);
+        dumps("  movsx rax, eax");
         dumps("  push rax");
     } else if (n->kind == NodeNum) {
         dumpf("  push %d\n", n->val);
@@ -1248,6 +1238,14 @@ void genCode(const Node *n) {
             dumps("  cmp rax, rdi");
             dumps("  setle al");
             dumps("  movzb rax, al");
+        } else if (n->kind == NodeBitwiseAND) {
+            dumps("  and rax, rdi");
+        } else if (n->kind == NodeBitwiseOR) {
+            dumps("  or rax, rdi");
+        } else if (n->kind == NodeBitwiseXOR) {
+            dumps("  xor rax, rdi");
+        } else {
+            errorUnreachable();
         }
 
         dumps("  push rax");
