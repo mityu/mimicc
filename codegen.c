@@ -568,7 +568,7 @@ static void genCodeFor(const Node *n) {
     dumps("  cmp rax, 0");
     dumpf("  je .Lend%d\n", n->blockID);
     genCode(n->body);
-    if (isExprNode(n->body)) {
+    if (n->body && isExprNode(n->body)) {
         dumps("  pop rax");
     }
     dumpf(".Literator%d:\n", n->blockID);

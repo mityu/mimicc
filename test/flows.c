@@ -296,6 +296,13 @@ int test_for_3(void) {
     return sum;
 }
 
+void test_for_4(void) {
+    // This code gave SEGV when compiling.
+    int i = 0;
+    for (; i < 3; ++i);
+    ASSERT(3, i);
+}
+
 int test_for_break_1(void) {
     int n = 7;
     for (;;) {
@@ -611,6 +618,7 @@ int main(void) {
     ASSERT(6, test_for_1());
     ASSERT(89, test_for_2());
     ASSERT(55, test_for_3());
+    test_for_4();
     ASSERT(7, test_for_break_1());
     ASSERT(5, test_for_break_2());
     ASSERT(8, test_for_break_3());
