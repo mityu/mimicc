@@ -640,8 +640,11 @@ static void genCodeFCall(const Node *n) {
         // Align RSP to multiple of 16.
         dumpf("  sub rsp, %d /* RSP alignment */\n", exCapToAlignRSP);
 
-    for (Node *c = n->fcall->args; c; c = c->next)
+    for (Node *c = n->fcall->args; c; c = c->next) {
         genCode(c);
+        if (isExprNode(c))
+            stackAlignState += 8;
+    }
     for (int i = 0; i < regargs; ++i)
         dumpf("  pop %s\n", getReg(argRegs[i], ONE_WORD_BYTES));
 
