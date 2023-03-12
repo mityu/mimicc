@@ -1,11 +1,22 @@
 main: main.s
 	gcc -o main main.s
 
-main.s: main.c mimic_cc
-	../mimic -o main.s -S main.c
+main.s: main.c mimicc-cc
+	../mimicc -o main.s -S main.c
 
-mimic_cc:
-	cd ../ && make
+mimicc-cc:
+	@cd ../ && make
+
+2nd: mimicc-2nd-cc compile-by-2nd main;
+2nd-run: 2nd
+	./main
+run-2nd: 2nd-run;
+
+compile-by-2nd: main.c
+	../test/self/mimicc -o main.s -S main.c
+
+mimicc-2nd-cc:
+	@cd ../ && make self
 
 asm: run-asm;
 run-asm:
@@ -15,4 +26,4 @@ run-asm:
 run: main
 	./main
 
-.PHONY: run run-asm mimic_cc
+.PHONY: run asm run-asm mimicc-cc 2nd mimicc-2nd-cc 2nd-run run-2nd compile-by-2nd
