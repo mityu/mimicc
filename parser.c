@@ -61,7 +61,7 @@ _Noreturn static void errorUnexpectedEOF(void) {
 
 // Check if name of given token matches to pair of {name, len}.  Returns TRUE
 // if so, otherwise FALSE.
-static int matchToken(const Token *token, const char *name, const int len) {
+int matchToken(const Token *token, const char *name, const int len) {
     return token->len == len && memcmp(token->str, name, len) == 0;
 }
 

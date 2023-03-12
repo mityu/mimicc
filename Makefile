@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -static
 TARGET=./mimicc
-SRC=main.c tokenizer.c parser.c codegen.c verifier.c
+SRC=main.c tokenizer.c preproc.c parser.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
 
 HOME_SELF=./test/self

@@ -66,6 +66,37 @@ static Token *newToken(TokenType type, Token *current, char *str, int len) {
     return t;
 }
 
+// Remove tokens from "token" by range [begin, end].
+Token *popTokenRange(Token *token, Token *begin, Token *end) {
+    Token *prev = begin->prev;
+    Token *next = end->next;
+
+    if (prev)
+        prev->next = next;
+    if (next)
+        next->prev = prev;
+
+    if (token == begin)
+        token = next;
+
+    return token;
+}
+
+// Remove all tokens whose type is TokenNewLine from "token".
+Token *removeAllNewLineToken(Token *token) {
+    Token *cur = token;
+    while (cur) {
+        if (cur->type == TokenNewLine) {
+            Token *toRemove = cur;
+            cur = cur->next;
+            token = popTokenRange(token, toRemove, toRemove);
+        } else {
+            cur = cur->next;
+        }
+    }
+    return token;
+}
+
 Token *tokenize(void) {
     char *p = globals.source;
     Token head;
@@ -73,6 +104,12 @@ Token *tokenize(void) {
     Token *current = &head;
 
     while (*p) {
+        if (*p == '\n') {
+            current = newToken(TokenNewLine, current, p, 1);
+            ++p;
+            continue;
+        }
+
         if (isSpace(*p)) {
             ++p;
             continue;
@@ -257,7 +294,7 @@ Token *tokenize(void) {
             p += 2;
             continue;
         }
-        if (strchr("!+-*/%()=;[]<>{},&^|.?:", *p)) {
+        if (strchr("!+-*/%()=;[]<>{},&^|.?:#", *p)) {
             current = newToken(TokenReserved, current, p++, 1);
             continue;
         }

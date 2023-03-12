@@ -87,6 +87,7 @@ typedef enum {
     TokenLiteralString,
     TokenStruct,
     TokenEnum,
+    TokenNewLine,
     TokenEOF,
 } TokenType;
 
@@ -329,12 +330,18 @@ void genCodeGlobals(void);
 // tokenizer.c
 Token *tokenize(void);
 int checkEscapeChar(char c, char *decoded);
+Token *popTokenRange(Token *token, Token *begin, Token *end);
+Token *removeAllNewLineToken(Token *token);
+
+// preproc.c
+Token *preprocess(Token *token);
 
 // parser.c
 void program(void);
 Obj *findFunction(const char *name, int len);
 Obj *findStructMember(const Struct *s, const char *name, int len);
 int sizeOf(const TypeInfo *ti);
+int matchToken(const Token *token, const char *name, const int len);
 
 // verifier.c
 void verifyFlow(const Node *n);
