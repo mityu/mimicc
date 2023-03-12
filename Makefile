@@ -61,6 +61,9 @@ self_prepair: $(HOME_SELF);
 self_clean:
 	rm $(HOME_SELF)/* $(HOME_SELF)/Xtmp/*
 
+.PHONY: self_test
+self_test: test_self;
+
 .PHONY: test_self
 test_self: $(TARGET_SELF) test_prepair test_self_prepair \
 	test_advanced test_advanced_errors;
@@ -95,6 +98,9 @@ selfself_prepair: $(HOME_SELFSELF);
 .PHONY: selfself_clean
 selfself_clean:
 	rm $(HOME_SELFSELF)/* $(HOME_SELFSELF)/Xtmp/*
+
+.PHONY: selfself_test
+selfself_test: test_selfself;
 
 .PHONY: test_selfself
 test_selfself: $(TARGET_SELFSELF) test_prepair test_selfself_prepair \
@@ -168,6 +174,12 @@ test_advanced_errors: test_prepair ./test/compile_failure.sh
 .PHONY: test_clean
 test_clean:
 	rm -r ./test/Xtmp/*
+
+.PHONY: test_all
+test_all:
+	$(MAKE) test
+	$(MAKE) test_self
+	$(MAKE) test_selfself
 
 ./test/Xtmp:
 	mkdir ./test/Xtmp
