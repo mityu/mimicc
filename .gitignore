@@ -1,6 +1,8 @@
 mimic
 obj/
 test/Xtmp/
+test/self/
+test/selfself/
 *.o
 *~
 tmp*
