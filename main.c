@@ -124,6 +124,7 @@ _Noreturn void cmdlineArgsError(int argc, char *argv[], int at, const char *msg)
 int main(int argc, char *argv[]) {
     char *inFile = NULL;
     char *outFile = NULL;
+    char *source = NULL;
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-o") == 0) {
@@ -155,8 +156,8 @@ int main(int argc, char *argv[]) {
     memset(&globals, 0, sizeof(globals));
     globals.currentEnv = &globals.globalEnv;
     globals.sourceFile = inFile;
-    globals.source = readFile(globals.sourceFile);
-    globals.token = tokenize();
+    source = readFile(globals.sourceFile);
+    globals.token = tokenize(source);
     preprocess(globals.token);
     removeAllNewLineToken(globals.token);
     program();

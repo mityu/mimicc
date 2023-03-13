@@ -312,7 +312,6 @@ struct Globals {
     int namelessEnumCount;     // The number of nameless enums.
     int namelessStructCount;   // The number of nameless structs.
     Token *token;              // Token currently watches.
-    char *source;              // The source code (input).
     char *sourceFile;          // The source file path.
     FILE *destFile;            // The output file.
 };
@@ -331,7 +330,7 @@ void genCode(const Node *n);
 void genCodeGlobals(void);
 
 // tokenizer.c
-Token *tokenize(void);
+Token *tokenize(char *source);
 int checkEscapeChar(char c, char *decoded);
 void popTokenRange(Token *begin, Token *end);
 void removeAllNewLineToken(Token *token);

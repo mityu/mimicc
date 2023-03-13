@@ -103,8 +103,8 @@ void removeAllNewLineToken(Token *token) {
     do { \
         errorAt(newToken(TokenReserved, NULL, p, 0, line, (int)((p) - lineHead)), msg);\
     } while (0)
-Token *tokenize(void) {
-    char *p = globals.source;
+Token *tokenize(char *source) {
+    char *p = source;
     Token head = {};
     Token *current = &head;
     int line = 1;
