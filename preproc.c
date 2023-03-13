@@ -126,6 +126,74 @@ static Token *skipUntilNewline(Token *token) {
     return token;
 }
 
+// Parse "#define" directive and returns one token after the token at the end
+// of this "#define" directive.  Note that "token" parameter must points the
+// "#" token of "#define".
+static Token *parseDefineDirective(Token *token) {
+    Macro *macro = NULL;
+    Token *macroName = NULL;
+    Token *tokenHash = token;
+    Token *nextLine = NULL;
+
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "define")))
+        errorUnreachable();
+
+    macroName = consumeTokenAnyIdent(&token);
+
+    if (!macroName) {
+        errorAt(token, "Macro name expected.");
+    } else if (findMacro(macroName)) {
+        errorAt(macroName, "Redefinition of macro.");
+    }
+
+    macro = newMacro(macroName, macroName->next);
+    macro->next = preproc.macros;
+    preproc.macros = macro;
+
+    nextLine = skipUntilNewline(token)->next;
+    popTokenRange(tokenHash, nextLine->prev);
+    return nextLine;
+}
+
+// Parse "#undef" directive and returns one token after the token at the
+// end of this "#undef" directive.  Note that "token" parameter must points the
+// "#" token of "#define".
+static Token *parseUndefDirective(Token *token) {
+    Token *head = token;
+    Token *name = NULL;
+    Token *nextLine = NULL;
+    Macro *macro = NULL;
+
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "undef")))
+        errorUnreachable();
+
+    name = consumeTokenAnyIdent(&token);
+    if (!name)
+        errorAt(token, "Macro name expected.");
+
+    macro = findMacro(name);
+    if (!macro)
+        errorAt(name, "Undefined macro.");
+
+    if (macro->next) {
+        *macro = *macro->next;
+        safeFree(macro->next);
+    } else {
+        if (preproc.macros != macro) {
+            Macro *prev = preproc.macros;
+            while (prev->next != macro)
+                prev = prev->next;
+            prev->next = NULL;
+        } else {
+            preproc.macros = NULL;
+        }
+        safeFree(macro);
+    }
+
+    nextLine = skipUntilNewline(head)->next;
+    popTokenRange(head, nextLine->prev);
+    return nextLine;
+}
 
 // Apply predefined macros.  Return TRUE if applied.
 static int applyPredefinedMacro(Token *token) {
@@ -201,56 +269,12 @@ void preprocess(Token *token) {
     while (token && token->type != TokenEOF) {
         if (consumeTokenReserved(&token, "#")) {
             Token *tokenHash = token->prev;
-            Token *tokenEOL = skipUntilNewline(tokenHash);
 
             if (consumeTokenIdent(&token, "define")) {
-                // Macro definition
-                Macro *macro = NULL;
-                Token *macroName = NULL;
-                // Note that new-line token won't be replaced, so this is OK.
-
-                macroName = consumeTokenAnyIdent(&token);
-
-                if (!macroName) {
-                    errorAt(token, "Macro name expected.");
-                } else if (findMacro(macroName)) {
-                    errorAt(macroName, "Redefinition of macro.");
-                }
-
-                macro = newMacro(macroName, macroName->next);
-                macro->next = preproc.macros;
-                preproc.macros = macro;
-
-                token = tokenEOL->next;
+                token = parseDefineDirective(tokenHash);
             } else if (consumeTokenIdent(&token, "undef")) {
-                Token *name = NULL;
-                Macro *macro = NULL;
-
-                name = consumeTokenAnyIdent(&token);
-                if (!name)
-                    errorAt(token, "Macro name expected.");
-
-                macro = findMacro(name);
-                if (!macro)
-                    errorAt(name, "Undefined macro.");
-
-                if (macro->next) {
-                    *macro = *macro->next;
-                    safeFree(macro->next);
-                } else {
-                    if (preproc.macros != macro) {
-                        Macro *prev = preproc.macros;
-                        while (prev->next != macro)
-                            prev = prev->next;
-                        prev->next = NULL;
-                    } else {
-                        preproc.macros = NULL;
-                    }
-                    safeFree(macro);
-                }
+                token = parseUndefDirective(tokenHash);
             }
-
-            popTokenRange(tokenHash, tokenEOL);
         } else {
             Token *prev = token->prev;
             Token *applied = NULL;
