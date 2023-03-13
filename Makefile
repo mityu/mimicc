@@ -195,6 +195,9 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 ./test/Xtmp/%.o: ./test/Xtmp/%.s
 	gcc -o $@ -c $<
 
+./test/Xtmp/define.s: ./test/define.c
+	$(TESTCC) -o $@ -S $<
+
 ./test/Xtmp/%.s: ./test/Xtmp/%.c
 	$(TESTCC) -o $@ -S $<
 

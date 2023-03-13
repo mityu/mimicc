@@ -67,41 +67,37 @@ static Token *newToken(TokenType type, Token *current, char *str, int len) {
 }
 
 // Remove tokens from "token" by range [begin, end].
-Token *popTokenRange(Token *token, Token *begin, Token *end) {
+void popTokenRange(Token *begin, Token *end) {
     Token *prev = begin->prev;
     Token *next = end->next;
 
-    if (prev)
-        prev->next = next;
-    if (next)
-        next->prev = prev;
+    if (!(prev && next))
+        errorUnreachable();
 
-    if (token == begin)
-        token = next;
-
-    return token;
+    prev->next = next;
+    next->prev = prev;
 }
 
 // Remove all tokens whose type is TokenNewLine from "token".
-Token *removeAllNewLineToken(Token *token) {
+void removeAllNewLineToken(Token *token) {
     Token *cur = token;
-    while (cur) {
+    while (cur->type != TokenEOF) {
         if (cur->type == TokenNewLine) {
-            Token *toRemove = cur;
-            cur = cur->next;
-            token = popTokenRange(token, toRemove, toRemove);
+            Token *next = cur->next;
+            popTokenRange(cur, cur);
+            cur = next;
         } else {
             cur = cur->next;
         }
     }
-    return token;
 }
 
 Token *tokenize(void) {
     char *p = globals.source;
-    Token head;
-    head.next = NULL;
+    Token head = {};
     Token *current = &head;
+
+    current = newToken(TokenSOF, current, p, 0);
 
     while (*p) {
         if (*p == '\n') {

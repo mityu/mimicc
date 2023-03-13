@@ -88,7 +88,8 @@ typedef enum {
     TokenStruct,
     TokenEnum,
     TokenNewLine,
-    TokenEOF,
+    TokenSOF,            // Start of file.
+    TokenEOF,            // End of file.
 } TokenType;
 
 struct Token {
@@ -330,11 +331,11 @@ void genCodeGlobals(void);
 // tokenizer.c
 Token *tokenize(void);
 int checkEscapeChar(char c, char *decoded);
-Token *popTokenRange(Token *token, Token *begin, Token *end);
-Token *removeAllNewLineToken(Token *token);
+void popTokenRange(Token *begin, Token *end);
+void removeAllNewLineToken(Token *token);
 
 // preproc.c
-Token *preprocess(Token *token);
+void preprocess(Token *token);
 
 // parser.c
 void program(void);

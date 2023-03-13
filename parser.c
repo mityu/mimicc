@@ -867,9 +867,12 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
 }
 
 void program(void) {
-    Node body;
+    Node body = {};
     Node *last = &body;
-    body.next = NULL;
+
+    if (!consumeCertainTokenType(TokenSOF))
+        errorUnreachable();
+
     globals.code = newNode(NodeBlock, &Types.None);
     while (!atEOF()) {
         Node *n = decl();

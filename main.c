@@ -164,8 +164,8 @@ int main(int argc, char *argv[]) {
     globals.sourceFile = inFile;
     globals.source = readFile(globals.sourceFile);
     globals.token = tokenize();
-    globals.token = preprocess(globals.token);
-    globals.token = removeAllNewLineToken(globals.token);
+    preprocess(globals.token);
+    removeAllNewLineToken(globals.token);
     program();
 
     verifyType(globals.code);
