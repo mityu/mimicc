@@ -99,9 +99,10 @@ void removeAllNewLineToken(Token *token) {
         current = newToken(\
                 tokenType, current, str, len, line, (int)((str) - lineHead));\
     } while (0)
-#define errorAtChar(p, msg) \
+#define errorAtChar(pos, msg) \
     do { \
-        errorAt(newToken(TokenReserved, NULL, p, 0, line, (int)((p) - lineHead)), msg);\
+        appendNewToken(TokenReserved, pos, 0);\
+        errorAt(current, msg);\
     } while (0)
 Token *tokenize(char *source) {
     char *p = source;
