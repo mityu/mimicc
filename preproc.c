@@ -15,6 +15,9 @@ struct Preproc {
 
 static Preproc preproc;
 
+static Token *applyMacro(Token *token);
+static Token *applyMacroInRange(Token *begin, Token *end);
+
 static Macro *newMacro(Token *token, Token *replace) {
     Macro *macro = (Macro *)safeAlloc(sizeof(Macro));
     macro->token = token;
@@ -148,14 +151,28 @@ static Token *applyMacro(Token *token) {
         }
         end = cur;
 
+        popTokenRange(token, token);
         insertTokens(prev, begin, end);
+        applyMacroInRange(begin, end);
     } else {
         end = prev;
+        popTokenRange(token, token);
     }
 
-    popTokenRange(token, token);
-
     return end;
+}
+
+// Try to apply macro for each tokens in range [begin, end].  Return the
+// pointer to the end of range [begin', end'].
+static Token *applyMacroInRange(Token *begin, Token *end) {
+    Token *stop = end->next;
+    Token *cur = NULL;
+    for (cur = begin; cur != stop; cur = cur->next) {
+        Token *applied = applyMacro(cur);
+        if (applied)
+            cur = applied;
+    }
+    return cur;
 }
 
 // Parse and apply preprocess for given tokens, and returns the head to the
@@ -178,12 +195,6 @@ void preprocess(Token *token) {
                     errorAt(token, "Macro name expected.");
                 } else if (findMacro(macroName)) {
                     errorAt(macroName, "Redefinition of macro.");
-                }
-
-                for (Token *cur = token; cur != macroEnd; cur = cur->next) {
-                    Token *applied = applyMacro(cur);
-                    if (applied)
-                        cur = applied;
                 }
 
                 macro = newMacro(macroName, macroName->next);
