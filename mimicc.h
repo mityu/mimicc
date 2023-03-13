@@ -102,6 +102,8 @@ struct Token {
                                // TokenLiteralString.
     char *str;                 // The token string.
     int len;                   // The token length.
+    int line;                  // Line number in file.
+    int column;                // Column number in line.
 };
 
 typedef struct Env Env;
@@ -319,7 +321,7 @@ extern Globals globals;
 // main.c
 void *safeAlloc(size_t size);
 _Noreturn void error(const char *fmt, ...);
-_Noreturn void errorAt(char *loc, const char *fmt, ...);
+_Noreturn void errorAt(Token *loc, const char *fmt, ...);
 int dumpc(int c);
 int dumps(const char *s);
 int dumpf(const char *fmt, ...);

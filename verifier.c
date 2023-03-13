@@ -42,7 +42,7 @@ void verifyFlow(const Node *n) {
         }
     } else if (n->kind == NodeBreak || n->kind == NodeContinue) {
         if (loopDepth <= 0) {
-            errorAt(n->token->str, "%s outside of loop",
+            errorAt(n->token, "%s outside of loop",
                     n->kind == NodeBreak ? "break" : "continue");
         }
     }
@@ -96,82 +96,82 @@ void verifyType(const Node *n) {
 
         // Check the returned value's types.
         if (!checkAssignable(currentFunction->func->retType, n->type)) {
-            errorAt(n->token->str, "Type mismatch. Cannot return this.");
+            errorAt(n->token, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
         // Type check is needed for some cases like: v = *f(...);
         verifyType(n->rhs);
     } else if (n->kind == NodeAddress) {
         if (!isLvalue(n->rhs)) {
-            errorAt(n->token->str, "Not a lvalue. Cannot take reference for this.");
+            errorAt(n->token, "Not a lvalue. Cannot take reference for this.");
         }
         // No type check is needed for lvalue nodes.
     } else if (n->kind == NodeFCall) {
         verifyTypeFCall(n);
     } else if (n->kind == NodeAssign) {
         if (!isLvalue(n->lhs))
-            errorAt(n->token->str, "Not a lvalue. Cannot assign.");
+            errorAt(n->token, "Not a lvalue. Cannot assign.");
 
         if (!checkAssignable(n->lhs->type, n->rhs->type))
-            errorAt(n->token->str, "Type mismatch. Cannot assign.");
+            errorAt(n->token, "Type mismatch. Cannot assign.");
 
         verifyType(n->rhs);
     } else if (n->kind == NodeAssignStruct) {
         if (n->lhs->type->type != TypeStruct)
             errorUnreachable();
         else if (n->rhs->type->type != TypeStruct)
-            errorAt(n->rhs->token->str, "Struct required.");
+            errorAt(n->rhs->token, "Struct required.");
         else if (n->lhs->type->structDef != n->rhs->type->structDef)
-            errorAt(n->token->str, "Different struct.");
+            errorAt(n->token, "Different struct.");
 
         verifyType(n->rhs);
     } else if (n->kind == NodeEq || n->kind == NodeNeq ||
             n->kind == NodeLE || n->kind == NodeLT) {
         verifyType(n->lhs);
         if (!checkComparable(n->lhs->type, n->rhs->type)) {
-            errorAt(n->token->str, "Type mismatch. Cannot compare these.");
+            errorAt(n->token, "Type mismatch. Cannot compare these.");
         }
         verifyType(n->rhs);
     } else if (n->kind == NodeAdd) {
         verifyType(n->lhs);
         if (isWorkLikePointer(n->lhs->type)) {
             if (!isIntegerType(n->rhs->type)) {
-                errorAt(n->token->str, "Invalid operation for pointer.");
+                errorAt(n->token, "Invalid operation for pointer.");
             }
         } else if (isWorkLikePointer(n->rhs->type)) {
             if (!isIntegerType(n->lhs->type)) {
-                errorAt(n->token->str, "Invalid operation for pointer.");
+                errorAt(n->token, "Invalid operation for pointer.");
             }
         } else if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
-            errorAt(n->token->str, "This operation is not supported.");
+            errorAt(n->token, "This operation is not supported.");
         }
         verifyType(n->rhs);
     } else if (n->kind == NodeSub) {
         verifyType(n->lhs);
         if (isWorkLikePointer(n->rhs->type)) {
             if (!isWorkLikePointer(n->lhs->type)) {
-                errorAt(n->token->str, "Invalid operation for binary operator");
+                errorAt(n->token, "Invalid operation for binary operator");
             }
         } else if (isWorkLikePointer(n->lhs->type)) {
             // When lhs is pointer, only pointer or integers are accepted as
             // rhs.  At here, rhs must not be pointer, so only check if rhs is
             // integer.
             if (!isIntegerType(n->rhs->type)) {
-                errorAt(n->token->str, "Invalid operation for binary operator");
+                errorAt(n->token, "Invalid operation for binary operator");
             }
         } else if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
-            errorAt(n->token->str, "This operation is not supported.");
+            errorAt(n->token, "This operation is not supported.");
         }
     } else if (n->kind == NodeMul || n->kind == NodeDiv) {
         verifyType(n->lhs);
         if (!(isArithmeticType(n->lhs->type) && isArithmeticType(n->rhs->type))) {
-            errorAt(n->token->str, "This operation is not supported.");
+            errorAt(n->token, "This operation is not supported.");
         }
         verifyType(n->rhs);
     } else if (n->kind == NodeDivRem) {
         verifyType(n->lhs);
         if (!(isIntegerType(n->lhs->type) && isIntegerType(n->rhs->type))) {
-            errorAt(n->token->str, "This operation is not supported.");
+            errorAt(n->token, "This operation is not supported.");
         }
         verifyType(n->rhs);
     } else if (n->kind == NodePostIncl || n->kind == NodePostDecl ||
@@ -181,7 +181,7 @@ void verifyType(const Node *n) {
         if (!isLvalue(value)) {
             int isIncrement = n->kind == NodePreIncl || n->kind == NodePostIncl;
             errorAt(
-                    value->token->str,
+                    value->token,
                     "Lvalue is required for %s operator",
                     isIncrement ? "incremental" : "decremental"
                     );
@@ -214,14 +214,14 @@ static void verifyTypeFCall(const Node *n) {
     }
     if (n->fcall->argsCount != f->func->argsCount && !f->func->haveVaArgs) {
         errorAt(
-                n->token->str,
+                n->token,
                 "%d arguments are expected, but got %d.",
                 f->func->argsCount,
                 n->fcall->argsCount
                 );
     } else if (n->fcall->argsCount < f->func->argsCount && f->func->haveVaArgs) {
         errorAt(
-                n->token->str,
+                n->token,
                 "At least %d arguments are expected, but got just %d.",
                 f->func->argsCount,
                 n->fcall->argsCount
@@ -249,7 +249,7 @@ static void verifyTypeFCall(const Node *n) {
     for (int i = 0; i < f->func->argsCount; ++i) {
         if (!checkAssignable(formalArg->type, actualArgs[i]->type)) {
             errorAt(
-                    actualArgs[i]->token->str,
+                    actualArgs[i]->token,
                     "Type mismatch."
                     );
         }

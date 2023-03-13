@@ -28,31 +28,24 @@ void error(const char *fmt, ...) {
     exit(1);
 }
 
-_Noreturn void errorAt(char *loc, const char *fmt, ...) {
-    char *head = loc;  // Head of error line
-    char *tail = loc;  // Tail of error line
-    int linenr = 1;    // Line number of error line
+_Noreturn void errorAt(Token *loc, const char *fmt, ...) {
+    char *head = NULL;  // Head of error line
+    char *tail = NULL;  // Tail of error line
     int indent = 0;
-    int pos = 0;
     va_list ap;
+
     va_start(ap, fmt);
 
-    // Search for line head and tail.
-    while (head > globals.source && head[-1] != '\n')
-        head--;
+    head = (char *)(loc->str - loc->column);
+    tail = loc->str;
     while (*tail != '\n')
         tail++;
 
-    for (char *p = globals.source; p < head; ++p)
-        if (*p == '\n')
-            linenr++;
-
-    indent = fprintf(stderr, "%s:%d: ", globals.sourceFile, linenr);
+    indent = fprintf(stderr, "%s:%d: ", globals.sourceFile, loc->line);
     fprintf(stderr, "%.*s\n", (int)(tail - head), head);
 
-    pos = loc - head + indent;
-    if (pos) {
-        fprintf(stderr, "%*s", pos, " ");
+    if (loc->column + indent) {
+        fprintf(stderr, "%*s", loc->column + indent, " ");
     }
     fprintf(stderr, "^ ");
     vfprintf(stderr, fmt, ap);

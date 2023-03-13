@@ -154,9 +154,9 @@ void preprocess(Token *token) {
                 macroName = consumeTokenAnyIdent(&token);
 
                 if (!macroName) {
-                    errorAt(token->str, "Macro name expected.");
+                    errorAt(token, "Macro name expected.");
                 } else if (findMacro(macroName)) {
-                    errorAt(macroName->str, "Redefinition of macro.");
+                    errorAt(macroName, "Redefinition of macro.");
                 }
 
                 for (Token *cur = token; cur != macroEnd; cur = cur->next) {

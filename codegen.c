@@ -343,15 +343,15 @@ static void genCodeLVal(const Node *n) {
     } else if (n->kind == NodeExprList) {
         Node *expr = n->body;
         if (!expr)
-            errorAt(n->token->str, "Not a lvalue");
+            errorAt(n->token, "Not a lvalue");
         while (expr->next)
             expr = expr->next;
         if (!isLvalue(expr))
-            errorAt(expr->token->str, "Not a lvalue");
+            errorAt(expr->token, "Not a lvalue");
         genCode(n);
         return;
     } else if (!isLvalue(n)) {
-        errorAt(n->token->str, "Not a lvalue");
+        errorAt(n->token, "Not a lvalue");
     }
 
     // Make sure the value on the top of the stack is the memory address to lhs
@@ -453,7 +453,7 @@ static void genCodeReturn(const Node *n) {
 
     if (n->lhs) {
         if (!isExprNode(n->lhs))
-            errorAt(n->lhs->token->str, "Expression doesn't left value.");
+            errorAt(n->lhs->token, "Expression doesn't left value.");
         genCode(n->lhs);
         dumps("  pop rax");
     }

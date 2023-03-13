@@ -48,15 +48,15 @@ static Node *primary(void);
 
 
 _Noreturn static void errorIdentExpected(void) {
-    errorAt(globals.token->str, "An identifier is expected");
+    errorAt(globals.token, "An identifier is expected");
 }
 
 _Noreturn static void errorTypeExpected(void) {
-    errorAt(globals.token->str, "An type is expected");
+    errorAt(globals.token, "An type is expected");
 }
 
 _Noreturn static void errorUnexpectedEOF(void) {
-    errorAt(globals.token->str, "Unexpected EOF");
+    errorAt(globals.token, "Unexpected EOF");
 }
 
 // Check if name of given token matches to pair of {name, len}.  Returns TRUE
@@ -160,7 +160,7 @@ static void expectReserved(char *op) {
         globals.token = globals.token->next;
         return;
     }
-    errorAt(globals.token->str, "'%s' is expected.", op);
+    errorAt(globals.token, "'%s' is expected.", op);
 }
 
 // If the current token is the number token, consume the token and returns the
@@ -172,7 +172,7 @@ static int expectNumber(void) {
         globals.token = globals.token->next;
         return val;
     }
-    errorAt(globals.token->str, "Non number appears.");
+    errorAt(globals.token, "Non number appears.");
 }
 
 // If the current token is ident token, consume the token and returns it.
@@ -190,7 +190,7 @@ static Token *expectIdent(void) {
 static void assureReserved(char *op) {
     if (matchReserved(op))
             return;
-    errorAt(globals.token->str, "'%s' is expected.", op);
+    errorAt(globals.token, "'%s' is expected.", op);
 }
 
 static int atEOF(void) {
@@ -444,7 +444,7 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
             }
         }
         if ((attr->isStatic + attr->isExtern + attr->isTypedef) >= 2) {
-            errorAt(tokenSave->str,
+            errorAt(tokenSave,
                     "Cannot combine \"static\" ,\"extern\" and \"typedef\".");
         }
     }
@@ -579,7 +579,7 @@ static Function *parseFuncArgDeclaration(void) {
         (*arg) = parseEntireDeclaration(1);
         if (!(*arg) || (*arg)->type->type == TypeVoid) {
             if (*arg && func->argsCount) {
-                errorAt(tokenSave->str,
+                errorAt(tokenSave,
                         "Function parameter must be only one if \"void\" appears.");
             }
             *arg = NULL;
@@ -604,7 +604,7 @@ static Function *parseFuncArgDeclaration(void) {
 
 static void registerTypedef(Typedef *def) {
     if (findTypedef(def->name->str, def->name->len)) {
-        errorAt(def->name->str, "Redefinition of typedef name.");
+        errorAt(def->name, "Redefinition of typedef name.");
     }
     def->next = globals.currentEnv->typedefs;
     globals.currentEnv->typedefs = def;
@@ -703,7 +703,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (arraySize < 0)
             varType->arraySize = strSize;
         else if (strSize > arraySize)
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "%d items given to array sized %d.", strSize, arraySize);
 
         init->next = newGVarInit(GVarInitString, initializer, strSize);
@@ -719,7 +719,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         int initLen = 0;
 
         if (initializer->kind != NodeInitList)
-            errorAt(initializer->token->str, "Initialzier-list required");
+            errorAt(initializer->token, "Initialzier-list required");
 
         for (Node *c = initializer->body; c; c = c->next)
             initLen++;
@@ -727,7 +727,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (varType->arraySize < 0)
             varType->arraySize = initLen;
         else if (initLen > varType->arraySize)
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "%d items given to array sized %d.", initLen, varType->arraySize);
 
         for (Node *c = initializer->body; c; c = c->next) {
@@ -762,7 +762,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         }
 
         if (initializer->kind != NodeInitList)
-            errorAt(initializer->token->str, "Initialzier-list required");
+            errorAt(initializer->token, "Initialzier-list required");
 
         for (Node *c = initializer->body; c; c = c->next)
             initLen++;
@@ -771,7 +771,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
             memberCount++;
 
         if (initLen > memberCount)
-            errorAt(initializer->token->str, "Too much items are given.");
+            errorAt(initializer->token, "Too much items are given.");
 
         member = varType->structDef->members;
         for (Node *c = initializer->body; c; c = c->next) {
@@ -801,7 +801,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         int size = sizeOf(varType);
 
         if (!checkAssignable(varType, initializer->type)) {
-            errorAt(initializer->token->str, "Different type.");
+            errorAt(initializer->token, "Different type.");
         }
 
         for (int keepGoing = 1; keepGoing;) {
@@ -829,7 +829,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
                 return newGVarInit(GVarInitPointer, initializer, size);
             }
         }
-        errorAt(initializer->token->str, "Constant value required.");
+        errorAt(initializer->token, "Constant value required.");
     } else {
         int size = sizeOf(varType);
         int modBySize = 0;
@@ -857,9 +857,9 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
             modBySize &= ((1 << size * 8) - 1);
 
         if (initializer->kind != NodeNum) {
-            errorAt(initializer->token->str, "Constant value required.");
+            errorAt(initializer->token, "Constant value required.");
         } else if (modBySize != initializer->val) {
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "Value overflows: value will be %d.", modBySize);
         }
         return newGVarInit(GVarInitNum, initializer, size);
@@ -913,7 +913,7 @@ static Node *decl(void) {
         obj->isExtern = attr.isExtern;
 
         if (!obj->token) {
-            errorAt(tokenObjHead->str, "Missing variable/function name.");
+            errorAt(tokenObjHead, "Missing variable/function name.");
         }
 
         if (attr.isTypedef) {
@@ -930,37 +930,37 @@ static Node *decl(void) {
             int argNum = 0;
 
             if (!acceptFuncDefinition) {
-                errorAt(globals.token->str, "Function definition is not expected here.");
+                errorAt(globals.token, "Function definition is not expected here.");
             }
 
             for (Obj *arg = obj->func->args; arg; arg = arg->next) {
                 if (!arg->token)
-                    errorAt(tokenObjHead->str, "Argument name is missed.");
+                    errorAt(tokenObjHead, "Argument name is missed.");
                 else if (arg->type->type == TypeVoid)
-                    errorAt(tokenObjHead->str,
+                    errorAt(tokenObjHead,
                             "Cannot declare function argument with type \"void\"");
             }
 
             funcFound = findFunction(obj->token->str, obj->token->len);
             if (funcFound) {
                 if (funcFound->func->haveImpl) {
-                    errorAt(tokenObjHead->str, "Redefinition of function.");
+                    errorAt(tokenObjHead, "Redefinition of function.");
                 }
 
                 // Check types are same with previous declaration.
                 if (!checkTypeEqual(funcFound->func->retType, obj->func->retType)) {
-                    errorAt(tokenBaseType->str,
+                    errorAt(tokenBaseType,
                             "Function return type mismatch with previous declaration.");
                 } else if (funcFound->func->argsCount != obj->func->argsCount ||
                         funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
-                    errorAt(tokenObjHead->str,
+                    errorAt(tokenObjHead,
                             "Mismatch number of function arguments with previous declaration.");
                 } else {
                     Obj *argDecl = funcFound->func->args;
                     Obj *argDef = obj->func->args;
                     for (; argDecl; argDecl = argDecl->next, argDef = argDef->next) {
                         if (!checkTypeEqual(argDecl->type, argDef->type))
-                            errorAt(argDef->token->str,
+                            errorAt(argDef->token,
                                     "Argument type mismatch with previous declaration.");
                     }
                 }
@@ -1030,18 +1030,18 @@ static Node *decl(void) {
             if (funcFound) {
                 // Check types are same with previous declaration.
                 if (!checkTypeEqual(funcFound->func->retType, obj->func->retType)) {
-                    errorAt(tokenBaseType->str,
+                    errorAt(tokenBaseType,
                             "Function return type mismatch with previous declaration.");
                 } else if (funcFound->func->argsCount != obj->func->argsCount ||
                         funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
-                    errorAt(tokenObjHead->str,
+                    errorAt(tokenObjHead,
                             "Mismatch number of function arguments with previous declaration.");
                 } else {
                     Obj *argDecl = funcFound->func->args;
                     Obj *argDef = obj->func->args;
                     for (; argDecl; argDecl = argDecl->next, argDef = argDef->next) {
                         if (!checkTypeEqual(argDecl->type, argDef->type))
-                            errorAt(tokenObjHead->str,
+                            errorAt(tokenObjHead,
                                     "Argument type mismatch with previous declaration.");
                     }
                 }
@@ -1057,9 +1057,9 @@ static Node *decl(void) {
             GVar *existingVar = NULL;
             existingVar = findGlobalVar(obj->token->str, obj->token->len);
             if (existingVar && !existingVar->obj->isExtern)
-                errorAt(obj->token->str, "Redefinition of variable.");
+                errorAt(obj->token, "Redefinition of variable.");
             else if (obj->type->type == TypeVoid)
-                errorAt(obj->token->str,
+                errorAt(obj->token,
                         "Cannot declare variable with type \"void\"");
 
             if (existingVar) {
@@ -1075,7 +1075,7 @@ static Node *decl(void) {
                 Node *init = NULL;
 
                 if (attr.isExtern)
-                    errorAt(globals.token->prev->str,
+                    errorAt(globals.token->prev,
                             "Extern variable cannot have initializers");
 
                 init = varInitializer();
@@ -1085,7 +1085,7 @@ static Node *decl(void) {
             }
 
             if (sizeOf(obj->type) < 0) {
-                errorAt(obj->token->str, "Variable has incomplete type.");
+                errorAt(obj->token, "Variable has incomplete type.");
             }
 
             if (!existingVar) {
@@ -1195,7 +1195,7 @@ static Node *stmt(void) {
         SwitchCase *thisCase;
 
         if (!switchNode)
-            errorAt(globals.token->prev->str,
+            errorAt(globals.token->prev,
                     "\"case\" label not within a switch statement");
 
         n = newNode(NodeSwitchCase, &Types.None);
@@ -1204,7 +1204,7 @@ static Node *stmt(void) {
         expectReserved(":");
 
         if (n->condition->kind != NodeNum)
-            errorAt(n->token->str, "Constant expression required.");
+            errorAt(n->token, "Constant expression required.");
 
         thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
         thisCase->node = n;
@@ -1225,7 +1225,7 @@ static Node *stmt(void) {
 
         expectReserved(":");
         if (!switchNode)
-            errorAt(globals.token->prev->str,
+            errorAt(globals.token->prev,
                     "\"default\" label not within a switch statement");
 
         n = newNode(NodeSwitchCase, &Types.None);
@@ -1303,7 +1303,7 @@ static Node *stmt(void) {
         n->kind = NodeDoWhile;
         n->body = stmt();
         if (!consumeCertainTokenType(TokenWhile)) {
-            errorAt(globals.token->prev->str, "\"while\" expected.");
+            errorAt(globals.token->prev, "\"while\" expected.");
         }
         expectReserved("(");
         n->condition = expr();
@@ -1340,7 +1340,7 @@ static Struct *structDeclaration(const ObjAttr *attr) {
         if (tagName) {
             s = findStruct(tagName->str, tagName->len);
             if (s && s->hasImpl) {
-                errorAt(tokenStruct->str, "Redefinition of struct.");
+                errorAt(tokenStruct, "Redefinition of struct.");
             }
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
@@ -1369,11 +1369,11 @@ static Struct *structDeclaration(const ObjAttr *attr) {
                 globals.currentEnv->structs = s;
             }
         } else if (!(s && s->hasImpl)) {
-            errorAt(tokenStruct->str, "Undefiend struct.");
+            errorAt(tokenStruct, "Undefiend struct.");
         }
         return s;
     } else {
-        errorAt(globals.token->str, "Missing struct tag name.");
+        errorAt(globals.token, "Missing struct tag name.");
     }
 }
 
@@ -1393,15 +1393,15 @@ static void structBody(Struct *s) {
             Obj *member = parseAdvancedTypeDeclaration(baseType, 0);
 
             if (!member->token) {
-                errorAt(tokenMember->str, "Member name required.");
+                errorAt(tokenMember, "Member name required.");
             } else if (member->type->type == TypeStruct &&
                     member->type->structDef == s) {
-                errorAt(tokenMember->str, "Cannot use struct itself for member type.");
+                errorAt(tokenMember, "Cannot use struct itself for member type.");
             }
 
             for (Obj *m = memberHead.next; m; m = m->next) {
                 if (matchToken(m->token, member->token->str, member->token->len))
-                    errorAt(member->token->str, "Duplicate member name.");
+                    errorAt(member->token, "Duplicate member name.");
             }
 
             members->next = member;
@@ -1421,7 +1421,7 @@ static void structBody(Struct *s) {
         int size = sizeOf(m->type);
         int align, padding;
         if (size < 0)
-            errorAt(m->token->str, "Cannot determine size of this.");
+            errorAt(m->token, "Cannot determine size of this.");
         align = alignOf(m->type);
         padding = s->totalSize % align;
         if (padding)
@@ -1457,7 +1457,7 @@ static Enum *enumDeclaration(const ObjAttr *attr) {
         if (tagName) {
             e = findEnum(tagName->str, tagName->len);
             if (e && e->hasImpl)
-                errorAt(tokenEnum->str, "Redefinition of enum.");
+                errorAt(tokenEnum, "Redefinition of enum.");
         } else {
             tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
         }
@@ -1484,11 +1484,11 @@ static Enum *enumDeclaration(const ObjAttr *attr) {
                 globals.currentEnv->enums = e;
             }
         } else if (!(e && e->hasImpl)) {
-            errorAt(tokenEnum->str, "Undefined enum.");
+            errorAt(tokenEnum, "Undefined enum.");
         }
         return e;
     } else {
-        errorAt(globals.token->str, "Missing enum tag name.");
+        errorAt(globals.token, "Missing enum tag name.");
     }
 }
 
@@ -1506,11 +1506,11 @@ static void enumBody(Enum *e) {
 
         previous = findEnumItem(itemToken->str, itemToken->len);
         if (previous)
-            errorAt(itemToken->str, "Duplicate enum item.");
+            errorAt(itemToken, "Duplicate enum item.");
 
         for (EnumItem *p = head.next; p; p = p->next)
             if (matchToken(p->token, itemToken->str, itemToken->len))
-                errorAt(itemToken->str, "Duplicate enum item.");
+                errorAt(itemToken, "Duplicate enum item.");
 
         item->next = (EnumItem *)safeAlloc(sizeof(EnumItem));
         item = item->next;
@@ -1578,12 +1578,12 @@ static Node *varDeclaration(void) {
         varType = varObj->type;
 
         if (varType->type == TypeVoid) {
-            errorAt(varObj->token->str, "Cannot declare variable with type \"void\"");
+            errorAt(varObj->token, "Cannot declare variable with type \"void\"");
         }
 
         existingVar = findLVar(varObj->token->str, varObj->token->len);
         if (existingVar) {
-            errorAt(varObj->token->str, "Redefinition of variable");
+            errorAt(varObj->token, "Redefinition of variable");
         }
 
         // Variable size is not defined when array with size omitted, so do not
@@ -1601,7 +1601,7 @@ static Node *varDeclaration(void) {
             Node *initializer = NULL;
 
             if (attr.isExtern)
-                errorAt(globals.token->prev->str,
+                errorAt(globals.token->prev,
                         "Extern variable cannot have initializers");
 
             initializer = varInitializer();
@@ -1617,11 +1617,11 @@ static Node *varDeclaration(void) {
                     n = n->next;
             }
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
-            errorAt(globals.token->str, "Initializer list required.");
+            errorAt(globals.token, "Initializer list required.");
         }
 
         if (sizeOf(varType) < 0) {
-            errorAt(varObj->token->str, "Variable has incomplete type.");
+            errorAt(varObj->token, "Variable has incomplete type.");
         }
 
 
@@ -1675,7 +1675,7 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
         if (initializer->kind == NodeInitList || initializer->kind == NodeLiteralString) {
             n->next = buildArrayInitNodes(varNode, varType, initializer);
         } else {
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "Initializer-list is expected here.");
         }
     } else if (varType->type == TypeStruct) {
@@ -1685,7 +1685,7 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
             n->next = buildStructInitNodes(varNode, varType, initializer);
     } else {
         if (initializer->kind == NodeInitList) {
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "Initializer-list is not expected here.");
         }
         n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
@@ -1711,7 +1711,7 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                 varType->arraySize = arraySize;
             } else if (elemCount > arraySize) {
                 errorAt(
-                        initializer->token->str,
+                        initializer->token,
                         "%d items given to array sized %d.",
                         elemCount,
                         arraySize);
@@ -1770,7 +1770,7 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                 varType->arraySize = arraySize;
             } else if (elemCount > arraySize) {
                 errorAt(
-                        initializer->token->str,
+                        initializer->token,
                         "%d items given to array sized %d.",
                         elemCount,
                         arraySize);
@@ -1778,7 +1778,7 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
 
             return head.next;
         } else {
-            errorAt(initializer->token->str,
+            errorAt(initializer->token,
                     "Initializer-list is expected for array");
         }
     } else {
@@ -1798,7 +1798,7 @@ static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initia
     if (varType->type != TypeStruct)
         errorUnreachable();
     else if (initializer->kind != NodeInitList)
-        errorAt(initializer->token->str, "Initializer-list is expected here.");
+        errorAt(initializer->token, "Initializer-list is expected here.");
 
     for (Node *c = initializer->body; c; c = c->next)
         initLen++;
@@ -1806,7 +1806,7 @@ static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initia
         memberCount++;
 
     if (initLen > memberCount)
-        errorAt(initializer->token->str, "Too much items are given.");
+        errorAt(initializer->token, "Too much items are given.");
 
     member = varNode->type->structDef->members;
     init = initializer->body;
@@ -2131,7 +2131,7 @@ static Node *typecast(void) {
         obj = parseAdvancedTypeDeclaration(type, 0);
 
         if (obj->token)
-            errorAt(obj->token->str, "Unexpected identifier.");
+            errorAt(obj->token, "Unexpected identifier.");
 
         expectReserved(")");
 
@@ -2142,7 +2142,7 @@ static Node *typecast(void) {
 
 
         if (sizeOf(obj->type) < 0) {
-            errorAt(tokenSave->next->str, "Incomplete type.");
+            errorAt(tokenSave->next, "Incomplete type.");
         }
 
         n = newNodeBinary(NodeTypeCast, NULL, typecast(), obj->type);
@@ -2170,7 +2170,7 @@ static Node *unary(void) {
         Node *rhs = typecast();
         TypeKind typeKind = rhs->type->type;
         if (!(rhs->type && (typeKind == TypePointer || typeKind == TypeArray))) {
-            errorAt(tokenOperator->str,
+            errorAt(tokenOperator,
                     "Cannot dereference a non-pointer value.");
         }
 
@@ -2195,7 +2195,7 @@ static Node *unary(void) {
             if (type) {
                 Obj *obj = parseAdvancedTypeDeclaration(type, 0);
                 if (obj->token)
-                    errorAt(obj->token->str, "Unexpected ident.");
+                    errorAt(obj->token, "Unexpected ident.");
                 type = obj->type;
                 expectReserved(")");
             }
@@ -2204,7 +2204,7 @@ static Node *unary(void) {
         if (type) {
             size = sizeOf(type);
             if (size < 0)
-                errorAt(tokenSave->str, "Incomplete type.");
+                errorAt(tokenSave, "Incomplete type.");
         } else {
             // Then, if "sizeof(type)" didn't match the case, do check for
             // "sizeof {unary-expr}".
@@ -2212,7 +2212,7 @@ static Node *unary(void) {
             type = unary()->type;
             size = sizeOf(type);
             if (size < 0)
-                errorAt(tokenSave->str, "Variable has incomplete type.");
+                errorAt(tokenSave, "Variable has incomplete type.");
         }
 
         n = newNodeNum(size);
@@ -2244,7 +2244,7 @@ static Node *compoundLiteral(void) {
     }
 
     if (sizeOf(type) < 0)
-        errorAt(tokenSave->next->str, "Incomplete type.");
+        errorAt(tokenSave->next, "Incomplete type.");
 
     if (globals.currentEnv == &globals.globalEnv) {
         // Compound-literal at global scope.
@@ -2326,7 +2326,7 @@ static Node *postfix(void) {
         } else {
             f = findFunction(ident->str, ident->len);
             if (!f) {
-                errorAt(ident->str, "No such function.");
+                errorAt(ident, "No such function.");
             }
             n = newNodeFCall(f->func->retType);
         }
@@ -2360,7 +2360,7 @@ static Node *postfix(void) {
             TypeInfo *exprType = n->type;
             for (;;) {
                 if (!isWorkLikePointer(exprType))
-                    errorAt(globals.token->prev->str, "Array or pointer is needed.");
+                    errorAt(globals.token->prev, "Array or pointer is needed.");
                 ex = expr();
                 expectReserved("]");
                 n = newNodeBinary(NodeAdd, n, ex, exprType);
@@ -2370,7 +2370,7 @@ static Node *postfix(void) {
             }
             n = newNodeBinary(NodeDeref, NULL, n, exprType);
         } else if (matchReserved("(")) {
-            errorAt(globals.token->str,
+            errorAt(globals.token,
                     "Calling returned function object is not supported yet.");
         } else if (consumeReserved("++")) {
             n = newNodeBinary(NodePostIncl, n, NULL, n->type);
@@ -2383,17 +2383,17 @@ static Node *postfix(void) {
             if (globals.token->prev->str[0] == '-') {
                 if (n->type->type != TypePointer ||
                         n->type->baseType->type != TypeStruct)
-                    errorAt(n->token->str, "Pointer for struct required.");
+                    errorAt(n->token, "Pointer for struct required.");
                 n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
             }
 
             if (n->type->type != TypeStruct)
-                errorAt(n->token->str, "Struct required.");
+                errorAt(n->token, "Struct required.");
 
             memberToken = expectIdent();
             member = findStructMember(n->type->structDef, memberToken->str, memberToken->len);
             if (!member)
-                errorAt(memberToken->str, "No such struct member.");
+                errorAt(memberToken, "No such struct member.");
 
             n = newNodeBinary(NodeMemberAccess, n, NULL, member->type);
         } else {
@@ -2444,7 +2444,7 @@ static Node *primary(void) {
         } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
             n = newNodeNum(enumItem->value);
         } else {
-            errorAt(ident->str, "Undefined variable");
+            errorAt(ident, "Undefined variable");
         }
         n->token = ident;
     } else if (consumeReserved("(")) {

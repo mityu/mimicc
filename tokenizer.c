@@ -56,12 +56,14 @@ int checkEscapeChar(char c, char *decoded) {
 }
 
 // Generate a new token, concatenate it to `current`, and return the new one.
-static Token *newToken(TokenType type, Token *current, char *str, int len) {
+static Token *newToken(TokenType type, Token *current, char *str, int len, int line, int column) {
     Token *t = (Token*)safeAlloc(sizeof(Token));
     t->type = type;
     t->str = str;
     t->len = len;
     t->prev = current;
+    t->line = line;
+    t->column = column;
     current->next = t;
     return t;
 }
@@ -92,17 +94,30 @@ void removeAllNewLineToken(Token *token) {
     }
 }
 
+#define appendNewToken(tokenType, str, len) \
+    do {\
+        current = newToken(\
+                tokenType, current, str, len, line, (int)((str) - lineHead));\
+    } while (0)
+#define errorAtChar(p, msg) \
+    do { \
+        errorAt(newToken(TokenReserved, NULL, p, 0, line, (int)((p) - lineHead)), msg);\
+    } while (0)
 Token *tokenize(void) {
     char *p = globals.source;
     Token head = {};
     Token *current = &head;
+    int line = 1;
+    char *lineHead = p;
 
-    current = newToken(TokenSOF, current, p, 0);
+    appendNewToken(TokenSOF, p, 0);
 
     while (*p) {
         if (*p == '\n') {
-            current = newToken(TokenNewLine, current, p, 1);
+            appendNewToken(TokenNewLine, p, 1);
             ++p;
+            ++line;
+            lineHead = p;
             continue;
         }
 
@@ -114,7 +129,7 @@ Token *tokenize(void) {
         if (hasPrefix(p, "/*")) {
             char *q = strstr(p + 2, "*/");
             if (q == NULL)
-                errorAt(p, "Unterminated comment");
+                errorAtChar(p, "Unterminated comment");
             p = q + 2;
             continue;
         }
@@ -133,34 +148,34 @@ Token *tokenize(void) {
         }
 
         if (isToken(p, "void")) {
-            current = newToken(TokenTypeName, current, p, 4);
+            appendNewToken(TokenTypeName, p, 4);
             current->varType = TypeVoid;
             p += 4;
             continue;
         }
 
         if (isToken(p, "int")) {
-            current = newToken(TokenTypeName, current, p, 3);
+            appendNewToken(TokenTypeName, p, 3);
             current->varType = TypeInt;
             p += 3;
             continue;
         }
 
         if (isToken(p, "char")) {
-            current = newToken(TokenTypeName, current, p, 4);
+            appendNewToken(TokenTypeName, p, 4);
             current->varType = TypeChar;
             p += 4;
             continue;
         }
 
         if (isToken(p, "struct")) {
-            current = newToken(TokenStruct, current, p, 6);
+            appendNewToken(TokenStruct, p, 6);
             p += 6;
             continue;
         }
 
         if (isToken(p, "enum")) {
-            current = newToken(TokenEnum, current, p, 4);
+            appendNewToken(TokenEnum, p, 4);
             p += 4;
             continue;
         }
@@ -172,25 +187,25 @@ Token *tokenize(void) {
         }
 
         if (isToken(p, "static")) {
-            current = newToken(TokenStatic, current, p, 6);
+            appendNewToken(TokenStatic, p, 6);
             p += 6;
             continue;
         }
 
         if (isToken(p, "extern")) {
-            current = newToken(TokenExtern, current, p, 6);
+            appendNewToken(TokenExtern, p, 6);
             p += 6;
             continue;
         }
 
         if (isToken(p, "typedef")) {
-            current = newToken(TokenTypedef, current, p, 7);
+            appendNewToken(TokenTypedef, p, 7);
             p += 7;
             continue;
         }
 
         if (isToken(p, "if")) {
-            current = newToken(TokenIf, current, p, 2);
+            appendNewToken(TokenIf, p, 2);
             p += 2;
             continue;
         }
@@ -201,77 +216,77 @@ Token *tokenize(void) {
                 ++q;
             if (isToken(q, "if")) {
                 q += 2;
-                current = newToken(TokenElseif, current, p, (int)(q - p));
+                appendNewToken(TokenElseif, p, (int)(q - p));
                 p = q;
             } else {
-                current = newToken(TokenElse, current, p, 4);
+                appendNewToken(TokenElse, p, 4);
                 p += 4;
             }
             continue;
         }
 
         if (isToken(p, "switch")) {
-            current = newToken(TokenSwitch, current, p, 6);
+            appendNewToken(TokenSwitch, p, 6);
             p += 6;
             continue;
         }
 
         if (isToken(p, "case")) {
-            current = newToken(TokenCase, current, p, 4);
+            appendNewToken(TokenCase, p, 4);
             p += 4;
             continue;
         }
 
         if (isToken(p, "default")) {
-            current = newToken(TokenDefault, current, p, 7);
+            appendNewToken(TokenDefault, p, 7);
             p += 7;
             continue;
         }
 
         if (isToken(p, "for")) {
-            current = newToken(TokenFor, current, p, 3);
+            appendNewToken(TokenFor, p, 3);
             p += 3;
             continue;
         }
 
         if (isToken(p, "while")) {
-            current = newToken(TokenWhile, current, p, 5);
+            appendNewToken(TokenWhile, p, 5);
             p += 5;
             continue;
         }
 
         if (isToken(p, "do")) {
-            current = newToken(TokenDo, current, p, 2);
+            appendNewToken(TokenDo, p, 2);
             p += 2;
             continue;
         }
 
         if (isToken(p, "break")) {
-            current = newToken(TokenBreak, current, p, 5);
+            appendNewToken(TokenBreak, p, 5);
             p += 5;
             continue;
         }
 
         if (isToken(p, "continue")) {
-            current = newToken(TokenContinue, current, p, 8);
+            appendNewToken(TokenContinue, p, 8);
             p += 8;
             continue;
         }
 
         if (isToken(p, "return")) {
-            current = newToken(TokenReturn, current, p, 6);
+            appendNewToken(TokenReturn, p, 6);
             p += 6;
             continue;
         }
 
         if (isToken(p, "sizeof")) {
-            current = newToken(TokenSizeof, current, p, 6);
+            appendNewToken(TokenSizeof, p, 6);
             p += 6;
             continue;
         }
 
         if (hasPrefix(p, "...")) {
-            current = newToken(TokenReserved, current, p, 3);
+            appendNewToken(TokenReserved, p, 3);
             p += 3;
             continue;
         }
@@ -286,16 +301,17 @@ Token *tokenize(void) {
                 hasPrefix(p, "&&") || hasPrefix(p, "||") ||
                 hasPrefix(p, "<<") || hasPrefix(p, ">>") ||
                 hasPrefix(p, "->")) {
-            current = newToken(TokenReserved, current, p, 2);
+            appendNewToken(TokenReserved, p, 2);
             p += 2;
             continue;
         }
         if (strchr("!+-*/%()=;[]<>{},&^|.?:#", *p)) {
-            current = newToken(TokenReserved, current, p++, 1);
+            appendNewToken(TokenReserved, p, 1);
+            p++;
             continue;
         }
         if (isDigit(*p)) {
-            current = newToken(TokenNumber, current, p, 0);
+            appendNewToken(TokenNumber, p, 0);
             char *q = p;
             current->val = strtol(p, &p, 10);
             current->len = (int)(p - q);
@@ -307,21 +323,21 @@ Token *tokenize(void) {
             char c;
             ++p;
             if (*p == '\0') {
-                errorAt(p, "Character literal is not terminated.");
+                errorAtChar(p, "Character literal is not terminated.");
             } else if (*p == '\'') {
-                errorAt(q, "Empty character literal.");
+                errorAtChar(q, "Empty character literal.");
             } else if (*p == '\\') {
                 if (!checkEscapeChar(*(++p), &c)) {
-                    errorAt(p - 1, "Invalid escape character.");
+                    errorAtChar(p - 1, "Invalid escape character.");
                 }
             } else {
                 c = *p;
             }
 
             if (*(++p) != '\'') {
-                errorAt(p, "Character literal is too long.");
+                errorAtChar(p, "Character literal is too long.");
             }
-            current = newToken(TokenNumber, current, q, (int)(p - q + 1));
+            appendNewToken(TokenNumber, q, (int)(p - q + 1));
             current->val = (int)c;
             p++;
             continue;
@@ -346,13 +362,13 @@ Token *tokenize(void) {
                         --literalLen;
                         break;
                     } else if (!checkEscapeChar(*p, &c)) {
-                        errorAt(p - 1, "Invalid escape character.");
+                        errorAtChar(p - 1, "Invalid escape character.");
                     }
                 }
             }
 
             if (*p == '\0')
-                errorAt(p - 1, "String is not terminated.");
+                errorAtChar(p - 1, "String is not terminated.");
 
             str = (LiteralString *)safeAlloc(sizeof(LiteralString));
             str->id = globals.literalStringCount++;
@@ -363,7 +379,7 @@ Token *tokenize(void) {
             str->next = globals.strings;
             globals.strings = str;
 
-            current = newToken(TokenLiteralString, current, q, (int)(p - q + 1));
+            appendNewToken(TokenLiteralString, q, (int)(p - q + 1));
             current->literalStr = str;
 
             p++;  // Skip closing double quote.
@@ -374,14 +390,14 @@ Token *tokenize(void) {
             char *q = p;
             while (isAlnum(*p))
                 ++p;
-            current = newToken(TokenIdent, current, q, (int)(p - q));
+            appendNewToken(TokenIdent, q, (int)(p - q));
             continue;
         }
 
-        errorAt(p, "Cannot tokenize");
+        errorAtChar(p, "Cannot tokenize");
     }
 
-    newToken(TokenEOF, current, p, 0);
+    appendNewToken(TokenEOF, p, 0);
 
     return head.next;
 }
