@@ -6,11 +6,12 @@ struct Macro {
     Macro *next;
     Token *token;
     Token *replace;  // Replacement-list is tokens until "TokenNewLine" appears.
+    int isUsed;
 };
 
 typedef struct Preproc Preproc;
 struct Preproc {
-    Macro *macros;
+    Macro *macros;          // All macro list.
 };
 
 static Preproc preproc;
@@ -25,6 +26,8 @@ static Macro *newMacro(Token *token, Token *replace) {
     return macro;
 }
 
+// Search for macro named "name" in all macro list, and returns the matched
+// macro object if found.  If macro not found, returns NULL instead.
 static Macro *findMacro(Token *name) {
     for (Macro *macro = preproc.macros; macro; macro = macro->next) {
         if (matchToken(macro->token, name->str, name->len)) {
@@ -32,6 +35,20 @@ static Macro *findMacro(Token *name) {
         }
     }
     return NULL;
+}
+
+// Return TRUE if macro is used in one macro expansion sequence.
+static int isMacroUsed(Macro *macro) {
+    return macro->isUsed;
+}
+
+static void markMacroAsUsed(Macro *macro) {
+    macro->isUsed = 1;
+}
+
+static void clearUsedMacroMarks(void) {
+    for (Macro *macro = preproc.macros; macro; macro = macro->next)
+        macro->isUsed = 0;
 }
 
 static int matchTokenReserved(Token *token, const char *name) {
@@ -132,11 +149,13 @@ static Token *applyMacro(Token *token) {
     Token *end = NULL;
 
     macro = findMacro(token);
-    if (!macro)
+    if (!macro || isMacroUsed(macro))
         return NULL;
 
     if (macro->replace->type != TokenNewLine) {
         Token *cur = NULL;
+
+        markMacroAsUsed(macro);
         begin = macro->replace;
         end = skipUntilNewline(begin)->prev;
         begin = cur = cloneTokenList(begin, end);
@@ -234,7 +253,10 @@ void preprocess(Token *token) {
             popTokenRange(tokenHash, tokenEOL);
         } else {
             Token *prev = token->prev;
-            Token *applied = applyMacro(token);
+            Token *applied = NULL;
+
+            clearUsedMacroMarks();
+            applied = applyMacro(token);
             if (applied) {
                 token = applied->next;
                 for (Token *cur = prev->next; cur != token; cur = cur->next)
