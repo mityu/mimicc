@@ -2,6 +2,10 @@ _Noreturn void exit(int status);
 int printf(const char *fmt, ...);
 int strcmp(const char *, const char *);
 
+// Make sure no SEGV when deleting the only entry of macro.
+#define UNDEF_SOON
+#undef UNDEF_SOON
+
 #define REP_TO_53   53
 #define REP_TO_59   59
 void testObjectiveMacro(void) {
@@ -54,14 +58,24 @@ void testNestedObjectiveMacro(void) {
 #define REP_TO_PREDEFINED_LINE  __LINE__
 void test__LINE__macro(void) {
     int line = __LINE__;
-    if (line != 57) {
+    if (line != 61) {
         printf("test__LINE__macro(): Wrong line number (direct): %d\n", line);
         exit(1);
     }
 
     line = REP_TO_PREDEFINED_LINE;
-    if (line != 63) {
+    if (line != 67) {
         printf("test__LINE__macro(): Wrong line number (indirect): %d\n", line);
+        exit(1);
+    }
+}
+
+#define UNDEF_TEST_MACRO    "foo-bar-baz"
+#undef UNDEF_TEST_MACRO
+#define UNDEF_TEST_MACRO    61
+void testUndef(void) {
+    if (UNDEF_TEST_MACRO != 61) {
+        printf("testUndef(): Invalid UNDEF_TEST_MACRO value: %d\n", UNDEF_TEST_MACRO);
         exit(1);
     }
 }
@@ -70,5 +84,6 @@ int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();
     testNestedObjectiveMacro();
+    testUndef();
     printf("OK\n");
 }

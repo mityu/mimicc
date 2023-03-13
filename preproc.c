@@ -181,13 +181,14 @@ void preprocess(Token *token) {
     // TODO: Make sure the first token has type "TokenSOF"?
     while (token && token->type != TokenEOF) {
         if (consumeTokenReserved(&token, "#")) {
+            Token *tokenHash = token->prev;
+            Token *tokenEOL = skipUntilNewline(tokenHash);
+
             if (consumeTokenIdent(&token, "define")) {
                 // Macro definition
                 Macro *macro = NULL;
                 Token *macroName = NULL;
-                Token *macroBegin = token->prev->prev;
                 // Note that new-line token won't be replaced, so this is OK.
-                Token *macroEnd = skipUntilNewline(token);
 
                 macroName = consumeTokenAnyIdent(&token);
 
@@ -201,9 +202,36 @@ void preprocess(Token *token) {
                 macro->next = preproc.macros;
                 preproc.macros = macro;
 
-                token = macroEnd->next;
-                popTokenRange(macroBegin, macroEnd);
+                token = tokenEOL->next;
+            } else if (consumeTokenIdent(&token, "undef")) {
+                Token *name = NULL;
+                Macro *macro = NULL;
+
+                name = consumeTokenAnyIdent(&token);
+                if (!name)
+                    errorAt(token, "Macro name expected.");
+
+                macro = findMacro(name);
+                if (!macro)
+                    errorAt(name, "Undefined macro.");
+
+                if (macro->next) {
+                    *macro = *macro->next;
+                    safeFree(macro->next);
+                } else {
+                    if (preproc.macros != macro) {
+                        Macro *prev = preproc.macros;
+                        while (prev->next != macro)
+                            prev = prev->next;
+                        prev->next = NULL;
+                    } else {
+                        preproc.macros = NULL;
+                    }
+                    safeFree(macro);
+                }
             }
+
+            popTokenRange(tokenHash, tokenEOL);
         } else {
             Token *prev = token->prev;
             Token *applied = applyMacro(token);
