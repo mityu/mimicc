@@ -6,10 +6,12 @@ OBJ=$(SRC:%.c=obj/%.o)
 HOME_SELF=./test/self
 TARGET_SELF=$(TARGET:./%=$(HOME_SELF)/%)
 OBJ_SELF=$(OBJ:obj/%=$(HOME_SELF)/%)
+ASM_SELF=$(OBJ_SELF:%.o=%.s)
 
 HOME_SELFSELF=./test/selfself
 TARGET_SELFSELF=$(TARGET:./%=$(HOME_SELFSELF)/%)
 OBJ_SELFSELF=$(OBJ:obj/%=$(HOME_SELFSELF)/%)
+ASM_SELFSELF=$(OBJ_SELFSELF:%.o=%.s)
 
 INCLUDE=./include
 HEADERS=$(wildcard $(INCLUDE)/*)
@@ -41,10 +43,6 @@ all: clean $(TARGET);
 
 .PHONY: test
 test: $(TARGET) test_basic test_advanced test_advanced_errors;
-
-.PHONY: test_prepair
-
-test_prepair: ./test/Xtmp;
 
 
 # Compilation: 2nd gen
@@ -111,13 +109,14 @@ test_selfself_prepair:
 	$(eval TESTCC=$(TARGET_SELFSELF))
 
 .PHONY: test_selfself_diff
-test_selfself_diff: $(OBJ_SELF:%.o=%.s) $(OBJ_SELFSELF:%.o=%.s)
-	@for f in $(notdir $(OBJ_SELFSELF:%.o=%.s)); do \
-		echo $$f; \
-		diff -u $(HOME_SELF)/$$f $(HOME_SELFSELF)/$$f || exit 1; \
-	done
+test_selfself_diff: $(ASM_SELF) $(ASM_SELFSELF)
+test_selfself_diff: $(addprefix test_selfself_diff-,$(notdir $(ASM_SELFSELF:%.s=%)))
 	@echo OK
 	@echo
+
+.PHONY: test_selfself_diff-%
+test_selfself_diff-%: $(HOME_SELF)/%.s $(HOME_SELFSELF)/%.s
+	diff -u $^
 
 $(HOME_SELFSELF):
 	mkdir $(HOME_SELFSELF)
@@ -145,6 +144,9 @@ test_test_prepair:
 
 
 # Test system
+.PHONY: test_prepair
+test_prepair: ./test/Xtmp;
+
 .PHONY: test_basic
 test_basic: ABSPATH=$(abspath $(TESTCC))
 test_basic: CCPATH=$(shell [ -f '$(ABSPATH)' ] && echo '$(ABSPATH)' || echo '$(TESTCC)')
@@ -154,14 +156,14 @@ test_basic: test_prepair
 	@echo
 
 .PHONY: test_advanced
-test_advanced: test_prepair test_clean test_basic $(TEST_EXECUTABLES)
-	@for exe in $(TEST_EXECUTABLES); do \
-		echo $${exe}; \
-		$${exe} || exit 1; \
-		echo; \
-	done
+test_advanced: test_prepair test_clean test_basic $(TEST_EXECUTABLES) \
+	$(addprefix test_advanced_run-,$(notdir $(TEST_EXECUTABLES:%.exe=%)))
 	@echo OK
 	@echo
+
+.PHONY: test_advanced_run-%
+test_advanced_run-%: ./test/Xtmp/%.exe
+	$<
 
 .PHONY: test_advanced_errors
 test_advanced_errors: ABSPATH=$(abspath $(TESTCC))
