@@ -51,6 +51,21 @@ void testNestedObjectiveMacro(void) {
     }
 }
 
+#define REP_TO_PREDEFINED_LINE  __LINE__
+void test__LINE__macro(void) {
+    int line = __LINE__;
+    if (line != 57) {
+        printf("test__LINE__macro(): Wrong line number (direct): %d\n", line);
+        exit(1);
+    }
+
+    line = REP_TO_PREDEFINED_LINE;
+    if (line != 63) {
+        printf("test__LINE__macro(): Wrong line number (indirect): %d\n", line);
+        exit(1);
+    }
+}
+
 int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();

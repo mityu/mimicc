@@ -106,11 +106,23 @@ static Token *skipUntilNewline(Token *token) {
     return token;
 }
 
+
+// Apply predefined macros.  Return TRUE if applied.
+static int applyPredefinedMacro(Token *token) {
+    if (matchToken(token , "__LINE__", 8)) {
+        token->type = TokenNumber;
+        token->val = token->line;
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
 // Try to apply macro for "token".  If macro applied, returns the pointer to
 // the last token of replacements (if macro is expanded to empty, returns the
 // pointer to the prev token of "token").  Otherwise returns NULL.
-Token *applyMacro(Token *token) {
-    // TODO: Handle built-in macros like __FILE__ and __LINE__
+// Note that this function does NOT handle any predefined macros.
+static Token *applyMacro(Token *token) {
     Macro *macro = NULL;
     Token *prev = token->prev;
     Token *begin = NULL;
@@ -120,19 +132,28 @@ Token *applyMacro(Token *token) {
     if (!macro)
         return NULL;
 
-    popTokenRange(token, token);
-
     if (macro->replace->type != TokenNewLine) {
-        begin =  macro->replace;
+        Token *cur = NULL;
+        begin = macro->replace;
         end = skipUntilNewline(begin)->prev;
-        begin = end = cloneTokenList(begin, end);
-        while (end->next)
-            end = end->next;
+        begin = cur = cloneTokenList(begin, end);
+        for (;;) {
+            cur->line = token->line;
+            cur->column = token->column;
+
+            if (cur->next)
+                cur = cur->next;
+            else
+                break;
+        }
+        end = cur;
 
         insertTokens(prev, begin, end);
     } else {
         end = prev;
     }
+
+    popTokenRange(token, token);
 
     return end;
 }
@@ -173,11 +194,16 @@ void preprocess(Token *token) {
                 popTokenRange(macroBegin, macroEnd);
             }
         } else {
+            Token *prev = token->prev;
             Token *applied = applyMacro(token);
-            if (applied)
+            if (applied) {
                 token = applied->next;
-            else
+                for (Token *cur = prev->next; cur != token; cur = cur->next)
+                    applyPredefinedMacro(cur);
+            } else {
+                applyPredefinedMacro(token);
                 token = token->next;
+            }
         }
     }
 }
