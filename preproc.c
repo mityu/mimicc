@@ -7,6 +7,16 @@ struct Macro {
     Token *token;
     Token *replace;  // Replacement-list is tokens until "TokenNewLine" appears.
     int isUsed;
+
+#define DEFAULT_HOLDER_SIZE 8
+
+typedef struct UsedMacros UsedMacros;
+struct UsedMacros {
+    size_t size;
+    size_t cap;
+    int allocated;
+    Macro **used;
+    Macro *staticHolder[DEFAULT_HOLDER_SIZE];
 };
 
 typedef struct Preproc Preproc;
@@ -42,13 +52,42 @@ static int isMacroUsed(Macro *macro) {
     return macro->isUsed;
 }
 
-static void markMacroAsUsed(Macro *macro) {
-    macro->isUsed = 1;
+static void initUsedMacros(UsedMacros *usedMacros) {
+    usedMacros->size = 0;
+    usedMacros->cap = DEFAULT_HOLDER_SIZE;
+    usedMacros->allocated = 0;
+    usedMacros->used = usedMacros->staticHolder;
+    memset(usedMacros->staticHolder, 0, sizeof(usedMacros->staticHolder));
 }
 
-static void clearUsedMacroMarks(void) {
-    for (Macro *macro = preproc.macros; macro; macro = macro->next)
-        macro->isUsed = 0;
+static void markMacroAsUsed(UsedMacros *usedMacros, Macro *macro) {
+    macro->isUsed = 1;
+
+    if (usedMacros->size == usedMacros->cap) {
+        Macro **newCap = NULL;
+        usedMacros->cap <<= 1;
+        newCap = (Macro **)safeAlloc(sizeof(Macro *) * usedMacros->cap);
+        memcpy(newCap, usedMacros->used, usedMacros->size * sizeof(Macro *));
+
+        if (usedMacros->allocated)
+            safeFree(usedMacros->used);
+
+        usedMacros->used = newCap;
+        usedMacros->allocated = 1;
+    }
+    usedMacros->used[usedMacros->size++] = macro;
+}
+
+static void unmarkUsedMacroMarks(UsedMacros *used) {
+    for (size_t i = 0; i < used->size; ++i)
+        used->used[i]->isUsed = 0;
+    memset(used->used, 0, used->size * sizeof(Macro *));
+    used->size = 0;
+}
+
+static void freeUsedMacros(UsedMacros *used) {
+    if (used->allocated)
+        safeFree(used->used);
 }
 
 static int matchTokenReserved(Token *token, const char *name) {
@@ -215,6 +254,9 @@ static Token *applyMacro(Token *token) {
     Token *prev = token->prev;
     Token *begin = NULL;
     Token *end = NULL;
+    UsedMacros usedMacros;
+
+    initUsedMacros(&usedMacros);
 
     macro = findMacro(token);
     if (!macro || isMacroUsed(macro))
@@ -223,7 +265,7 @@ static Token *applyMacro(Token *token) {
     if (macro->replace->type != TokenNewLine) {
         Token *cur = NULL;
 
-        markMacroAsUsed(macro);
+        markMacroAsUsed(&usedMacros, macro);
         begin = macro->replace;
         end = skipUntilNewline(begin)->prev;
         begin = cur = cloneTokenList(begin, end);
@@ -245,6 +287,9 @@ static Token *applyMacro(Token *token) {
         end = prev;
         popTokenRange(token, token);
     }
+
+    unmarkUsedMacroMarks(&usedMacros);
+    freeUsedMacros(&usedMacros);
 
     return end;
 }
@@ -279,7 +324,6 @@ void preprocess(Token *token) {
             Token *prev = token->prev;
             Token *applied = NULL;
 
-            clearUsedMacroMarks();
             applied = applyMacro(token);
             if (applied) {
                 token = applied->next;

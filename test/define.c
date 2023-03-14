@@ -58,14 +58,30 @@ void testNestedObjectiveMacro(void) {
 #define REP_TO_PREDEFINED_LINE  __LINE__
 void test__LINE__macro(void) {
     int line = __LINE__;
-    if (line != 61) {
+    if (line != 60) {
         printf("test__LINE__macro(): Wrong line number (direct): %d\n", line);
         exit(1);
     }
 
     line = REP_TO_PREDEFINED_LINE;
-    if (line != 67) {
+    if (line != 66) {
         printf("test__LINE__macro(): Wrong line number (indirect): %d\n", line);
+        exit(1);
+    }
+}
+
+#define MULTI_EXPAND_1  (REP_TO_53*REP_TO_53)
+#define MULTI_EXPAND_2  (REP_TO_53+MULTI_EXPAND_1)
+void testMacroMultipleExpantion(void) {
+    if (2809 != MULTI_EXPAND_1) {
+        printf("testMacroMultipleExpantion(): MULTI_EXPAND_1 != 2809: %d\n",
+                MULTI_EXPAND_1);
+        exit(1);
+    }
+
+    if (2862 != MULTI_EXPAND_2) {
+        printf("testMacroMultipleExpantion(): MULTI_EXPAND_2 != 2862: %d\n",
+                MULTI_EXPAND_2);
         exit(1);
     }
 }
@@ -84,6 +100,8 @@ int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();
     testNestedObjectiveMacro();
+    test__LINE__macro();
+    testMacroMultipleExpantion();
     testUndef();
     printf("OK\n");
 }
