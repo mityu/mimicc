@@ -379,7 +379,7 @@ Token *tokenize(char *source) {
             continue;
         }
 
-        if (hasPrefix(p, "...")) {
+        if (hasPrefix(p, "<<=") || hasPrefix(p, ">>=") || hasPrefix(p, "...")) {
             appendNewToken(TokenReserved, p, 3);
             p += 3;
             continue;

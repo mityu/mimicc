@@ -74,6 +74,26 @@ void testArithmeticAssignment(void) {
     n = 3;
     n ^= 5;
     ASSERT(6, n);
+
+    n = 2;
+    n <<= 2;
+    ASSERT(8, n);
+
+    n = 1;
+    n <<= 8;
+    ASSERT(256, n);
+
+    n = 2;
+    n >>= 1;
+    ASSERT(1, n);
+
+    n = 64;
+    n >>= 3;
+    ASSERT(8, n);
+
+    n = -8;
+    n >>= 2;
+    ASSERT(-2, n);
 }
 
 int main(void) {

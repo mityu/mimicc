@@ -1951,6 +1951,22 @@ static Node *assign(void) {
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
+    } else if (consumeReserved("<<=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeArithShiftL, lhs, rhs, &Types.Number);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
+    } else if (consumeReserved(">>=")) {
+        Node *lhs = n;
+        Node *rhs = assign();
+        // TODO: Set proper type.
+        n = newNodeBinary(NodeArithShiftR, lhs, rhs, &Types.Number);
+        n->token = t;
+        n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
+        n->token = t;
     }
     return n;
 }
