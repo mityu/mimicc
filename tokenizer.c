@@ -55,19 +55,6 @@ int checkEscapeChar(char c, char *decoded) {
     return 0;
 }
 
-// Generate a new token, concatenate it to `current`, and return the new one.
-static Token *newToken(TokenType type, Token *current, char *str, int len, int line, int column) {
-    Token *t = (Token*)safeAlloc(sizeof(Token));
-    t->type = type;
-    t->str = str;
-    t->len = len;
-    t->prev = current;
-    t->line = line;
-    t->column = column;
-    current->next = t;
-    return t;
-}
-
 // Remove tokens from "token" by range [begin, end].
 void popTokenRange(Token *begin, Token *end) {
     Token *prev = begin->prev;
@@ -187,17 +174,24 @@ void printTokenList(Token *token) {
         printToken(token);
 }
 
-#define appendNewToken(tokenType, str, len) \
+#define appendNewToken(tokenType, string, length) \
     do {\
-        current = newToken(\
-                tokenType, current, str, len, line, (int)((str) - lineHead));\
+        current->next = (Token *)safeAlloc(sizeof(Token));\
+        current->next->prev = current;\
+        current = current->next;\
+        current->type = tokenType;\
+        current->str = string;\
+        current->len = length;\
+        current->line = line;\
+        current->column = (int)((string) - lineHead);\
+        current->file = file;\
     } while (0)
 #define errorAtChar(pos, msg) \
     do { \
         appendNewToken(TokenReserved, pos, 0);\
         errorAt(current, msg);\
     } while (0)
-Token *tokenize(char *source) {
+Token *tokenize(char *source, char *file) {
     char *p = source;
     Token head = {};
     Token *current = &head;

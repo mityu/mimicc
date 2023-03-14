@@ -100,6 +100,7 @@ struct Token {
     TypeKind varType;          // Variable type valid when type is TokenTypeName.
     LiteralString *literalStr; // Reference to literal string when type is
                                // TokenLiteralString.
+    char *file;                // File name.
     char *str;                 // The token string.
     int len;                   // The token length.
     int line;                  // Line number in file.
@@ -312,7 +313,6 @@ struct Globals {
     int namelessEnumCount;     // The number of nameless enums.
     int namelessStructCount;   // The number of nameless structs.
     Token *token;              // Token currently watches.
-    char *sourceFile;          // The source file path.
     FILE *destFile;            // The output file.
 };
 extern Globals globals;
@@ -330,7 +330,7 @@ void genCode(const Node *n);
 void genCodeGlobals(void);
 
 // tokenizer.c
-Token *tokenize(char *source);
+Token *tokenize(char *source, char *file);
 int checkEscapeChar(char c, char *decoded);
 void popTokenRange(Token *begin, Token *end);
 void removeAllNewLineToken(Token *token);

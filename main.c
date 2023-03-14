@@ -41,7 +41,7 @@ _Noreturn void errorAt(Token *loc, const char *fmt, ...) {
     while (*tail != '\n')
         tail++;
 
-    indent = fprintf(stderr, "%s:%d: ", globals.sourceFile, loc->line);
+    indent = fprintf(stderr, "%s:%d: ", loc->file, loc->line);
     fprintf(stderr, "%.*s\n", (int)(tail - head), head);
 
     if (loc->column + indent) {
@@ -155,9 +155,8 @@ int main(int argc, char *argv[]) {
 
     memset(&globals, 0, sizeof(globals));
     globals.currentEnv = &globals.globalEnv;
-    globals.sourceFile = inFile;
-    source = readFile(globals.sourceFile);
-    globals.token = tokenize(source);
+    source = readFile(inFile);
+    globals.token = tokenize(source, inFile);
     preprocess(globals.token);
     removeAllNewLineToken(globals.token);
     program();
