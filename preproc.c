@@ -20,21 +20,6 @@ struct MacroArg {
     Token *end;         // End of replacement
 };
 
-typedef struct ExpandState ExpandState;
-struct ExpandState {
-    Token *begin;
-    Token *end;
-    int strict;
-};
-
-typedef struct MacroResult MacroResult;
-struct MacroResult {
-    Token *begin;
-    Token *end;
-    int overedRange;
-    int success;
-};
-
 typedef struct Preproc Preproc;
 struct Preproc {
     Macro *macros;            // All macro list.
@@ -234,9 +219,11 @@ static Token *parseUndefDirective(Token *token) {
         errorAt(name, "Undefined macro.");
 
     if (macro->next) {
+        Macro *tofree = macro->next;
         *macro = *macro->next;
-        safeFree(macro->next);
+        safeFree(tofree);
     } else {
+        // Macro is at the end of entry.
         if (preproc.macros != macro) {
             Macro *prev = preproc.macros;
             while (prev->next != macro)
@@ -297,12 +284,11 @@ static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
     }
 }
 
-// Parse arguments in function-like macro use and returns the pointer to the
-// token of the end of this use of macro.  If macro is not terminated in range
-// [begin, end], returns NULL.
-// Note that "begin" must points to the macro name token.
+// Parse arguments of function-like macro and returns result.  If parse
+// succeeded, the "endOfArg" parameter is set to the token at the end of
+// arguments.
+// NOTE: Make sure "begin" points to the macro name token.
 static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfArg) {
-    static MacroResult zeroResult = {};
     Token *token = begin;
     MacroArg head = {};
     MacroArg *curArg = &head;
@@ -354,10 +340,9 @@ static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfAr
     return head.next;
 }
 
-// Apply macro for "token".  If macro applied, returns the pointer to the
-// previous token of the first token of replacements (if macro is expanded to
-// empty, returns the pointer to the prev token of "token").  Otherwise returns
-// NULL.
+// Apply macro for "begin".  If macro applied, returns the pointer to the first
+// token of replacements (if macro is expanded to empty, returns the pointer to
+// the next token of "begin").  Otherwise returns NULL.
 static Token *applyMacro(Token *begin) {
     typedef struct {
         Token *begin;
@@ -366,7 +351,6 @@ static Token *applyMacro(Token *begin) {
 
     Macro *macro = NULL;
     MacroArg *macroArgs = NULL;
-    MacroResult result = {};
     Token *cur = begin;
     Token *retpos = NULL;
     Range src = {}, dest = {};
@@ -382,7 +366,6 @@ static Token *applyMacro(Token *begin) {
             dest.end = dest.end->next;
 
     if (!macro->isFunc) {
-        retpos = src.begin->prev;
         if (src.begin->type != TokenNewLine) {
             dest.begin = dest.end = cloneTokenList(dest.begin, dest.end);
             for (Token *token = dest.begin; token; token = token->next) {
@@ -393,6 +376,7 @@ static Token *applyMacro(Token *begin) {
             }
             insertTokens(src.end, dest.begin, dest.end);
         }
+        retpos = src.end->next;
         popTokenRange(src.begin, src.end);
         return retpos;
     }
@@ -425,7 +409,7 @@ static Token *applyMacro(Token *begin) {
         safeFree(wrapper.begin);
         safeFree(wrapper.end);
     } else {
-        retpos = src.begin->prev;
+        retpos = src.begin->next;
         popTokenRange(src.begin, src.end);
     }
 
@@ -450,7 +434,7 @@ void preprocess(Token *token) {
             applied = applyMacro(token);
 
             if (applied) {
-                token = applied->next;
+                token = applied;
             } else {
                 applyPredefinedMacro(token);
                 token = token->next;

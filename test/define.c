@@ -119,6 +119,58 @@ void testFuncLikeMacroWithOneParam(void) {
     }
 }
 
+#define ADD2(a, b)   (a + b)
+#define ADD3(a, b, c)   (a + b + c)
+#define FN_NESTED(a)    ADD2(a, REP_TO_59)
+int gValidateCalled;
+int add2(int a, int b) {
+    gValidateCalled++;
+    return a + b;
+}
+void testFuncLikeMacroWithMultiParam(void) {
+    int n;
+
+    n = ADD2(3, 5);
+    if (n != 8) {
+        printf("testFuncLikeMacroWithMultiParam(): n != 8: %d\n", n);
+        exit(1);
+    }
+
+    n = ADD3(7, 11, 13);
+    if (n != 31) {
+        printf("testFuncLikeMacroWithMultiParam(): n != 31: %d\n", n);
+        exit(1);
+    }
+
+    gValidateCalled = 0;
+    n = ADD2(ADD2(17, 19), add2(23, 29));
+    if (n != 88) {
+        printf("testFuncLikeMacroWithMultiParam(): n != 88: %d\n", n);
+        exit(1);
+    } else if (gValidateCalled != 1) {
+        printf("testFuncLikeMacroWithMultiParam(): gValidateCalled != 1: %d\n",
+                gValidateCalled);
+        exit(1);
+    }
+
+    gValidateCalled = 0;
+    n = ADD2(add2(31, 37), add2(23, 29));
+    if (n != 120) {
+        printf("testFuncLikeMacroWithMultiParam(): n != 120: %d\n", n);
+        exit(1);
+    } else if (gValidateCalled != 2) {
+        printf("testFuncLikeMacroWithMultiParam(): gValidateCalled != 2: %d\n",
+                gValidateCalled);
+        exit(1);
+    }
+
+    n = FN_NESTED(8);
+    if (n != 67) {
+        printf("testFuncLikeMacroWithMultiParam(): n != 67: %d\n", n);
+        exit(1);
+    }
+}
+
 int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();
@@ -127,5 +179,6 @@ int main(void) {
     testMacroMultipleExpantion();
     testUndef();
     testFuncLikeMacroWithOneParam();
+    testFuncLikeMacroWithMultiParam();
     printf("OK\n");
 }
