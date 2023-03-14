@@ -94,6 +94,99 @@ void removeAllNewLineToken(Token *token) {
     }
 }
 
+void printToken(Token *token) {
+    if (!token) {
+        puts("(NULL)");
+        return;
+    }
+
+    switch (token->type) {
+    case TokenReserved:
+        printf("RESERVED: %.*s\n", token->len, token->str);
+        break;
+    case TokenTypeName:
+        printf("TYPENAME: %.*s\n", token->len, token->str);
+        break;
+    case TokenIdent:
+        printf("IDENT   : %.*s\n", token->len, token->str);
+        break;
+    case TokenNumber:
+        printf("NUMBER  : %d\n", token->val);
+        break;
+    case TokenStatic:
+        puts("static");
+        break;
+    case TokenExtern:
+        puts("extern");
+        break;
+    case TokenTypedef:
+        puts("typedef");
+        break;
+    case TokenIf:
+        puts("if");
+        break;
+    case TokenElseif:
+        puts("else-if");
+        break;
+    case TokenElse:
+        puts("else");
+        break;
+    case TokenSwitch:
+        puts("switch");
+        break;
+    case TokenCase:
+        puts("case");
+        break;
+    case TokenDefault:
+        puts("default");
+        break;
+    case TokenFor:
+        puts("for");
+        break;
+    case TokenWhile:
+        puts("while");
+        break;
+    case TokenDo:
+        puts("do");
+        break;
+    case TokenBreak:
+        puts("break");
+        break;
+    case TokenContinue:
+        puts("continue");
+        break;
+    case TokenReturn:
+        puts("return");
+        break;
+    case TokenSizeof:
+        puts("sizeof");
+        break;
+    case TokenLiteralString:
+        printf("STRING  : %s\n", token->literalStr->string);
+        break;
+    case TokenStruct:
+        puts("struct");
+        break;
+    case TokenEnum:
+        puts("enum");
+        break;
+    case TokenNewLine:
+        puts("NEWLINE");
+        break;
+    case TokenSOF:
+        puts("===START OF FILE===");
+        break;
+    case TokenEOF:
+        puts("===END OF FILE===");
+        break;
+    }
+}
+
+void printTokenList(Token *token) {
+    for (; token; token = token->next)
+        printToken(token);
+}
+
 #define appendNewToken(tokenType, str, len) \
     do {\
         current = newToken(\

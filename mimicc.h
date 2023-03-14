@@ -334,6 +334,8 @@ Token *tokenize(char *source);
 int checkEscapeChar(char c, char *decoded);
 void popTokenRange(Token *begin, Token *end);
 void removeAllNewLineToken(Token *token);
+void printToken(Token *token);
+void printTokenList(Token *token);
 
 // preproc.c
 void preprocess(Token *token);
