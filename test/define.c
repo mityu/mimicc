@@ -96,6 +96,29 @@ void testUndef(void) {
     }
 }
 
+#define SUCC(x) (x + 1)
+void testFuncLikeMacroWithOneParam(void) {
+    int n;
+
+    n = SUCC(3);
+    if (n != 4) {
+        printf("testFuncLikeMacroWithOneParam(): n != 4: %d", n);
+        exit(1);
+    }
+
+    n = SUCC(SUCC(5));
+    if (n != 7) {
+        printf("testFuncLikeMacroWithOneParam(): n != 7: %d", n);
+        exit(1);
+    }
+
+    n = SUCC(SUCC(SUCC(7)));
+    if (n != 10) {
+        printf("testFuncLikeMacroWithOneParam(): n != 10: %d", n);
+        exit(1);
+    }
+}
+
 int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();
@@ -103,5 +126,6 @@ int main(void) {
     test__LINE__macro();
     testMacroMultipleExpantion();
     testUndef();
+    testFuncLikeMacroWithOneParam();
     printf("OK\n");
 }

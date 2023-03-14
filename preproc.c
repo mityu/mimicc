@@ -4,30 +4,43 @@
 typedef struct Macro Macro;
 struct Macro {
     Macro *next;
-    Token *token;
-    Token *replace;  // Replacement-list is tokens until "TokenNewLine" appears.
-    int isUsed;
+    Token *token;    // Macro name.
+    Token *replace;  // Replacement-list is tokens, until "TokenNewLine" appears.
+    int isFunc;      // TRUE if macro is function-like macro.
+    Token *args;     // Argument list of function-like macro.
+};
 
-#define DEFAULT_HOLDER_SIZE 8
+// Structure to use in function-like macro expansion.  Holds which tokens are
+// replacement tokens of a macro arguments.
+typedef struct MacroArg MacroArg;
+struct MacroArg {
+    MacroArg *next;
+    Token *name;        // Argument name
+    Token *begin;       // Start of replacement
+    Token *end;         // End of replacement
+};
 
-typedef struct UsedMacros UsedMacros;
-struct UsedMacros {
-    size_t size;
-    size_t cap;
-    int allocated;
-    Macro **used;
-    Macro *staticHolder[DEFAULT_HOLDER_SIZE];
+typedef struct ExpandState ExpandState;
+struct ExpandState {
+    Token *begin;
+    Token *end;
+    int strict;
+};
+
+typedef struct MacroResult MacroResult;
+struct MacroResult {
+    Token *begin;
+    Token *end;
+    int overedRange;
+    int success;
 };
 
 typedef struct Preproc Preproc;
 struct Preproc {
-    Macro *macros;          // All macro list.
+    Macro *macros;            // All macro list.
 };
 
 static Preproc preproc;
-
-static Token *applyMacro(Token *token);
-static Token *applyMacroInRange(Token *begin, Token *end);
 
 static Macro *newMacro(Token *token, Token *replace) {
     Macro *macro = (Macro *)safeAlloc(sizeof(Macro));
@@ -45,49 +58,6 @@ static Macro *findMacro(Token *name) {
         }
     }
     return NULL;
-}
-
-// Return TRUE if macro is used in one macro expansion sequence.
-static int isMacroUsed(Macro *macro) {
-    return macro->isUsed;
-}
-
-static void initUsedMacros(UsedMacros *usedMacros) {
-    usedMacros->size = 0;
-    usedMacros->cap = DEFAULT_HOLDER_SIZE;
-    usedMacros->allocated = 0;
-    usedMacros->used = usedMacros->staticHolder;
-    memset(usedMacros->staticHolder, 0, sizeof(usedMacros->staticHolder));
-}
-
-static void markMacroAsUsed(UsedMacros *usedMacros, Macro *macro) {
-    macro->isUsed = 1;
-
-    if (usedMacros->size == usedMacros->cap) {
-        Macro **newCap = NULL;
-        usedMacros->cap <<= 1;
-        newCap = (Macro **)safeAlloc(sizeof(Macro *) * usedMacros->cap);
-        memcpy(newCap, usedMacros->used, usedMacros->size * sizeof(Macro *));
-
-        if (usedMacros->allocated)
-            safeFree(usedMacros->used);
-
-        usedMacros->used = newCap;
-        usedMacros->allocated = 1;
-    }
-    usedMacros->used[usedMacros->size++] = macro;
-}
-
-static void unmarkUsedMacroMarks(UsedMacros *used) {
-    for (size_t i = 0; i < used->size; ++i)
-        used->used[i]->isUsed = 0;
-    memset(used->used, 0, used->size * sizeof(Macro *));
-    used->size = 0;
-}
-
-static void freeUsedMacros(UsedMacros *used) {
-    if (used->allocated)
-        safeFree(used->used);
 }
 
 static int matchTokenReserved(Token *token, const char *name) {
@@ -123,6 +93,18 @@ static Token *consumeTokenAnyIdent(Token **token) {
     return NULL;
 }
 
+static Token *newTokenSOF(void) {
+    Token *token = (Token *)safeAlloc(sizeof(Token));
+    token->type = TokenSOF;
+    return token;
+}
+
+static Token *newTokenEOF(void) {
+    Token *token = (Token *)safeAlloc(sizeof(Token));
+    token->type = TokenEOF;
+    return token;
+}
+
 // Clone token, but clears "next" and "prev" entry with NULL.
 static Token *cloneToken(Token *token) {
     Token *clone = (Token *)safeAlloc(sizeof(Token));
@@ -146,6 +128,11 @@ static Token *cloneTokenList(Token *begin, Token *end) {
     if (head.next)
         head.next->prev = NULL;
     return head.next;
+}
+
+static void concatToken(Token *first, Token *second) {
+    first->next = second;
+    second->prev = first;
 }
 
 static void insertTokens(Token *pos, Token *begin, Token *end) {
@@ -188,6 +175,38 @@ static Token *parseDefineDirective(Token *token) {
     macro = newMacro(macroName, macroName->next);
     macro->next = preproc.macros;
     preproc.macros = macro;
+
+    // Check for function-like macro.  Function-like macro doesn't allow any
+    // white-spaces between identifier and lbrace, e.g.:
+    //   #define FUNC(args)       //  Function-like macro
+    //   #define NOT_FUNC (args)  //  Not a function-like macro
+    // So, we need to check not only there's a "(" after identifier but also
+    // there's no white-spaces between identifier and "(".
+    if (matchTokenReserved(token, "(") &&
+            (token->prev->str + token->prev->len) == token->str) {
+        macro->isFunc = 1;
+        consumeTokenReserved(&token, "(");
+        if (!consumeTokenReserved(&token, ")")) {
+            Token head = {};
+            Token *cur = &head;
+            for (;;) {
+                Token *arg = consumeTokenAnyIdent(&token);
+                if (!arg)
+                    errorAt(token, "An identifier is expected.");
+                arg = cloneToken(arg);
+                cur->next = arg;
+                arg->prev = cur;
+                cur = cur->next;
+
+                if (consumeTokenReserved(&token, ")"))
+                    break;
+                else if (!consumeTokenReserved(&token, ","))
+                    errorAt(token, "',' or ')' is expected.");
+            }
+            macro->args = head.next;
+            macro->replace = token;
+        }
+    }
 
     nextLine = skipUntilNewline(token)->next;
     popTokenRange(tokenHash, nextLine->prev);
@@ -245,66 +264,172 @@ static int applyPredefinedMacro(Token *token) {
     return 1;
 }
 
-// Try to apply macro for "token".  If macro applied, returns the pointer to
-// the last token of replacements (if macro is expanded to empty, returns the
-// pointer to the prev token of "token").  Otherwise returns NULL.
-// Note that this function does NOT handle any predefined macros.
-static Token *applyMacro(Token *token) {
-    Macro *macro = NULL;
-    Token *prev = token->prev;
-    Token *begin = NULL;
-    Token *end = NULL;
-    UsedMacros usedMacros;
+// Replace arguments of function-like macro.  Target tokens are what in range
+// [begin, end].
+static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
+    Token *termination = end->next;
+    Token *token = begin;
 
-    initUsedMacros(&usedMacros);
+    while (token != termination) {
+        MacroArg *replacement = NULL;
+        Token *repBegin = NULL;
+        Token *repEnd = NULL;
 
-    macro = findMacro(token);
-    if (!macro || isMacroUsed(macro))
-        return NULL;
-
-    if (macro->replace->type != TokenNewLine) {
-        Token *cur = NULL;
-
-        markMacroAsUsed(&usedMacros, macro);
-        begin = macro->replace;
-        end = skipUntilNewline(begin)->prev;
-        begin = cur = cloneTokenList(begin, end);
-        for (;;) {
-            cur->line = token->line;
-            cur->column = token->column;
-
-            if (cur->next)
-                cur = cur->next;
-            else
+        for (MacroArg *arg = args; arg; arg = arg->next) {
+            if (matchToken(arg->name, token->str, token->len)) {
+                replacement = arg;
                 break;
+            }
         }
-        end = cur;
+        if (!replacement) {
+            token = token->next;
+            continue;
+        }
 
+        repBegin = repEnd = cloneTokenList(replacement->begin, replacement->end);
+        while (repEnd->next)
+            repEnd = repEnd->next;
+
+        insertTokens(token, repBegin, repEnd);
         popTokenRange(token, token);
-        insertTokens(prev, begin, end);
-        applyMacroInRange(begin, end);
-    } else {
-        end = prev;
-        popTokenRange(token, token);
+
+        token = repEnd->next;
     }
-
-    unmarkUsedMacroMarks(&usedMacros);
-    freeUsedMacros(&usedMacros);
-
-    return end;
 }
 
-// Try to apply macro for each tokens in range [begin, end].  Return the
-// pointer to the end of range [begin', end'].
-static Token *applyMacroInRange(Token *begin, Token *end) {
-    Token *stop = end->next;
-    Token *cur = NULL;
-    for (cur = begin; cur != stop; cur = cur->next) {
-        Token *applied = applyMacro(cur);
-        if (applied)
-            cur = applied;
+// Parse arguments in function-like macro use and returns the pointer to the
+// token of the end of this use of macro.  If macro is not terminated in range
+// [begin, end], returns NULL.
+// Note that "begin" must points to the macro name token.
+static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfArg) {
+    static MacroResult zeroResult = {};
+    Token *token = begin;
+    MacroArg head = {};
+    MacroArg *curArg = &head;
+
+    if (!matchToken(macro->token, token->str, token->len))
+        errorUnreachable();
+
+    token = token->next;  // Skip macro name token.
+
+    if (!consumeTokenReserved(&token, "("))
+        errorAt(token, "'(' is expected.");
+
+    if (!macro->args && !consumeTokenReserved(&token, ")"))
+        errorAt(token, "')' is expected.");
+
+    for (Token *argName = macro->args; argName; argName = argName->next) {
+        MacroArg *arg = (MacroArg *)safeAlloc(sizeof(MacroArg));
+        int parenthesis = 0;
+        char *terminator = ",";
+
+        if (!argName->next)
+            terminator = ")";
+
+        arg->name = argName;
+        arg->begin = token;
+
+        for (;;) {
+            if (parenthesis == 0 && consumeTokenReserved(&token, terminator)) {
+                arg->end = token->prev->prev;
+                *endOfArg = token->prev;
+                break;
+            } else if (consumeTokenReserved(&token, "(")) {
+                parenthesis++;
+            } else if (consumeTokenReserved(&token, ")")) {
+                parenthesis--;
+                if (parenthesis < 0)
+                    errorAt(token->prev, "Unmatched ')'.");
+            } else if (token->type == TokenEOF) {
+                errorAt(token, "Unexpected EOF.");
+            } else {
+                token = token->next;
+            }
+        }
+
+        curArg->next = arg;
+        curArg = curArg->next;
     }
-    return cur;
+
+    return head.next;
+}
+
+// Apply macro for "token".  If macro applied, returns the pointer to the
+// previous token of the first token of replacements (if macro is expanded to
+// empty, returns the pointer to the prev token of "token").  Otherwise returns
+// NULL.
+static Token *applyMacro(Token *begin) {
+    typedef struct {
+        Token *begin;
+        Token *end;
+    } Range;
+
+    Macro *macro = NULL;
+    MacroArg *macroArgs = NULL;
+    MacroResult result = {};
+    Token *cur = begin;
+    Token *retpos = NULL;
+    Range src = {}, dest = {};
+
+    macro = findMacro(cur);
+    if (!macro)
+        return NULL;
+
+    src.begin = src.end = cur;
+    dest.begin = dest.end = macro->replace;
+    if (dest.end->type != TokenNewLine)
+        while (dest.end->next->type != TokenNewLine)
+            dest.end = dest.end->next;
+
+    if (!macro->isFunc) {
+        retpos = src.begin->prev;
+        if (src.begin->type != TokenNewLine) {
+            dest.begin = dest.end = cloneTokenList(dest.begin, dest.end);
+            for (Token *token = dest.begin; token; token = token->next) {
+                token->line = src.begin->line;
+                token->column = src.begin->column;
+                if (!token->next)
+                    dest.end = token;
+            }
+            insertTokens(src.end, dest.begin, dest.end);
+        }
+        popTokenRange(src.begin, src.end);
+        return retpos;
+    }
+
+    macroArgs = parseMacroArguments(macro, cur, &src.end);
+    cur = src.end->next;
+
+    if (dest.begin->type != TokenNewLine) {
+        Range wrapper = {};
+        wrapper.begin = newTokenSOF();
+        wrapper.end = newTokenEOF();
+
+        dest.begin = cloneTokenList(dest.begin, dest.end);
+        for (Token *token = dest.begin; token; token = token->next) {
+            token->line = src.begin->line;
+            token->column = src.begin->column;
+            if (!token->next)
+                dest.end = token;
+        }
+
+        concatToken(wrapper.begin, dest.begin);
+        concatToken(dest.end, wrapper.end);
+
+        replaceMacroArgs(macroArgs, dest.begin, dest.end);
+        insertTokens(src.end, dest.begin, dest.end);
+        popTokenRange(src.begin, src.end);
+
+        retpos = wrapper.begin->next;
+
+        safeFree(wrapper.begin);
+        safeFree(wrapper.end);
+    } else {
+        retpos = src.begin->prev;
+        popTokenRange(src.begin, src.end);
+    }
+
+    return retpos;
 }
 
 // Parse and apply preprocess for given tokens, and returns the head to the
@@ -321,14 +446,11 @@ void preprocess(Token *token) {
                 token = parseUndefDirective(tokenHash);
             }
         } else {
-            Token *prev = token->prev;
             Token *applied = NULL;
-
             applied = applyMacro(token);
+
             if (applied) {
                 token = applied->next;
-                for (Token *cur = prev->next; cur != token; cur = cur->next)
-                    applyPredefinedMacro(cur);
             } else {
                 applyPredefinedMacro(token);
                 token = token->next;
