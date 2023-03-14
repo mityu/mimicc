@@ -24,6 +24,7 @@ int fputc(int c, FILE *stream);
 int fprintf(FILE *stream, const char *fmt, ...);
 int sprintf(char *buf, const char *fmt, ...);
 int printf(const char *fmt, ...);
+int puts(const char *str);
 int vfprintf(FILE * stream, const char *fmt, va_list args);
 
 #endif
