@@ -1,6 +1,6 @@
 ## mimicc: MItyu's MIni C Compiler
 
-A toy, self-hosted (subset of) C Compiler.
+A toy, self-hosted (subset of) C Compiler for Linux on x86\_64.
 
 #### Build menus
 
