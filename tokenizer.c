@@ -2,7 +2,7 @@
 #include <string.h>
 #include "mimicc.h"
 
-static int isSpace(char c) {
+int isSpace(char c) {
     return c == ' ' || c == '\n' || c == '\t';
 }
 

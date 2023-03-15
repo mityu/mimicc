@@ -452,6 +452,78 @@ static int applyPredefinedMacro(Token *token) {
     return 1;
 }
 
+// Stringify tokens in range in range [begin, end].  This is for "#" operator.
+static char *stringifyTokens(Token *begin, Token *end, int *len) {
+    int totalSize = 0;
+    int w = 0;
+    char *buf = NULL;
+    Token *termination = end->next;
+
+    *len = 0;
+    for (Token *token = begin; token != termination; token = token->next) {
+        switch (token->type) {
+        case TokenLiteralString:
+            *len += token->literalStr->len;
+            totalSize += token->len;
+            for (int i = 0; i < token->len; ++i) {
+                if (strchr("\"\\", token->str[i]))
+                    totalSize++;
+            }
+            break;
+        case TokenNumber:
+            if (token->str[0] == '\'') {
+                *len += 3;
+                totalSize += token->len;
+                if (token->str[1] == '\\') {
+                    totalSize++;
+                    if (token->str[2] == '\\')
+                        totalSize++;
+                } else if (token->str[1] == '"') {
+                    totalSize++;
+                }
+            } else {
+                *len += token->len;
+                totalSize += token->len;
+            }
+            break;
+        default:
+            *len += token->len;
+            totalSize += token->len;
+            break;
+        }
+        if (isSpace(token->str[token->len])) {
+            totalSize++;
+            (*len)++;
+        }
+    }
+    if (!isSpace(end->str[end->len]))
+        totalSize++;    // Capture one more size for '\0'.
+
+    buf = (char *)safeAlloc(totalSize);
+    w = 0;
+    for (Token *token = begin; token != termination; token = token->next) {
+        switch (token->type) {
+        case TokenLiteralString:  // fallthrough
+        case TokenNumber:
+            for (int r = 0; r < token->len; ++r) {
+                if (strchr("\"\\", token->str[r]))
+                    buf[w++] = '\\';
+                buf[w++] = token->str[r];
+            }
+            break;
+        default:
+            memcpy(&buf[w], token->str, token->len);
+            w += token->len;
+            break;
+        }
+        if (isSpace(token->str[token->len]))
+            buf[w++] = ' ';
+    }
+    buf[w] = '\0';
+
+    return buf;
+}
+
 // Replace arguments of function-like macro.  Target tokens are what in range
 // [begin, end].
 static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
@@ -460,8 +532,8 @@ static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
 
     while (token != termination) {
         MacroArg *replacement = NULL;
-        Token *repBegin = NULL;
-        Token *repEnd = NULL;
+        Range src = {};
+        Range dest = {};
 
         for (MacroArg *arg = args; arg; arg = arg->next) {
             if (matchToken(arg->name, token->str, token->len)) {
@@ -474,14 +546,34 @@ static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
             continue;
         }
 
-        repBegin = repEnd = cloneTokenList(replacement->begin, replacement->end);
-        while (repEnd->next)
-            repEnd = repEnd->next;
+        src.begin = src.end = token;
 
-        insertTokens(token, repBegin, repEnd);
-        popTokenRange(token, token);
+        if (matchToken(token->prev, "#", 1)) {
+            LiteralString *s = (LiteralString *)safeAlloc(sizeof(LiteralString));
 
-        token = repEnd->next;
+            src.begin = token->prev;
+
+            s->string = stringifyTokens(replacement->begin, replacement->end, &s->len);
+            s->id = globals.literalStringCount++;
+            s->next = globals.strings;
+            globals.strings = s;
+
+            dest.begin = dest.end = (Token *)safeAlloc(sizeof(Token));
+            *dest.begin = *token;
+            dest.begin->type = TokenLiteralString;
+            dest.begin->literalStr = s;
+            dest.begin->prev = dest.begin->next = NULL;
+        } else {
+            dest.begin = dest.end =
+                cloneTokenList(replacement->begin, replacement->end);
+            while (dest.end->next)
+                dest.end = dest.end->next;
+        }
+
+        insertTokens(src.end, dest.begin, dest.end);
+        popTokenRange(src.begin, src.end);
+
+        token = dest.end->next;
     }
 }
 

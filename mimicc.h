@@ -342,12 +342,13 @@ void genCode(const Node *n);
 void genCodeGlobals(void);
 
 // tokenizer.c
-Token *tokenize(char *source, FilePath *file);
+int isSpace(char c);
 int checkEscapeChar(char c, char *decoded);
 void popTokenRange(Token *begin, Token *end);
 void removeAllNewLineToken(Token *token);
 void printToken(Token *token);
 void printTokenList(Token *token);
+Token *tokenize(char *source, FilePath *file);
 
 // preproc.c
 void preprocess(Token *token);

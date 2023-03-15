@@ -198,10 +198,13 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 ./test/Xtmp/define.s: ./test/define.c
 	$(TESTCC) -o $@ -S $<
 
+./test/Xtmp/if_directive.s: ./test/if_directive.c
+	$(TESTCC) -o $@ -S $<
+
 ./test/Xtmp/include.s: ./test/include.c ./test/include.header
 	$(TESTCC) -o $@ -S $<
 
-./test/Xtmp/if_directive.s: ./test/if_directive.c
+./test/Xtmp/preproc.s: ./test/preproc.c
 	$(TESTCC) -o $@ -S $<
 
 ./test/Xtmp/%.s: ./test/Xtmp/%.c
