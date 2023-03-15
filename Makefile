@@ -2,19 +2,20 @@ CFLAGS=-std=c11 -static
 TARGET=./mimicc
 SRC=main.c tokenizer.c preproc.c parser.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
+INCLUDE=./include
+HEADERS=$(wildcard $(INCLUDE)/*)
 
 HOME_SELF=./test/self
 TARGET_SELF=$(TARGET:./%=$(HOME_SELF)/%)
 OBJ_SELF=$(OBJ:obj/%=$(HOME_SELF)/%)
 ASM_SELF=$(OBJ_SELF:%.o=%.s)
+INCLUDE_SELF=$(INCLUDE:./%=$(HOME_SELF)/%)
 
 HOME_SELFSELF=./test/selfself
 TARGET_SELFSELF=$(TARGET:./%=$(HOME_SELFSELF)/%)
 OBJ_SELFSELF=$(OBJ:obj/%=$(HOME_SELFSELF)/%)
 ASM_SELFSELF=$(OBJ_SELFSELF:%.o=%.s)
-
-INCLUDE=./include
-HEADERS=$(wildcard $(INCLUDE)/*)
+INCLUDE_SELFSELF=$(INCLUDE:./%=$(HOME_SELFSELF)/%)
 
 TESTCC=$(TARGET)
 TEST_SOURCES=$(wildcard ./test/*.c)
@@ -53,11 +54,11 @@ $(TARGET_SELF): $(TARGET) self_prepair $(OBJ_SELF)
 self: $(TARGET_SELF);
 
 .PHONY: self_prepair
-self_prepair: $(HOME_SELF);
+self_prepair: $(HOME_SELF) $(INCLUDE_SELF);
 
 .PHONY: self_clean
 self_clean:
-	rm $(HOME_SELF)/* $(HOME_SELF)/Xtmp/*
+	rm $(HOME_SELF)/*
 
 .PHONY: self_test
 self_test: test_self;
@@ -73,14 +74,14 @@ test_self_prepair:
 $(HOME_SELF):
 	mkdir $(HOME_SELF)
 
+$(INCLUDE_SELF): $(INCLUDE)
+	[ -e "$@" ] || ln -snv $$(pwd)/$< $$(pwd)/$@
+
 $(HOME_SELF)/%.o: $(HOME_SELF)/%.s
 	gcc -o $@ -c $<
 
-$(HOME_SELF)/%.s: $(HOME_SELF)/%.c $(TARGET)
+$(HOME_SELF)/%.s: ./%.c $(TARGET) mimicc.h $(HEADERS)
 	$(TARGET) -o $@ -S $<
-
-$(HOME_SELF)/%.c: ./%.c mimicc.h $(HEADERS)
-	gcc -o $@ -I$(INCLUDE) -E -P $<
 
 
 # Compilation: 3rd gen
@@ -91,11 +92,11 @@ $(TARGET_SELFSELF): $(TARGET_SELF) selfself_prepair $(OBJ_SELFSELF)
 selfself: $(TARGET_SELFSELF);
 
 .PHONY: selfself_prepair
-selfself_prepair: $(HOME_SELFSELF);
+selfself_prepair: $(HOME_SELFSELF) $(INCLUDE_SELFSELF);
 
 .PHONY: selfself_clean
 selfself_clean:
-	rm $(HOME_SELFSELF)/* $(HOME_SELFSELF)/Xtmp/*
+	rm $(HOME_SELFSELF)/*
 
 .PHONY: selfself_test
 selfself_test: test_selfself;
@@ -124,11 +125,11 @@ $(HOME_SELFSELF):
 $(HOME_SELFSELF)/%.o: $(HOME_SELFSELF)/%.s
 	gcc -o $@ -c $<
 
-$(HOME_SELFSELF)/%.s: $(HOME_SELFSELF)/%.c $(TARGET_SELF)
-	$(TARGET_SELF) -o $@ -S $<
+$(INCLUDE_SELFSELF): $(INCLUDE)
+	[ -e "$@" ] || ln -snv $$(pwd)/$< $$(pwd)/$@
 
-$(HOME_SELFSELF)/%.c: ./%.c mimicc.h $(HEADERS)
-	gcc -o $@ -I$(INCLUDE) -E -P $<
+$(HOME_SELFSELF)/%.s: ./%.c $(TARGET_SELF) mimicc.h
+	$(TARGET_SELF) -o $@ -S $<
 
 
 # Test by gcc (To find bugs in tests)
