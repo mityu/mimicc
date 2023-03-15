@@ -192,15 +192,49 @@ void printTokenList(Token *token) {
         errorAt(current, msg);\
     } while (0)
 Token *tokenize(char *source, FilePath *file) {
+    typedef struct List List;
+    struct List {
+        List *next;
+        char *p;
+    };
+
     char *p = source;
     Token head = {};
     Token *current = &head;
     int line = 1;
     char *lineHead = p;
+    List *erasedNewLine = NULL;
+
+    {  // Remove line continuation ('\\' + '\n')
+        List erasedNewLineHead = {};
+        char *r, *w;
+
+        r = w = source;
+        erasedNewLine = &erasedNewLineHead;
+        while (*r != '\0') {
+            if (r[0] == '\\' && r[1] == '\n') {
+                r += 2;
+                erasedNewLine->next = (List *)safeAlloc(sizeof(List));
+                erasedNewLine = erasedNewLine->next;
+                erasedNewLine->p = r;
+            } else {
+                *w++ = *r++;
+            }
+        }
+        *w = '\0';
+        erasedNewLine = erasedNewLineHead.next;
+    }
 
     appendNewToken(TokenSOF, p, 0);
 
     while (*p) {
+        if (erasedNewLine && p >= erasedNewLine->p) {
+            List *tofree = erasedNewLine;
+            line++;
+            erasedNewLine = erasedNewLine->next;
+            safeFree(tofree);
+        }
+
         if (*p == '\n') {
             appendNewToken(TokenNewLine, p, 1);
             ++p;

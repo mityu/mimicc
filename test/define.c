@@ -188,6 +188,38 @@ void testFuncLikeMacroWithMultiParam(void) {
     }
 }
 
+#define SUB2(a, b) \
+    (a \
+     - \
+     b)
+void testLineContinuation(void) {
+    int n = SUB2(SUB2(23, 3), 7);
+    if (n != 13) {
+        printf("testLineContinuation(): n != 13: %d\n", n);
+        exit(1);
+    }
+
+    int foo\
+bar = 17;
+    if (foobar != 17) {
+        printf("testLineContinuation(): foobar != 17: %d\n", foobar);
+        exit(1);
+    }
+
+    n = __LINE__;
+    if (n != 209) {
+        printf("testLineContinuation(): __LINE__ != 209: %d\n", n);
+        exit(1);
+    }
+
+    n = __LI\
+NE__;
+    if (n != 215) {
+        printf("testLineContinuation(): __LINE__ != 215: %d\n", n);
+        exit(1);
+    }
+}
+
 int main(void) {
     testObjectiveMacro();
     testEmptyObjectiveMacro();
@@ -199,5 +231,6 @@ int main(void) {
     testFuncLikeMacroWithNoParam();
     testFuncLikeMacroWithOneParam();
     testFuncLikeMacroWithMultiParam();
+    testLineContinuation();
     printf("OK\n");
 }
