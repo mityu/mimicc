@@ -201,6 +201,9 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 ./test/Xtmp/include.s: ./test/include.c ./test/include.header
 	$(TESTCC) -o $@ -S $<
 
+./test/Xtmp/if_directive.s: ./test/if_directive.c
+	$(TESTCC) -o $@ -S $<
+
 ./test/Xtmp/%.s: ./test/Xtmp/%.c
 	$(TESTCC) -o $@ -S $<
 

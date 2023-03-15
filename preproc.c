@@ -327,6 +327,110 @@ static Token *parseIncludeDirective(Token *token) {
     return retpos;
 }
 
+// Parse "#ifdef" directive and returns one token after the token at the end of
+// this "#ifdef" directive.  Note that "token" parameter must points the "#"
+// token of "#ifdef".
+static Token *parseIfdefDirective(Token *token) {
+    // TODO: Support nested #ifdef
+    // TODO: Support #elif and #else
+    Range directive = {};
+    Range insert = {};  // Insert [begin, end) tokens.
+    Token *ident = NULL;
+    Token *retpos = NULL;
+
+    directive.begin = token;
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "ifdef")))
+        errorUnreachable();
+
+    ident = consumeTokenAnyIdent(&token);
+    if (!ident)
+        errorAt(token, "Macro name required after \"#ifdef\".");
+    else if (token->type != TokenNewLine)
+        errorAt(token, "Unexpected token");
+
+    token = token->next;    // Skip new-line token.
+    insert.begin = token;
+
+    for (;;) {
+        if (matchTokenReserved(token, "#")) {
+            token = token->next;
+            if (matchTokenIdent(token, "endif")) {
+                directive.end = skipUntilNewline(token);
+                if (directive.end != token->next)
+                    errorAt(token->next, "Unexpected token");
+                insert.end = token->prev;
+                break;
+            }
+        } else if (token->type == TokenEOF) {
+            errorAt(token, "Unexpected EOF");
+        } else {
+            token = token->next;
+        }
+    }
+
+    if (insert.begin != insert.end && findMacro(ident)) {
+        insertTokens(directive.end, insert.begin, insert.end->prev);
+    }
+
+    retpos = directive.begin;
+
+    popTokenRange(directive.begin, directive.end);
+
+    return retpos->next;
+}
+
+// Parse "#ifndef" directive and returns one token after the token at the end
+// of this "#ifndef" directive.  Note that "token" parameter must points the
+// "#" token of "#ifndef".
+static Token *parseIfndefDirective(Token *token) {
+    // TODO: Support nested #ifndef
+    // TODO: Support #elif and #else
+    Range directive = {};
+    Range insert = {};  // Insert [begin, end) tokens.
+    Token *ident = NULL;
+    Token *retpos = NULL;
+
+    directive.begin = token;
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "ifndef")))
+        errorUnreachable();
+
+    ident = consumeTokenAnyIdent(&token);
+    if (!ident)
+        errorAt(token, "Macro name required after \"#ifndef\".");
+    else if (token->type != TokenNewLine)
+        errorAt(token, "Unexpected token");
+
+    token = token->next;    // Skip new-line token.
+    insert.begin = token;
+
+    for (;;) {
+        if (matchTokenReserved(token, "#")) {
+            token = token->next;
+            if (matchTokenIdent(token, "endif")) {
+                directive.end = skipUntilNewline(token);
+                if (directive.end != token->next)
+                    errorAt(token->next, "Unexpected token");
+                insert.end = token->prev;
+                break;
+            }
+        } else if (token->type == TokenEOF) {
+            errorAt(token, "Unexpected EOF");
+        } else {
+            token = token->next;
+        }
+    }
+
+    if (insert.begin != insert.end && !findMacro(ident)) {
+        insertTokens(directive.end, insert.begin, insert.end->prev);
+    }
+
+    retpos = directive.begin;
+
+    popTokenRange(directive.begin, directive.end);
+
+    return retpos->next;
+}
+
 // Apply predefined macros.  Return TRUE if applied.
 static int applyPredefinedMacro(Token *token) {
     if (matchToken(token , "__LINE__", 8)) {
@@ -518,6 +622,10 @@ void preprocess(Token *token) {
                 token = parseUndefDirective(tokenHash);
             } else if (consumeTokenIdent(&token, "include")) {
                 token = parseIncludeDirective(tokenHash);
+            } else if (consumeTokenIdent(&token, "ifdef")) {
+                token = parseIfdefDirective(tokenHash);
+            } else if (consumeTokenIdent(&token, "ifndef")) {
+                token = parseIfndefDirective(tokenHash);
             }
         } else {
             Token *applied = NULL;
