@@ -2,11 +2,23 @@
 
 _Noreturn void exit(int);
 int printf(const char *, ...);
+int strcmp(const char *, const char *);
 
 void test__LINE__macroInHeader(void) {
     int n = REP_TO_LINE_MACRO;
-    if (n != 7) {
-        printf("test__LINE__macroInHeader(): n != 7: %d\n", n);
+    if (n != 8) {
+        printf("test__LINE__macroInHeader(): n != 8: %d\n", n);
+        exit(1);
+    }
+}
+
+void test__FILE__macroInHeader(void) {
+    if (strcmp(REP_TO_FILE_MACRO, "test/include.c") != 0) {
+        printf("test__FILE__macroInHeader(): File name mismatch: %s\n", __FILE__);
+        exit(1);
+    }
+    if (strcmp(getHeaderName(), "include.header") != 0) {
+        printf("test__FILE__macroInHeader(): HEADER name mismatch: %s\n", getHeaderName());
         exit(1);
     }
 }
@@ -91,6 +103,7 @@ void testTypedef(void) {
 
 int main(void) {
     test__LINE__macroInHeader();
+    test__FILE__macroInHeader();
     testObjectLikeMacro();
     testFunctionLikeMacro();
     testFuncCall();

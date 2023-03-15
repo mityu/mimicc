@@ -436,6 +436,16 @@ static int applyPredefinedMacro(Token *token) {
     if (matchToken(token , "__LINE__", 8)) {
         token->type = TokenNumber;
         token->val = token->line;
+    } else if (matchToken(token, "__FILE__", 8)) {
+        LiteralString *s = (LiteralString *)safeAlloc(sizeof(LiteralString));
+        s->string = token->file->display;
+        s->len = strlen(s->string);
+        s->id = globals.literalStringCount++;
+        s->next = globals.strings;
+        globals.strings = s;
+
+        token->type = TokenLiteralString;
+        token->literalStr = s;
     } else {
         return 0;
     }

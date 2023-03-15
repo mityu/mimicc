@@ -5,6 +5,8 @@
 
 #define REP_TO_LINE_MACRO   __LINE__
 
+#define REP_TO_FILE_MACRO   __FILE__
+
 #define PLUS(a, b)  (a + b)
 
 #define PLUS_WITH_MACRO(a)  (REP_TO_MACRO_41 + a)
@@ -20,6 +22,11 @@ int ret47(void) {
 
 int retElemOfGSH(GSH *obj) {
     return obj->num;
+}
+
+char *getHeaderName(void) {
+    static char name[] = __FILE__;
+    return name;
 }
 
 

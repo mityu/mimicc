@@ -70,6 +70,13 @@ void test__LINE__macro(void) {
     }
 }
 
+void test__FILE__macro(void) {
+    if (strcmp(__FILE__, "test/define.c") != 0) {
+        printf("test__FILE__macro(): Filename mismatch: %s\n", __FILE__);
+        exit(1);
+    }
+}
+
 #define MULTI_EXPAND_1  (REP_TO_53*REP_TO_53)
 #define MULTI_EXPAND_2  (REP_TO_53+MULTI_EXPAND_1)
 void testMacroMultipleExpantion(void) {
@@ -186,6 +193,7 @@ int main(void) {
     testEmptyObjectiveMacro();
     testNestedObjectiveMacro();
     test__LINE__macro();
+    test__FILE__macro();
     testMacroMultipleExpantion();
     testUndef();
     testFuncLikeMacroWithNoParam();
