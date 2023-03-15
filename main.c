@@ -41,7 +41,7 @@ _Noreturn void errorAt(Token *loc, const char *fmt, ...) {
     while (*tail != '\n')
         tail++;
 
-    indent = fprintf(stderr, "%s:%d: ", loc->file, loc->line);
+    indent = fprintf(stderr, "%s:%d: ", loc->file->display, loc->line);
     fprintf(stderr, "%.*s\n", (int)(tail - head), head);
 
     if (loc->column + indent) {
@@ -82,7 +82,36 @@ int dumpf(const char *fmt, ...) {
     return retval;
 }
 
-static char *readFile(const char *path) {
+FilePath *analyzeFilepath(const char *path, const char *display) {
+    FilePath *obj = (FilePath *)safeAlloc(sizeof(FilePath));
+    int pathSize = 0;
+    int displaySize = 0;
+    int dirnameLen = 0;
+
+    displaySize = strlen(display) + 1;
+    obj->display = (char *)safeAlloc(displaySize);
+    memcpy(obj->display, display, displaySize);
+
+    pathSize = strlen(path) + 1;
+    obj->path = (char *)safeAlloc(pathSize);
+    memcpy(obj->path, path, pathSize);
+
+    for (dirnameLen = pathSize; dirnameLen > 0; --dirnameLen) {
+        if (path[dirnameLen - 1] == '/')
+            break;
+    }
+
+    obj->dirname = (char *)safeAlloc(dirnameLen + 1);
+    memcpy(obj->dirname, path, dirnameLen);
+    obj->dirname[dirnameLen] = '\0';
+
+    obj->basename = (char *)safeAlloc(pathSize - dirnameLen);
+    memcpy(obj->basename, &path[dirnameLen], pathSize - dirnameLen);
+
+    return obj;
+}
+
+char *readFile(const char *path) {
     FILE *fp = fopen(path, "r");
     char *buf = NULL;
     size_t size;
@@ -155,8 +184,13 @@ int main(int argc, char *argv[]) {
 
     memset(&globals, 0, sizeof(globals));
     globals.currentEnv = &globals.globalEnv;
+    globals.ccFile = analyzeFilepath(argv[0], argv[0]);
+
+    globals.includePath = (char *)safeAlloc(strlen(globals.ccFile->dirname) + 9);
+    sprintf(globals.includePath, "%sinclude/", globals.ccFile->dirname);
+
     source = readFile(inFile);
-    globals.token = tokenize(source, inFile);
+    globals.token = tokenize(source, analyzeFilepath(inFile, inFile));
     preprocess(globals.token);
     removeAllNewLineToken(globals.token);
     program();

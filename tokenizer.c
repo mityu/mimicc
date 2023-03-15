@@ -191,7 +191,7 @@ void printTokenList(Token *token) {
         appendNewToken(TokenReserved, pos, 0);\
         errorAt(current, msg);\
     } while (0)
-Token *tokenize(char *source, char *file) {
+Token *tokenize(char *source, FilePath *file) {
     char *p = source;
     Token head = {};
     Token *current = &head;

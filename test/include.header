@@ -1,0 +1,26 @@
+#define REP_TO_41   41
+#define REP_TO_43   43
+
+#define REP_TO_MACRO_41    REP_TO_41
+
+#define REP_TO_LINE_MACRO   __LINE__
+
+#define PLUS(a, b)  (a + b)
+
+#define PLUS_WITH_MACRO(a)  (REP_TO_MACRO_41 + a)
+
+typedef struct GSH GSH;
+struct GSH {
+    int num;
+};
+
+int ret47(void) {
+    return 47;
+}
+
+int retElemOfGSH(GSH *obj) {
+    return obj->num;
+}
+
+
+// vim: set filetype=c:

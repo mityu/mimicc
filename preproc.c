@@ -20,6 +20,12 @@ struct MacroArg {
     Token *end;         // End of replacement
 };
 
+typedef struct Range Range;
+struct Range {
+    Token *begin;
+    Token *end;
+};
+
 typedef struct Preproc Preproc;
 struct Preproc {
     Macro *macros;            // All macro list.
@@ -240,6 +246,87 @@ static Token *parseUndefDirective(Token *token) {
     return nextLine;
 }
 
+// Parse "#include" directive and returns one token after the token at the end
+// of this "#include" directive. Note that "token" parameter must points the
+// "#" token of "#include".
+static Token *parseIncludeDirective(Token *token) {
+    Range src = {};   // This "#include" directive
+    Range dest = {};  // Embedded file contents.
+    Token *retpos = NULL;
+    FilePath *file = NULL;
+    char *source = NULL;
+
+    src.begin = token;
+    src.end = skipUntilNewline(token);
+
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "include")))
+        errorUnreachable();
+
+    if (!(token->type == TokenLiteralString || matchTokenReserved(token, "<"))) {
+        // Maybe macro is following after "#include".
+        // TODO: Implement
+    }
+
+    if (token->type == TokenLiteralString) {
+        // #include "..."
+        char *header = token->literalStr->string;
+        if (header[0] == '/') {  // Full path
+            file = analyzeFilepath(header, header);
+        } else {
+            char *path = (char *)safeAlloc(
+                    strlen(token->file->dirname) + strlen(header) + 1);
+            sprintf(path, "%s%s", token->file->dirname, header);
+            file = analyzeFilepath(path, header);
+        }
+    } else if (consumeTokenReserved(&token, "<")) {
+        // #include <...>
+        Range header = {};
+        char *headerName = NULL;
+        char *headerPath = NULL;
+        int headerLen = 0;
+
+        header.begin = token;
+
+        for (Token *cur = token;; cur = cur->next) {
+            if (matchTokenReserved(cur, ">")) {
+                if (cur == token)
+                    errorAt(token->prev, "Missing file name.");
+                header.end = cur->prev;
+                break;
+            } else if (cur->type == TokenNewLine) {
+                errorAt(cur, "\"#include <FILENAME>\" directive not terminated.");
+            } else if (cur->type == TokenEOF) {
+                errorAt(cur, "Unexpected EOF.");
+            }
+        }
+
+        headerLen = (int)(header.end->next->str - header.begin->str);
+        headerName = (char *)safeAlloc(headerLen + 1);
+        memcpy(headerName, header.begin->str, headerLen);
+        headerName[headerLen] = '\0';
+
+        headerPath = (char *)safeAlloc(strlen(globals.includePath) + headerLen + 1);
+        sprintf(headerPath, "%s%s", globals.includePath, headerName);
+
+        file = analyzeFilepath(headerPath, headerName);
+    } else {
+        errorAt(token, "Must be <FILENAME> or \"FILENAME\".");
+    }
+
+    source = readFile(file->path);
+    dest.begin = tokenize(source, file);
+
+    dest.end = dest.begin;
+    while (dest.end->type != TokenEOF)
+        dest.end = dest.end->next;
+
+    retpos = dest.begin->next;
+    insertTokens(src.end, dest.begin->next, dest.end->prev);
+    popTokenRange(src.begin, src.end);
+
+    return retpos;
+}
+
 // Apply predefined macros.  Return TRUE if applied.
 static int applyPredefinedMacro(Token *token) {
     if (matchToken(token , "__LINE__", 8)) {
@@ -344,11 +431,6 @@ static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfAr
 // token of replacements (if macro is expanded to empty, returns the pointer to
 // the next token of "begin").  Otherwise returns NULL.
 static Token *applyMacro(Token *begin) {
-    typedef struct {
-        Token *begin;
-        Token *end;
-    } Range;
-
     Macro *macro = NULL;
     MacroArg *macroArgs = NULL;
     Token *cur = begin;
@@ -371,6 +453,7 @@ static Token *applyMacro(Token *begin) {
             for (Token *token = dest.begin; token; token = token->next) {
                 token->line = src.begin->line;
                 token->column = src.begin->column;
+                token->file = src.begin->file;
                 if (!token->next)
                     dest.end = token;
             }
@@ -393,6 +476,7 @@ static Token *applyMacro(Token *begin) {
         for (Token *token = dest.begin; token; token = token->next) {
             token->line = src.begin->line;
             token->column = src.begin->column;
+            token->file = src.begin->file;
             if (!token->next)
                 dest.end = token;
         }
@@ -428,6 +512,8 @@ void preprocess(Token *token) {
                 token = parseDefineDirective(tokenHash);
             } else if (consumeTokenIdent(&token, "undef")) {
                 token = parseUndefDirective(tokenHash);
+            } else if (consumeTokenIdent(&token, "include")) {
+                token = parseIncludeDirective(tokenHash);
             }
         } else {
             Token *applied = NULL;

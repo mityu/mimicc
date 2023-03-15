@@ -29,6 +29,7 @@ typedef struct Struct Struct;
 typedef struct Enum Enum;
 typedef struct Typedef Typedef;
 typedef struct Token Token;
+typedef struct FilePath FilePath;
 
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
@@ -100,7 +101,7 @@ struct Token {
     TypeKind varType;          // Variable type valid when type is TokenTypeName.
     LiteralString *literalStr; // Reference to literal string when type is
                                // TokenLiteralString.
-    char *file;                // File name.
+    FilePath *file;            // File path information
     char *str;                 // The token string.
     int len;                   // The token length.
     int line;                  // Line number in file.
@@ -297,6 +298,13 @@ struct Typedef {
     TypeInfo *type;  // Actual type.
 };
 
+struct FilePath {
+    char *basename;
+    char *dirname;  // Parent directory name with '/' at the end.
+    char *path;
+    char *display;  // File path for display (error message, __FILE__ macro, etc.)
+};
+
 typedef struct Globals Globals;
 struct Globals {
     Node *code;                // The root node of program.
@@ -314,6 +322,8 @@ struct Globals {
     int namelessStructCount;   // The number of nameless structs.
     Token *token;              // Token currently watches.
     FILE *destFile;            // The output file.
+    FilePath *ccFile;          // The binary file path infomation.
+    char *includePath;         // The include path.
 };
 extern Globals globals;
 
@@ -324,13 +334,15 @@ _Noreturn void errorAt(Token *loc, const char *fmt, ...);
 int dumpc(int c);
 int dumps(const char *s);
 int dumpf(const char *fmt, ...);
+FilePath *analyzeFilepath(const char *path, const char *display);
+char *readFile(const char *path);
 
 // codegen.c
 void genCode(const Node *n);
 void genCodeGlobals(void);
 
 // tokenizer.c
-Token *tokenize(char *source, char *file);
+Token *tokenize(char *source, FilePath *file);
 int checkEscapeChar(char c, char *decoded);
 void popTokenRange(Token *begin, Token *end);
 void removeAllNewLineToken(Token *token);
