@@ -113,9 +113,16 @@ void testFuncLikeMacroWithNoParam(void) {
     }
 }
 
+#define AsItIs(x)   x
 #define SUCC(x) (x + 1)
 void testFuncLikeMacroWithOneParam(void) {
     int n;
+
+    n = AsItIs(17);
+    if (n != 17) {
+        printf("testFuncLikeMacroWithOneParam(): n != 17: %d\n", n);
+        exit(1);
+    }
 
     n = SUCC(3);
     if (n != 4) {
@@ -207,15 +214,15 @@ bar = 17;
     }
 
     n = __LINE__;
-    if (n != 209) {
-        printf("testLineContinuation(): __LINE__ != 209: %d\n", n);
+    if (n != 216) {
+        printf("testLineContinuation(): __LINE__ != 216: %d\n", n);
         exit(1);
     }
 
     n = __LI\
 NE__;
-    if (n != 215) {
-        printf("testLineContinuation(): __LINE__ != 215: %d\n", n);
+    if (n != 222) {
+        printf("testLineContinuation(): __LINE__ != 222: %d\n", n);
         exit(1);
     }
 }

@@ -603,7 +603,7 @@ static Token *applyMacro(Token *begin) {
         concatToken(dest.end, wrapper.end);
 
         replaceMacroArgs(macroArgs, dest.begin, dest.end);
-        insertTokens(src.end, dest.begin, dest.end);
+        insertTokens(src.end, wrapper.begin->next, wrapper.end->prev);
         popTokenRange(src.begin, src.end);
 
         retpos = wrapper.begin->next;
