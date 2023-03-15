@@ -1,8 +1,8 @@
 #ifndef __MIMIC_STDARG_H
 #define __MIMIC_STDARG_H
 
-#define va_start __builtin_va_start
-#define va_end
+#define va_start(ap, fmt) __builtin_va_start(ap, fmt)
+#define va_end(ap)
 
 typedef struct {
     int gp_offset;
