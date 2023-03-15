@@ -96,25 +96,35 @@ void testUndef(void) {
     }
 }
 
+#define FN_NO_PARAM()   101
+void testFuncLikeMacroWithNoParam(void) {
+    int n = FN_NO_PARAM();
+
+    if (n != 101) {
+        printf("testFuncLikeMacroWithNoParam(): n != 101: %d\n", n);
+        exit(1);
+    }
+}
+
 #define SUCC(x) (x + 1)
 void testFuncLikeMacroWithOneParam(void) {
     int n;
 
     n = SUCC(3);
     if (n != 4) {
-        printf("testFuncLikeMacroWithOneParam(): n != 4: %d", n);
+        printf("testFuncLikeMacroWithOneParam(): n != 4: %d\n", n);
         exit(1);
     }
 
     n = SUCC(SUCC(5));
     if (n != 7) {
-        printf("testFuncLikeMacroWithOneParam(): n != 7: %d", n);
+        printf("testFuncLikeMacroWithOneParam(): n != 7: %d\n", n);
         exit(1);
     }
 
     n = SUCC(SUCC(SUCC(7)));
     if (n != 10) {
-        printf("testFuncLikeMacroWithOneParam(): n != 10: %d", n);
+        printf("testFuncLikeMacroWithOneParam(): n != 10: %d\n", n);
         exit(1);
     }
 }
@@ -178,6 +188,7 @@ int main(void) {
     test__LINE__macro();
     testMacroMultipleExpantion();
     testUndef();
+    testFuncLikeMacroWithNoParam();
     testFuncLikeMacroWithOneParam();
     testFuncLikeMacroWithMultiParam();
     printf("OK\n");

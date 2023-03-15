@@ -195,8 +195,8 @@ static Token *parseDefineDirective(Token *token) {
                     errorAt(token, "',' or ')' is expected.");
             }
             macro->args = head.next;
-            macro->replace = token;
         }
+        macro->replace = token;
     }
 
     nextLine = skipUntilNewline(token)->next;
@@ -388,8 +388,12 @@ static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfAr
     if (!consumeTokenReserved(&token, "("))
         errorAt(token, "'(' is expected.");
 
-    if (!macro->args && !consumeTokenReserved(&token, ")"))
-        errorAt(token, "')' is expected.");
+    if (!macro->args) {
+        if (!consumeTokenReserved(&token, ")"))
+            errorAt(token, "')' is expected.");
+        *endOfArg = token->prev;
+        return NULL;
+    }
 
     for (Token *argName = macro->args; argName; argName = argName->next) {
         MacroArg *arg = (MacroArg *)safeAlloc(sizeof(MacroArg));
