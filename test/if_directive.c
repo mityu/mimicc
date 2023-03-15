@@ -4,7 +4,7 @@ int printf(const char *, ...);
 
 #define UNREACHABLE()  do {printf("%d: unreachable\n", __LINE__);} while(0)
 
-int main(void) {
+void testIfdefIfndef(void) {
     int n;
 
     n = 0;
@@ -29,8 +29,29 @@ int main(void) {
     if (n != 0)
         UNREACHABLE();
 #ifndef NOT_DEFINED
-    n = 23;
+    n = 17;
 #endif
-    if (n != 23)
+    if (n != 17)
         UNREACHABLE();
+}
+
+void testHeaderGuard(void) {
+    int n = 0;
+#ifndef HEADER_GUARD
+#define HEADER_GUARD
+    n = 19;
+#endif
+
+#ifndef HEADER_GUARD
+#define HEADER_GUARD
+    UNREACHABLE();
+#endif
+
+    if (n != 19)
+        UNREACHABLE();
+}
+
+int main(void) {
+    testIfdefIfndef();
+    testHeaderGuard();
 }

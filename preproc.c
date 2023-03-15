@@ -372,7 +372,7 @@ static Token *parseIfdefDirective(Token *token) {
         insertTokens(directive.end, insert.begin, insert.end->prev);
     }
 
-    retpos = directive.begin;
+    retpos = directive.begin->prev;
 
     popTokenRange(directive.begin, directive.end);
 
@@ -424,7 +424,7 @@ static Token *parseIfndefDirective(Token *token) {
         insertTokens(directive.end, insert.begin, insert.end->prev);
     }
 
-    retpos = directive.begin;
+    retpos = directive.begin->prev;
 
     popTokenRange(directive.begin, directive.end);
 
