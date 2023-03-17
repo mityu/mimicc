@@ -35,6 +35,8 @@ void testArithmeticComputation(void) {
     ASSERT(0, 1 >= 2);
     ASSERT(1, 2 >= 2);
     ASSERT(1, 3 >= 2);
+    ASSERT(1, 1 < 1 << 2);
+    ASSERT(1, 2 > 2 >> 1);
 }
 
 void testBitwiseOperations(void) {
@@ -50,6 +52,8 @@ void testBitwiseOperations(void) {
     ASSERT(1, 2 >> 1);
     ASSERT(8, 64 >> 3);
     ASSERT(-2, -8 >> 2);
+    ASSERT(8, 1 << 1 << 2);
+    ASSERT(16, 1 << (1 << 2));
 }
 
 void testArithmeticAssignment(void) {

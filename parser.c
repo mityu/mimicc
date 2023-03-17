@@ -2059,13 +2059,13 @@ static Node *relational(void) {
     for (;;) {
         Token *t = globals.token;
         if (consumeReserved("<")) {
-            n = newNodeBinary(NodeLT, n, add(), &Types.Number);
+            n = newNodeBinary(NodeLT, n, shift(), &Types.Number);
         } else if (consumeReserved(">")) {
-            n = newNodeBinary(NodeLT, add(), n, &Types.Number);
+            n = newNodeBinary(NodeLT, shift(), n, &Types.Number);
         } else if (consumeReserved("<=")) {
-            n = newNodeBinary(NodeLE, n, add(), &Types.Number);
+            n = newNodeBinary(NodeLE, n, shift(), &Types.Number);
         } else if (consumeReserved(">=")) {
-            n = newNodeBinary(NodeLE, add(), n, &Types.Number);
+            n = newNodeBinary(NodeLE, shift(), n, &Types.Number);
         } else {
             return n;
         }
