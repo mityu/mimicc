@@ -1048,6 +1048,8 @@ static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfAr
                 parenthesis--;
                 if (parenthesis < 0)
                     errorAt(token->prev, "Unmatched ')'.");
+            } else if (parenthesis == 0 && consumeTokenReserved(&token, ",")) {
+                errorAt(token, "Too many arguments for function-like macro.");
             } else if (token->type == TokenEOF) {
                 errorAt(token, "Unexpected EOF.");
             } else {
