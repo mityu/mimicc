@@ -29,6 +29,7 @@ struct Range {
 typedef struct Preproc Preproc;
 struct Preproc {
     Macro *macros;            // All macro list.
+    int expandDefined;        // If TRUE, expand "define(macro)" macro.
 };
 
 static Preproc preproc;
@@ -84,6 +85,14 @@ static Token *consumeTokenAnyIdent(Token **token) {
     return NULL;
 }
 
+static int consumeTokenCertainType(Token **token, TokenType type) {
+    if ((*token)->type == type) {
+        (*token) = (*token)->next;
+        return 1;
+    }
+    return 0;
+}
+
 static Token *newTokenSOF(void) {
     Token *token = (Token *)safeAlloc(sizeof(Token));
     token->type = TokenSOF;
@@ -93,6 +102,14 @@ static Token *newTokenSOF(void) {
 static Token *newTokenEOF(void) {
     Token *token = (Token *)safeAlloc(sizeof(Token));
     token->type = TokenEOF;
+    return token;
+}
+
+static Token *newTokenDummyReserved(char *op) {
+    Token *token = (Token *)safeAlloc(sizeof(Token));
+    token->type = TokenReserved;
+    token->str = op;
+    token->len = strlen(op);
     return token;
 }
 
@@ -136,6 +153,15 @@ static void insertTokens(Token *pos, Token *begin, Token *end) {
     next->prev = end;
 }
 
+static void insertToken(Token *pos, Token *token) {
+    Token *next = pos->next;
+
+    pos->next = token;
+    token->prev = pos;
+    token->next = next;
+    next->prev = token;
+}
+
 // Skip tokens until "TokenNewLine" appears, and returns the pointer to it.
 static Token *skipUntilNewline(Token *token) {
     while (token->type != TokenNewLine)
@@ -159,6 +185,8 @@ static Token *parseDefineDirective(Token *token) {
 
     if (!macroName) {
         errorAt(token, "Macro name expected.");
+    } else if (matchToken(macroName, "defined", 7)) {
+        errorAt(macroName, "Cannot define macro named \"defined\"");
     } else if (findMacro(macroName)) {
         errorAt(macroName, "Redefinition of macro.");
     }
@@ -327,19 +355,453 @@ static Token *parseIncludeDirective(Token *token) {
     return retpos;
 }
 
-// Parse "#ifdef" directive and returns one token after the token at the end of
-// this "#ifdef" directive.  Note that "token" parameter must points the "#"
-// token of "#ifdef".
-static Token *parseIfdefDirective(Token *token) {
-    // TODO: Support nested #ifdef
-    // TODO: Support #elif and #else
-    Range directive = {};
-    Range insert = {};  // Insert [begin, end) tokens.
-    Token *ident = NULL;
+static Node *newNode(NodeKind kind, Token *token) {
+    Node *n = (Node *)safeAlloc(sizeof(Node));
+    n->kind = kind;
+    n->token = token;
+    return n;
+}
+
+static Node *newNodeBinary(NodeKind kind, Token *token, Node *lhs, Node *rhs) {
+    Node *n = newNode(kind, token);
+    n->lhs = lhs;
+    n->rhs = rhs;
+    return n;
+}
+
+static Node *parseIfCond(Token **token);
+static Node *parseIfCondPrimary(Token **token) {
+    if (consumeTokenReserved(token, "(")) {
+        Node *n = parseIfCond(token);
+        if (!consumeTokenReserved(token, ")"))
+            errorAt(*token, "\")\" is expected.");
+        return n;
+    } else if ((*token)->type == TokenNumber) {
+        Node *n = newNode(NodeNum, *token);
+        n->val = (*token)->val;
+        *token = (*token)->next;
+        return n;
+    } else {
+        errorAt(*token, "Unexpected token.");
+    }
+}
+
+static Node *parseIfCondUnary(Token **token) {
+    Token *tokenOp = *token;
+    if (consumeTokenReserved(token, "+") || consumeTokenReserved(token, "-")) {
+        Node *lhs = newNode(NodeNum, tokenOp);
+        Node *rhs = parseIfCondUnary(token);
+        Node *n = newNodeBinary(NodeAdd, tokenOp, lhs, rhs);
+        if (tokenOp->str[0] == '-')
+            n->kind = NodeSub;
+        return n;
+    } else if (consumeTokenReserved(token, "!")) {
+        Node *rhs = parseIfCondUnary(token);
+        Node *n = newNode(NodeNot, tokenOp);
+        n->rhs = rhs;
+        return n;
+    } else {
+        return parseIfCondPrimary(token);
+    }
+}
+
+static Node *parseIfCondMul(Token **token) {
+    Node *n = parseIfCondUnary(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "*") || consumeTokenReserved(token, "/") ||
+                consumeTokenReserved(token, "%")) {
+            Node *lhs = n;
+            Node *rhs = parseIfCondUnary(token);
+            n = newNodeBinary(NodeMul, tokenOp, lhs, rhs);
+            if (tokenOp->str[0] == '/')
+                n->kind = NodeDiv;
+            else if (tokenOp->str[0] == '%')
+                n->kind = NodeDivRem;
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondAdd(Token **token) {
+    Node *n = parseIfCondMul(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "+") || consumeTokenReserved(token, "-")) {
+            Node *lhs = n;
+            Node *rhs = parseIfCondMul(token);
+            n = newNodeBinary(NodeAdd, tokenOp, lhs, rhs);
+            if (tokenOp->str[0] == '-')
+                n->kind = NodeSub;
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondShift(Token **token) {
+    Node *n = parseIfCondAdd(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "<<") || consumeTokenReserved(token, ">>")) {
+            Node *lhs = n;
+            Node *rhs = parseIfCondAdd(token);
+            n = newNodeBinary(NodeArithShiftL, tokenOp, lhs, rhs);
+            if (tokenOp->str[0] == '>')
+                n->kind = NodeArithShiftR;
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondRelational(Token **token) {
+    Node *n = parseIfCondShift(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "<") || consumeTokenReserved(token, "<=")) {
+            Node *lhs = n;
+            Node *rhs = parseIfCondShift(token);
+            n = newNodeBinary(NodeLT, tokenOp, lhs, rhs);
+            if (tokenOp->len == 2)
+                n->kind = NodeLE;
+        } else if (consumeTokenReserved(token, ">") || consumeTokenReserved(token, ">=")) {
+            Node *lhs = parseIfCondShift(token);
+            Node *rhs = n;
+            n = newNodeBinary(NodeLT, tokenOp, lhs, rhs);
+            if (tokenOp->len == 2)
+                n->kind = NodeLE;
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondEquality(Token **token) {
+    Node *n = parseIfCondRelational(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "==") || consumeTokenReserved(token, "!=")) {
+            n = newNodeBinary(NodeEq, tokenOp, n, parseIfCondRelational(token));
+            if (tokenOp->str[0] == '!')
+                n->kind = NodeNeq;
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondANDexpr(Token **token) {
+    Node *n = parseIfCondEquality(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "&")) {
+            n = newNodeBinary(NodeBitwiseAND, tokenOp, n, parseIfCondEquality(token));
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondORexpr(Token **token) {
+    Node *n = parseIfCondANDexpr(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "|")) {
+            n = newNodeBinary(NodeBitwiseOR, tokenOp, n, parseIfCondANDexpr(token));
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondXORexpr(Token **token) {
+    Node *n = parseIfCondORexpr(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "^")) {
+            n = newNodeBinary(NodeBitwiseXOR, tokenOp, n, parseIfCondORexpr(token));
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondLogicalAND(Token **token) {
+    Node *n = parseIfCondXORexpr(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "&&")) {
+            n = newNodeBinary(NodeLogicalAND, tokenOp, n, parseIfCondXORexpr(token));
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondLogicalOR(Token **token) {
+    Node *n = parseIfCondLogicalAND(token);
+    for (;;) {
+        Token *tokenOp = *token;
+        if (consumeTokenReserved(token, "||")) {
+            n = newNodeBinary(NodeLogicalOR, tokenOp, n, parseIfCondLogicalAND(token));
+        } else {
+            return n;
+        }
+    }
+}
+
+static Node *parseIfCondConditional(Token **token) {
+    Node *n = parseIfCondLogicalOR(token);
+    Token *tokenOp = *token;
+
+    if (consumeTokenReserved(token, "?")) {
+        Node *cond = n;
+        Node *lhs = NULL;
+        Node *rhs = NULL;
+
+        lhs = parseIfCond(token);
+        if (!consumeTokenReserved(token, ":"))
+            errorAt(*token, "\":\" is expected");
+        rhs = parseIfCondConditional(token);
+
+        n = newNodeBinary(NodeConditional, tokenOp, lhs, rhs);
+        n->condition = cond;
+    }
+    return n;
+}
+
+static Node *parseIfCond(Token **token) {
+    return parseIfCondConditional(token);
+}
+
+static int evalIfCondNodes(Node *node) {
+    int lhs = 0, rhs = 0;
+
+    if (node->kind == NodeLogicalAND) {
+        lhs = evalIfCondNodes(node->lhs);
+        if (!lhs)
+            return 0;
+        return evalIfCondNodes(node->rhs) ? 1 : 0;
+    } else if (node->kind == NodeLogicalOR) {
+        lhs = evalIfCondNodes(node->lhs);
+        if (lhs)
+            return 1;
+        return evalIfCondNodes(node->rhs) ? 1 : 0;
+    } else if (node->kind == NodeConditional) {
+        int cond = evalIfCondNodes(node->condition);
+        if (cond)
+            return evalIfCondNodes(node->lhs);
+        else
+            return evalIfCondNodes(node->rhs);
+    }
+
+
+    if (node->lhs)
+        lhs = evalIfCondNodes(node->lhs);
+    if (node->rhs)
+        rhs = evalIfCondNodes(node->rhs);
+    switch (node->kind) {
+    case NodeNum:
+        return node->val;
+    case NodeAdd:
+        return lhs + rhs;
+    case NodeSub:
+        return lhs - rhs;
+    case NodeNot:
+        return !rhs;
+    case NodeMul:
+        return lhs * rhs;
+    case NodeDiv:
+        return lhs / rhs;
+    case NodeDivRem:
+        return lhs % rhs;
+    case NodeArithShiftL:
+        return lhs << rhs;
+    case NodeArithShiftR:
+        return lhs >> rhs;
+    case NodeLT:
+        return lhs < rhs;
+    case NodeLE:
+        return lhs <= rhs;
+    case NodeEq:
+        return lhs == rhs;
+    case NodeNeq:
+        return lhs != rhs;
+    case NodeBitwiseAND:
+        return lhs & rhs;
+    case NodeBitwiseOR:
+        return lhs | rhs;
+    case NodeBitwiseXOR:
+        return lhs ^ rhs;
+    default:
+        errorUnreachable();
+    }
+}
+
+// Evaluate condition for "#if" and "#elif".  Note that this function destroys
+// "prev" or "next" member in condition tokens.
+static int evalIfCondition(Range *cond) {
+    Range wrap = {};
+    Node *node = NULL;
+    int retval = 0;
+
+    // TODO: Clone tokens if I free poped tokens.
+    // Expand macros
+    wrap.begin = newTokenSOF();
+    wrap.end = newTokenEOF();
+    concatToken(wrap.begin, cond->begin);
+    concatToken(cond->end, wrap.end);
+    preproc.expandDefined++;
+    preprocess(wrap.begin);
+    preproc.expandDefined--;
+    safeFree(wrap.begin);
+    safeFree(wrap.end);
+
+    // Parse tokens
+    node = parseIfCond(&cond->begin);
+
+    // Evaluate nodes
+    retval = evalIfCondNodes(node) ? 1 : 0;
+
+    // TODO: Free nodes
+
+    return retval;
+}
+
+// Parse "#if" directive and returns one token after the token at the end of
+// this "#if" directive.  Note that "token" parameter must points the "#" token
+// of "#if".
+static Token *parseIfDirective(Token *token) {
+    typedef struct Elif Elif;
+    struct Elif {
+        Elif *next;
+        Range cond;  // NULL if #else
+        Range body;  // Use [body.begin, body.end) as body statement.
+    };
+    typedef struct {
+        Range cond;
+        Range body;  // Use [body.begin, body.end) as body statement.
+        Range directive;
+        Elif *elifs;
+    } IfDirective;
+
+    IfDirective entire = {};
+    Elif elifHead = {};
+    Range *curBody = NULL;
+    Range dest = {};
     Token *retpos = NULL;
 
+    entire.directive.begin = token;
+    entire.elifs = &elifHead;
+
+    if (!(consumeTokenReserved(&token, "#") &&
+                consumeTokenCertainType(&token, TokenIf)))
+        errorUnreachable();
+
+    entire.cond.begin = token;
+    if (entire.cond.begin->type == TokenNewLine)
+        errorAt(entire.cond.begin, "An expression is expected.");
+    token = skipUntilNewline(token)->next;
+
+    entire.cond.end = token->prev->prev;
+    entire.body.begin = token;
+    curBody = &entire.body;
+
+    for (int depth = 0, sawElse = 0;;) {
+        if (consumeTokenReserved(&token, "#")) {
+            if (consumeTokenCertainType(&token, TokenIf)) {
+                depth++;
+            } else if (depth == 0 && consumeTokenIdent(&token, "elif")) {
+                if (sawElse)
+                    errorAt(token, "#elif after #else.");
+                else if (token->type == TokenNewLine)
+                    errorAt(token, "An expression is expected.");
+
+                curBody->end = token->prev->prev;  // Should points to "#" token
+                entire.elifs->next = (Elif *)safeAlloc(sizeof(Elif));
+                entire.elifs = entire.elifs->next;
+                entire.elifs->cond.begin = token;
+                token = skipUntilNewline(token);
+                entire.elifs->cond.end = token->prev;
+                token = token->next;
+                curBody = &entire.elifs->body;
+                curBody->begin = token;
+                continue;
+            } else if (depth == 0 && consumeTokenCertainType(&token, TokenElse)) {
+                if (token->type != TokenNewLine)
+                    errorAt(token, "Unexpected token.");
+
+                curBody->end = token->prev->prev;  // Should points to "#" token.
+                token = token->next;
+                entire.elifs->next = (Elif *)safeAlloc(sizeof(Elif));
+                entire.elifs = entire.elifs->next;
+                curBody = &entire.elifs->body;
+                curBody->begin = token;
+
+                sawElse = 1;
+                continue;
+            } else if (consumeTokenIdent(&token, "endif")) {
+                if (token->type != TokenNewLine)
+                    errorAt(token, "Unexpected token.");
+
+                if (depth != 0) {
+                    depth--;
+                } else {
+                    curBody->end = token->prev->prev;  // Should points to "#" token.
+                    entire.directive.end = token;
+                    entire.elifs = elifHead.next;
+                    break;
+                }
+            }
+        } else if (token->type == TokenEOF) {
+            errorAt(token, "Unexpected EOF");
+        }
+        token = skipUntilNewline(token)->next;
+    }
+
+    if (evalIfCondition(&entire.cond)) {
+        dest = entire.body;
+    } else {
+        for (Elif *elif = entire.elifs; elif; elif = elif->next) {
+            // elif->cond.begin is NULL for "#else" directive.
+            if (elif->cond.begin == NULL || evalIfCondition(&elif->cond)) {
+                dest = elif->body;
+                break;
+            }
+        }
+    }
+
+    retpos = entire.directive.begin->prev;
+    popTokenRange(entire.directive.begin, entire.directive.end);
+    if (dest.begin && dest.begin != dest.end) {
+        insertTokens(retpos, dest.begin, dest.end->prev);
+    }
+
+    for (Elif *elif = entire.elifs; elif;) {
+        Elif *tofree = elif;
+        elif = elif->next;
+        safeFree(tofree);
+    }
+
+    return retpos->next;
+}
+
+// Parse "#ifdef" or "#ifndef" directive and returns one token after the token
+// at the end of this "#ifdef" or "#ifndef" directive.  Note that "token"
+// parameter must points the "#" token of "#ifdef" or "#ifndef".
+static Token *parseIfdefDirective(Token *token, int inverse) {
+    Range directive = {};
+    Token *ident = NULL;
+    Token *tokenIf = NULL;
+    Token *tokenDefined = NULL;
+
     directive.begin = token;
-    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "ifdef")))
+    if (!consumeTokenReserved(&token, "#"))
+        errorUnreachable();
+    else if (!(inverse && consumeTokenIdent(&token, "ifndef") ||
+            consumeTokenIdent(&token, "ifdef")))
         errorUnreachable();
 
     ident = consumeTokenAnyIdent(&token);
@@ -348,87 +810,50 @@ static Token *parseIfdefDirective(Token *token) {
     else if (token->type != TokenNewLine)
         errorAt(token, "Unexpected token");
 
-    token = token->next;    // Skip new-line token.
-    insert.begin = token;
+    directive.end = token;
 
-    for (;;) {
-        if (matchTokenReserved(token, "#")) {
-            token = token->next;
-            if (matchTokenIdent(token, "endif")) {
-                directive.end = skipUntilNewline(token);
-                if (directive.end != token->next)
-                    errorAt(token->next, "Unexpected token");
-                insert.end = token->prev;
-                break;
-            }
-        } else if (token->type == TokenEOF) {
-            errorAt(token, "Unexpected EOF");
-        } else {
-            token = token->next;
-        }
-    }
+    // Pop ["ifdef", "\n") tokens.
+    popTokenRange(directive.begin->next, directive.end->prev);
 
-    if (insert.begin != insert.end && findMacro(ident)) {
-        insertTokens(directive.end, insert.begin, insert.end->prev);
-    }
+    tokenIf = (Token *)safeAlloc(sizeof(Token));
+    tokenIf->type = TokenIf;
+    tokenDefined = (Token *)safeAlloc(sizeof(Token));
+    tokenDefined->type = TokenIdent;
+    tokenDefined->str = "defined";
+    tokenDefined->len = strlen(tokenDefined->str);
 
-    retpos = directive.begin->prev;
+    // Insert "if defined(<macro>)" or "if !defined(<macro>)" tokens
+    concatToken(directive.begin, directive.end);
+    insertToken(directive.begin, newTokenDummyReserved(")"));
+    insertToken(directive.begin, ident);
+    insertToken(directive.begin, newTokenDummyReserved("("));
+    insertToken(directive.begin, tokenDefined);
+    if (inverse)
+        insertToken(directive.begin, newTokenDummyReserved("!"));
+    insertToken(directive.begin, tokenIf);
 
-    popTokenRange(directive.begin, directive.end);
-
-    return retpos->next;
+    return parseIfDirective(directive.begin);
 }
 
-// Parse "#ifndef" directive and returns one token after the token at the end
-// of this "#ifndef" directive.  Note that "token" parameter must points the
-// "#" token of "#ifndef".
-static Token *parseIfndefDirective(Token *token) {
-    // TODO: Support nested #ifndef
-    // TODO: Support #elif and #else
-    Range directive = {};
-    Range insert = {};  // Insert [begin, end) tokens.
-    Token *ident = NULL;
-    Token *retpos = NULL;
+// Apply "defined()" macro and returns one token after the token at the end of
+// this use of "defined()" macro (If "defined()" macro is not applied, returns
+// NULL).
+static Token *applyBuiltinDefinedMacro(Token *token) {
+    Token *macro = NULL;
+    Token *head = token;
+    if (!consumeTokenIdent(&token, "defined"))
+        return NULL;
+    else if (!consumeTokenReserved(&token, "("))
+        errorAt(token, "\"(\" is expected.");
+    else if ((macro = consumeTokenAnyIdent(&token)) == NULL)
+        errorAt(token, "A identifier is expected.");
+    else if (!consumeTokenReserved(&token, ")"))
+        errorAt(token, "\")\" is expected.");
 
-    directive.begin = token;
-    if (!(consumeTokenReserved(&token, "#") && consumeTokenIdent(&token, "ifndef")))
-        errorUnreachable();
-
-    ident = consumeTokenAnyIdent(&token);
-    if (!ident)
-        errorAt(token, "Macro name required after \"#ifndef\".");
-    else if (token->type != TokenNewLine)
-        errorAt(token, "Unexpected token");
-
-    token = token->next;    // Skip new-line token.
-    insert.begin = token;
-
-    for (;;) {
-        if (matchTokenReserved(token, "#")) {
-            token = token->next;
-            if (matchTokenIdent(token, "endif")) {
-                directive.end = skipUntilNewline(token);
-                if (directive.end != token->next)
-                    errorAt(token->next, "Unexpected token");
-                insert.end = token->prev;
-                break;
-            }
-        } else if (token->type == TokenEOF) {
-            errorAt(token, "Unexpected EOF");
-        } else {
-            token = token->next;
-        }
-    }
-
-    if (insert.begin != insert.end && !findMacro(ident)) {
-        insertTokens(directive.end, insert.begin, insert.end->prev);
-    }
-
-    retpos = directive.begin->prev;
-
-    popTokenRange(directive.begin, directive.end);
-
-    return retpos->next;
+    popTokenRange(head->next, token->prev);
+    head->type = TokenNumber;
+    head->val = findMacro(macro) != NULL;
+    return head->next;
 }
 
 // Apply predefined macros.  Return TRUE if applied.
@@ -725,12 +1150,23 @@ void preprocess(Token *token) {
             } else if (consumeTokenIdent(&token, "include")) {
                 token = parseIncludeDirective(tokenHash);
             } else if (consumeTokenIdent(&token, "ifdef")) {
-                token = parseIfdefDirective(tokenHash);
+                token = parseIfdefDirective(tokenHash, 0);
             } else if (consumeTokenIdent(&token, "ifndef")) {
-                token = parseIfndefDirective(tokenHash);
+                token = parseIfdefDirective(tokenHash, 1);
+            } else if (consumeTokenCertainType(&token, TokenIf)) {
+                token = parseIfDirective(tokenHash);
             }
         } else {
             Token *applied = NULL;
+
+            if (preproc.expandDefined) {
+                applied = applyBuiltinDefinedMacro(token);
+                if (applied) {
+                    token = applied;
+                    continue;
+                }
+            }
+
             applied = applyMacro(token);
 
             if (applied) {

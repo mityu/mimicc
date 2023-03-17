@@ -202,6 +202,9 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 ./test/Xtmp/ifdef_directive.s: ./test/ifdef_directive.c
 	$(TESTCC) -o $@ -S $<
 
+./test/Xtmp/if_directive.s: ./test/if_directive.c
+	$(TESTCC) -o $@ -S $<
+
 ./test/Xtmp/include.s: ./test/include.c ./test/include.header
 	$(TESTCC) -o $@ -S $<
 
