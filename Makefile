@@ -48,7 +48,7 @@ test: $(TARGET) test_basic test_advanced test_advanced_errors;
 
 # Compilation: 2nd gen
 $(TARGET_SELF): $(TARGET) self_prepair $(OBJ_SELF)
-	gcc -o $@ $(OBJ_SELF)
+	gcc -no-pie -o $@ $(OBJ_SELF)
 
 .PHONY: self
 self: $(TARGET_SELF);
@@ -86,7 +86,7 @@ $(HOME_SELF)/%.s: ./%.c $(TARGET) mimicc.h $(HEADERS)
 
 # Compilation: 3rd gen
 $(TARGET_SELFSELF): $(TARGET_SELF) selfself_prepair $(OBJ_SELFSELF)
-	gcc -o $@ $(OBJ_SELFSELF)
+	gcc -no-pie -o $@ $(OBJ_SELFSELF)
 
 .PHONY: selfself
 selfself: $(TARGET_SELFSELF);

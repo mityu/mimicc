@@ -615,12 +615,8 @@ static void genCodeFCall(const Node *n) {
     int stackArgSize = 0;  // Size of arguments (passed to function) on stack.
     int exCapToAlignRSP = 0; // Extra memory size to capture in order to align RSP.
     int regargs = n->fcall->argsCount;
-    char *plt = "";
 
     stackAlignStateSave = stackAlignState;
-
-    if (!findFunction(n->fcall->name, n->fcall->len)->func->haveImpl)
-        plt = "@PLT";
 
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
@@ -655,7 +651,7 @@ static void genCodeFCall(const Node *n) {
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
     dumps("  mov al, 0");
-    dumpf("  call %.*s%s\n", n->fcall->len, n->fcall->name, plt);
+    dumpf("  call %.*s\n", n->fcall->len, n->fcall->name);
 
     stackAlignState = stackAlignStateSave;
     if (exCapToAlignRSP)
