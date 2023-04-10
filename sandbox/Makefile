@@ -7,6 +7,9 @@ main.s: main.c mimicc-cc
 mimicc-cc:
 	@cd ../ && make
 
+gcc: main.c
+	gcc -o main main.c
+
 2nd: mimicc-2nd-cc compile-by-2nd main;
 2nd-run: 2nd
 	./main
