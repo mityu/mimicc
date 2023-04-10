@@ -878,6 +878,9 @@ static int applyPredefinedMacro(Token *token) {
 }
 
 // Stringify tokens in range in range [begin, end].  This is for "#" operator.
+#define NEED_SPACING(ptr)   \
+    (isSpace(*((char *)(ptr))) ||\
+     (*((char *)(ptr)) == '/' && strchr("*/", (*((char *)(ptr)+1)))))
 static char *stringifyTokens(Token *begin, Token *end, int *len) {
     int totalSize = 0;
     int w = 0;
@@ -916,12 +919,12 @@ static char *stringifyTokens(Token *begin, Token *end, int *len) {
             totalSize += token->len;
             break;
         }
-        if (isSpace(token->str[token->len])) {
+        if (NEED_SPACING(token->str + token->len)) {
             totalSize++;
             (*len)++;
         }
     }
-    if (!isSpace(end->str[end->len]))
+    if (!NEED_SPACING(end->str + end->len))
         totalSize++;    // Capture one more size for '\0'.
 
     buf = (char *)safeAlloc(totalSize);
@@ -941,13 +944,14 @@ static char *stringifyTokens(Token *begin, Token *end, int *len) {
             w += token->len;
             break;
         }
-        if (isSpace(token->str[token->len]))
+        if (NEED_SPACING(token->str + token->len))
             buf[w++] = ' ';
     }
     buf[w] = '\0';
 
     return buf;
 }
+#undef NEED_SPACING
 
 // Replace arguments of function-like macro.  Target tokens are what in range
 // [begin, end].

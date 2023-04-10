@@ -21,6 +21,7 @@ static void testHashHashOperator(void) {
     ASSERT(0, strcmp(STR1("baz"), "\"baz\""));
     ASSERT(0, strcmp(STR1("\n \\"), "\"\\n \\\\\""));
     ASSERT(0, strcmp(STR1(foo   bar), "foo bar"));
+    ASSERT(0, strcmp(STR1(hoge/**/fuga), "hoge fuga"))
 }
 
 int main(void) {
