@@ -606,6 +606,7 @@ static void genCodeDoWhile(const Node *n) {
 }
 
 static void genCodeFCall(const Node *n) {
+    // TODO: Add support for function pointer
     if (!n)
         return;
 
@@ -666,7 +667,7 @@ static void genCodeFCall(const Node *n) {
 
 static void genCodeVaStart(const Node *n) {
     Obj *lastArg = NULL;
-    int offset = 0;  // Currently watching va_list member's offset
+    int offset = 0;  // va_list member's offset currently watching
     int argsOverflows = 0;
 
     for (Obj *arg = n->parentFunc->args; arg; arg = arg->next)

@@ -2329,47 +2329,20 @@ static Node *compoundLiteral(void) {
 
 static Node *postfix(void) {
     Token *tokenSave = globals.token;
-    Token *ident = consumeIdent();
+    Node *ident = NULL;
     Node *head = NULL;
     Node *n = NULL;
 
-    if (ident && matchReserved("(")) {
-        FCall *arg;
-        Obj *f;
+    globals.token = tokenSave;
 
-        if (matchToken(ident, "__builtin_va_start", 18)) {
-            n = newNodeFCall(&Types.Void);
-            n->kind = NodeVaStart;
-            n->parentFunc = globals.currentFunction->func;
-        } else {
-            f = findFunction(ident->str, ident->len);
-            if (!f) {
-                errorAt(ident, "No such function.");
-            }
-            n = newNodeFCall(f->func->retType);
-        }
+    n = compoundLiteral();
 
-        arg = funcArgList();
-
-        n->fcall->name = ident->str;
-        n->fcall->len = ident->len;
-        n->fcall->args = arg->args;
-        n->fcall->argsCount = arg->argsCount;
-        n->token = ident;
-
-        safeFree(arg);  // Do NOT free its members! They've been used!
+    if (n) {
+        while (n->next)
+            n = n->next;
     } else {
         globals.token = tokenSave;
-
-        n = compoundLiteral();
-
-        if (n) {
-            while (n->next)
-                n = n->next;
-        } else {
-            globals.token = tokenSave;
-            n = primary();
-        }
+        n = primary();
     }
 
     for (;;) {
@@ -2388,8 +2361,34 @@ static Node *postfix(void) {
             }
             n = newNodeBinary(NodeDeref, NULL, n, exprType);
         } else if (matchReserved("(")) {
-            errorAt(globals.token,
-                    "Calling returned function object is not supported yet.");
+            FCall *arg;
+            Token *fntoken = NULL;
+
+            if (n->kind == NodeVaStart) {
+                fntoken = n->token;
+                n = newNodeFCall(&Types.Void);
+                n->kind = NodeVaStart;
+                n->parentFunc = globals.currentFunction->func;
+            } else {
+                TypeInfo *base = n->type;
+                while (base->type == TypePointer)
+                    base = base->baseType;
+
+                if (base->type != TypeFunction)
+                    errorAt(n->token, "Not a function.");
+                fntoken = n->token;
+                n = newNodeFCall(base->retType);
+            }
+
+            arg = funcArgList();
+
+            n->fcall->name = fntoken->str;
+            n->fcall->len = fntoken->len;
+            n->fcall->args = arg->args;
+            n->fcall->argsCount = arg->argsCount;
+            n->token = fntoken;
+
+            safeFree(arg);  // Do NOT free its members! They've been used!
         } else if (consumeReserved("++")) {
             n = newNodeBinary(NodePostIncl, n, NULL, n->type);
         } else if (consumeReserved("--")) {
@@ -2454,6 +2453,7 @@ static Node *primary(void) {
         Obj *lvar = findLVar(ident->str, ident->len);
         GVar *gvar = NULL;
         EnumItem *enumItem = NULL;
+        Obj *func = NULL;
         if (lvar) {
             n = newNodeLVar(lvar);
         } else if ((gvar = findGlobalVar(ident->str, ident->len)) != NULL) {
@@ -2461,6 +2461,11 @@ static Node *primary(void) {
             n->obj = gvar->obj;
         } else if ((enumItem = findEnumItem(ident->str, ident->len)) != NULL) {
             n = newNodeNum(enumItem->value);
+        } else if ((func = findFunction(ident->str, ident->len)) != NULL) {
+            n = newNodeLVar(func);
+        } else if (matchToken(ident, "__builtin_va_start", 18)) {
+            n = newNode(NodeVaStart, &Types.Void);
+            n->parentFunc = globals.currentFunction->func;
         } else {
             errorAt(ident, "Undefined variable");
         }
