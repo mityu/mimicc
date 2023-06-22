@@ -373,6 +373,9 @@ static void genCodeLVal(const Node *n) {
     } else if (n->kind == NodeLVar && n->obj->isStatic) {
         dumpf("  lea rax, .StaticVar%d[rip]\n", n->obj->staticVarID);
         dumps("  push rax");
+    } else if (n->obj->type->type == TypeFunction) {
+        dumpf("  mov rax, QWORD PTR %.*s@GOTPCREL[rip]\n", n->token->len, n->token->str);
+        dumps("  push rax");
     } else {
         dumps("  mov rax, rbp");
         dumpf("  sub rax, %d\n", n->obj->offset);
@@ -616,6 +619,11 @@ static void genCodeFCall(const Node *n) {
     int stackArgSize = 0;  // Size of arguments (passed to function) on stack.
     int exCapToAlignRSP = 0; // Extra memory size to capture in order to align RSP.
     int regargs = n->fcall->argsCount;
+    int isSimpleFuncCall =
+        n->body->type->type == TypeFunction;  // TRUE if simple function call.
+
+    if (!isSimpleFuncCall)
+        genCode(n->body);
 
     stackAlignStateSave = stackAlignState;
 
@@ -652,7 +660,13 @@ static void genCodeFCall(const Node *n) {
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
     dumps("  mov al, 0");
-    dumpf("  call %.*s\n", n->fcall->len, n->fcall->name);
+    if (isSimpleFuncCall) {
+        dumpf("  call %.*s\n", n->fcall->len, n->fcall->name);
+    } else {
+        dumpf("  mov r10, QWORD PTR %d[rsp]\n", exCapToAlignRSP + stackArgSize);
+        dumps("  call r10");
+        dumpf("  add rsp, %d /* Throw away function pointer */\n", ONE_WORD_BYTES);
+    }
 
     stackAlignState = stackAlignStateSave;
     if (exCapToAlignRSP)
@@ -670,14 +684,14 @@ static void genCodeVaStart(const Node *n) {
     int offset = 0;  // va_list member's offset currently watching
     int argsOverflows = 0;
 
-    for (Obj *arg = n->parentFunc->args; arg; arg = arg->next)
+    for (Obj *arg = n->parentFunc->func->args; arg; arg = arg->next)
         if (!arg->next)
             lastArg = arg;
 
     genCodeLVal(n->fcall->args->next);
     dumps("  pop rax");
 
-    if (n->parentFunc->argsCount < REG_ARGS_MAX_COUNT) {
+    if (n->parentFunc->func->argsCount < REG_ARGS_MAX_COUNT) {
         dumpf("  mov DWORD PTR %d[rax], %d\n", offset,
                 ONE_WORD_BYTES * (REG_ARGS_MAX_COUNT + 1) - lastArg->offset);
     } else {
@@ -689,7 +703,7 @@ static void genCodeVaStart(const Node *n) {
     dumpf("  mov DWORD PTR %d[rax], %d\n", offset, REG_ARGS_MAX_COUNT * ONE_WORD_BYTES);
 
     offset += sizeOf(&Types.Int);
-    if (n->parentFunc->argsCount <= REG_ARGS_MAX_COUNT) {
+    if (n->parentFunc->func->argsCount <= REG_ARGS_MAX_COUNT) {
         dumpf("  lea rdi, %d[rbp]\n", ONE_WORD_BYTES * 2);
     } else {
         int overflow_reg_offset = -lastArg->offset + ONE_WORD_BYTES;
@@ -698,7 +712,7 @@ static void genCodeVaStart(const Node *n) {
     dumpf("  mov %d[rax], rdi\n", offset);
 
     offset += ONE_WORD_BYTES;
-    dumpf("  lea rdi, %d[rbp]\n", -n->parentFunc->args->offset);
+    dumpf("  lea rdi, %d[rbp]\n", -n->parentFunc->func->args->offset);
     dumpf("  mov %d[rax], rdi\n", offset);
 }
 
@@ -1111,9 +1125,10 @@ void genCode(const Node *n) {
         // rvalue, not a lvalue.
         genCodeLVal(n);
 
-        // But, array and struct is an exception.  It works like a pointer even
-        // when it's being a rvalue.
-        if (n->type->type == TypeArray || n->type->type == TypeStruct)
+        // But, array, struct, and function is an exception.  It works like a
+        // pointer even when it's being a rvalue.
+        if (n->type->type == TypeArray || n->type->type == TypeStruct ||
+                n->type->type == TypeFunction)
             return;
 
         // In order to change this lvalue into rvalue, push a value of a

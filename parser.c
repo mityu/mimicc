@@ -318,7 +318,7 @@ static Node *newNodeFunction(Token *t) {
 
 // Find global variable by name. Return LVar* when variable is found. Returns
 // NULL when not.
-static GVar *findGlobalVar(char *name, int len) {
+GVar *findGlobalVar(char *name, int len) {
     for (GVar *v = globals.globalVars; v; v = v->next) {
         if (matchToken(v->obj->token, name, len))
             return v;
@@ -329,7 +329,7 @@ static GVar *findGlobalVar(char *name, int len) {
 // Find local variable in current block by name. Return LVar* when variable
 // found. When not, returns NULL.
 // Note that this function does NOT search global variables.
-static Obj *findLVar(char *name, int len) {
+Obj *findLVar(char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         for (Obj *v = env->vars; v; v = v->next) {
             if (matchToken(v->token, name, len))
@@ -545,9 +545,9 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         obj->func->retType = baseType;
 
         funcType = newTypeInfo(TypeFunction);
-        funcType->retType = baseType;
-        if (obj->func->args)
-            funcType->argTypes = obj->func->args->type;
+        funcType->funcDef = obj->func;
+        funcType->funcDef->retType = baseType;
+
         baseType = funcType;
     }
     if (placeHolder)
@@ -622,7 +622,7 @@ int sizeOf(const TypeInfo *ti) {
             return -1;
     } else if (ti->type == TypeChar || ti->type == TypeVoid) {
         return 1;
-    } else if (ti->type == TypePointer) {
+    } else if (ti->type == TypePointer || ti->type == TypeFunction) {
         return 8;
     } else if (ti->type == TypeArray) {
         if (ti->arraySize < 0)
@@ -2363,12 +2363,14 @@ static Node *postfix(void) {
         } else if (matchReserved("(")) {
             FCall *arg;
             Token *fntoken = NULL;
+            TypeInfo *fnDeclType = n->type;
+            Node *pNode = n;
 
             if (n->kind == NodeVaStart) {
                 fntoken = n->token;
                 n = newNodeFCall(&Types.Void);
                 n->kind = NodeVaStart;
-                n->parentFunc = globals.currentFunction->func;
+                n->parentFunc = globals.currentFunction;
             } else {
                 TypeInfo *base = n->type;
                 while (base->type == TypePointer)
@@ -2377,7 +2379,7 @@ static Node *postfix(void) {
                 if (base->type != TypeFunction)
                     errorAt(n->token, "Not a function.");
                 fntoken = n->token;
-                n = newNodeFCall(base->retType);
+                n = newNodeFCall(base->funcDef->retType);
             }
 
             arg = funcArgList();
@@ -2386,7 +2388,9 @@ static Node *postfix(void) {
             n->fcall->len = fntoken->len;
             n->fcall->args = arg->args;
             n->fcall->argsCount = arg->argsCount;
+            n->fcall->declType = fnDeclType;
             n->token = fntoken;
+            n->body = pNode;
 
             safeFree(arg);  // Do NOT free its members! They've been used!
         } else if (consumeReserved("++")) {
@@ -2465,7 +2469,7 @@ static Node *primary(void) {
             n = newNodeLVar(func);
         } else if (matchToken(ident, "__builtin_va_start", 18)) {
             n = newNode(NodeVaStart, &Types.Void);
-            n->parentFunc = globals.currentFunction->func;
+            n->parentFunc = globals.currentFunction;
         } else {
             errorAt(ident, "Undefined variable");
         }

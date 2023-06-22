@@ -204,49 +204,58 @@ static void verifyTypeFCall(const Node *n) {
     Node **actualArgs = actualArgBuf;
     Node *arg = NULL;
     Obj *formalArg = NULL;
+    Function *fdecl = NULL;
 
     if (n->kind != NodeFCall) {
         error("Internal error: Not a NodeFCall node is given.");
     }
-    Obj *f = findFunction(n->fcall->name, n->fcall->len);
-    if (!f) {
-        errorUnreachable();
+
+    for (TypeInfo *base = n->fcall->declType;;) {
+        if (base->type == TypeFunction) {
+            fdecl = base->funcDef;
+            break;
+        } else if (base->type == TypePointer) {
+            base = base->baseType;
+        } else {
+            errorUnreachable();
+        }
     }
-    if (n->fcall->argsCount != f->func->argsCount && !f->func->haveVaArgs) {
+
+    if (n->fcall->argsCount != fdecl->argsCount && !fdecl->haveVaArgs) {
         errorAt(
                 n->token,
                 "%d arguments are expected, but got %d.",
-                f->func->argsCount,
+                fdecl->argsCount,
                 n->fcall->argsCount
                 );
-    } else if (n->fcall->argsCount < f->func->argsCount && f->func->haveVaArgs) {
+    } else if (n->fcall->argsCount < fdecl->argsCount && fdecl->haveVaArgs) {
         errorAt(
                 n->token,
                 "At least %d arguments are expected, but got just %d.",
-                f->func->argsCount,
+                fdecl->argsCount,
                 n->fcall->argsCount
                 );
     }
 
-    if (f->func->argsCount > ARGS_BUFFER_SIZE) {
+    if (fdecl->argsCount > ARGS_BUFFER_SIZE) {
         actualArgs =
-            (Node **)safeAlloc(f->func->argsCount * sizeof(Node *));
+            (Node **)safeAlloc(fdecl->argsCount * sizeof(Node *));
     }
 
-    if (f->func->argsCount == 0)
+    if (fdecl->argsCount == 0)
         return;
 
     arg = n->fcall->args;
     // Skip args in variadic arguments area
-    for (int i = 0; i < n->fcall->argsCount - f->func->argsCount; ++i)
+    for (int i = 0; i < n->fcall->argsCount - fdecl->argsCount; ++i)
         arg = arg->next;
-    for (Node **store = &actualArgs[f->func->argsCount-1]; arg; arg = arg->next) {
+    for (Node **store = &actualArgs[fdecl->argsCount-1]; arg; arg = arg->next) {
         *store = arg;
         --store;
     }
 
-    formalArg = f->func->args;
-    for (int i = 0; i < f->func->argsCount; ++i) {
+    formalArg = fdecl->args;
+    for (int i = 0; i < fdecl->argsCount; ++i) {
         if (!checkAssignable(formalArg->type, actualArgs[i]->type)) {
             errorAt(
                     actualArgs[i]->token,
@@ -255,7 +264,7 @@ static void verifyTypeFCall(const Node *n) {
         }
         formalArg = formalArg->next;
     }
-    if (f->func->argsCount > ARGS_BUFFER_SIZE) {
+    if (fdecl->argsCount > ARGS_BUFFER_SIZE) {
         free(actualArgs);
         actualArgs = NULL;
     }
@@ -268,8 +277,15 @@ int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
         TypeInfo *t;
         // void* accepts any pointer/array type.
         for (t = lhs->baseType; t->type == TypePointer; t = t->baseType);
-        if (t->type == TypeVoid)
+        if (t->type == TypeVoid) {
             return isWorkLikePointer(rhs);
+        } else if (t->type == TypeFunction) {
+            const TypeInfo *rbase = rhs;
+            while (rbase->type == TypePointer)
+                rbase = rbase->baseType;
+            return rbase->type == TypeFunction;
+            // TODO: check retType and argsType.
+        }
 
         // void* can be assigned to any pointer type.
         if (rhs->type == TypePointer) {
@@ -323,14 +339,14 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
     } else if (t1->type == TypePointer || t1->type == TypeArray) {
         return checkTypeEqual(t1->baseType, t2->baseType);
     } else if (t1->type == TypeFunction) {
-        TypeInfo *arg1, *arg2;
-        if (!checkTypeEqual(t1->retType, t2->retType))
+        Obj *arg1, *arg2;
+        if (!checkTypeEqual(t1->funcDef->retType, t2->funcDef->retType))
             return 0;
 
-        arg1 = t1->argTypes;
-        arg2 = t2->argTypes;
+        arg1 = t1->funcDef->args;
+        arg2 = t2->funcDef->args;
         for (; arg1; arg1 = arg1->next, arg2 = arg2->next) {
-            if (!(arg2 && checkTypeEqual(arg1, arg2)))
+            if (!(arg2 && checkTypeEqual(arg1->type, arg2->type)))
                 return 0;
         }
         if (arg2)

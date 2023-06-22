@@ -27,6 +27,7 @@ typedef struct LiteralString LiteralString;
 typedef struct Obj Obj;
 typedef struct Struct Struct;
 typedef struct Enum Enum;
+typedef struct Function Function;
 typedef struct Typedef Typedef;
 typedef struct Token Token;
 typedef struct FilePath FilePath;
@@ -50,10 +51,9 @@ struct TypeInfo {
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
+    Function *funcDef;  // Valid when type is TypeFunction
     Struct *structDef;  // Valid when type is TypeStruct
     Enum *enumDef;      // Valid when type is TypeEnum
-    TypeInfo *retType;  // Valid when type is TypeFunction
-    TypeInfo *argTypes; // Valid when type is TypeFunction
 };
 
 extern struct Types {
@@ -171,7 +171,6 @@ typedef enum {
     NodeVaStart,       // Built-in va_args()
 } NodeKind;
 
-typedef struct Function Function;
 typedef struct SwitchCase SwitchCase;
 typedef struct FCall FCall;
 typedef struct Node Node;
@@ -192,7 +191,7 @@ struct Node {
     FCall *fcall;      // Called function information used when kind is NodeFCall.
     SwitchCase *cases; // "case" or "default" nodes within switch statement.
     Obj *obj;
-    Function *parentFunc;
+    Obj *parentFunc;
     int val;           // Used when kind is NodeNum.
     int blockID;       // Unique ID for jump labels. Valid only when the node
                        // is control syntax, logical AND, and logical OR.
@@ -203,6 +202,7 @@ struct FCall {
     int len;       // Function name length.
     int argsCount; // The number of arguments.
     Node *args;    // Function arguments in reversed order.
+    TypeInfo *declType;  // Called function's type
 };
 
 struct SwitchCase {
@@ -357,6 +357,8 @@ void preprocess(Token *token);
 void program(void);
 Obj *findFunction(const char *name, int len);
 Obj *findStructMember(const Struct *s, const char *name, int len);
+GVar *findGlobalVar(char *name, int len);
+Obj *findLVar(char *name, int len);
 int sizeOf(const TypeInfo *ti);
 int matchToken(const Token *token, const char *name, const int len);
 

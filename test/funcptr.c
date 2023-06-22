@@ -1,14 +1,83 @@
 #include "test.h"
 
+int counter;
+
 // Test only compiler accepts function pointer declaration.
 void (*g_fptr)(void);
 void (*(*g_fptr_ret_fptr)(void))(void);
 void (*g_fptr_accept_fptr)(void (*)(void));
 
+void inc_counter(void) {
+    counter++;
+}
+
+// TODO: Make this work.
+// void (*ret_inc_counter(void))(void) {
+//     return inc_counter;
+// }
+
+void call_fptr(void (*fptr)(void)) {
+    fptr();
+}
+
+int add3(int n1, int n2, int n3) {
+    return n1 + n2 + n3;
+}
+
+int add7(int a, int b, int c, int d, int e, int f, int g) {
+    return a + b + c + d + e + f + g;
+}
+
+void testFptrInGlobalScope(void) {
+    counter = 0;
+    ASSERT(0, counter);
+
+    g_fptr = inc_counter;
+    // g_fptr_ret_fptr = ret_inc_counter;
+    g_fptr_accept_fptr = call_fptr;
+
+    g_fptr();
+    ASSERT(1, counter);
+
+    // fptr_ret_fptr()();
+    // ASSERT(2, counter);
+    counter = 2;
+
+    g_fptr_accept_fptr(inc_counter);
+    ASSERT(3, counter);
+
+    g_fptr_accept_fptr(g_fptr);
+    ASSERT(4, counter);
+}
+
 void testFptrInLocalScope(void) {
     void (*fptr)(void);
     void (*(*fptr_ret_fptr)(void))(void);
     void (*fptr_accept_fptr)(void (*)(void));
+    void (*fptr2)(void) = inc_counter;
+
+    counter = 0;
+    ASSERT(0, counter);
+
+    fptr = inc_counter;
+    // fptr_ret_fptr = ret_inc_counter;
+    fptr_accept_fptr = call_fptr;
+
+    fptr();
+    ASSERT(1, counter);
+
+    // fptr_ret_fptr()();
+    // ASSERT(2, counter);
+    counter = 2;
+
+    fptr_accept_fptr(inc_counter);
+    ASSERT(3, counter);
+
+    fptr_accept_fptr(fptr);
+    ASSERT(4, counter);
+
+    fptr2();
+    ASSERT(5, counter);
 }
 
 void testFptrInStruct(void) {
@@ -17,12 +86,53 @@ void testFptrInStruct(void) {
         void (*(*fptr_ret_fptr)(void))(void);
         void (*fptr_accept_fptr)(void (*)(void));
     };
+
+    struct S s;
+
+    counter = 0;
+    ASSERT(0, counter);
+
+    s.fptr = inc_counter;
+    // s.fptr_ret_fptr = ret_inc_counter;
+    s.fptr_accept_fptr = call_fptr;
+
+    s.fptr();
+    ASSERT(1, counter);
+
+    // fptr_ret_fptr()();
+    // ASSERT(2, counter);
+    counter = 2;
+
+    s.fptr_accept_fptr(inc_counter);
+    ASSERT(3, counter);
+
+    s.fptr_accept_fptr(s.fptr);
+    ASSERT(4, counter);
 }
 
+void testFptrWithMultipleArgs(void) {
+    int (*p_add3)(int n1, int n2, int n3) = add3;
+    int (*p_add7)(int a, int b, int c, int d, int e, int f, int g) = add7;
+    int n;
 
+    n = 0;
+    ASSERT(0, n);
+
+    n = p_add3(11, 13, 17);
+    ASSERT(41, n);
+    ASSERT(10, p_add3(2, 3, 5));
+    ASSERT(127, p_add3(p_add3(3, 5, 7), p_add3(11, 13, 17), p_add3(19, 23, 29)));
+
+    n = p_add7(2, 3, 4, 5, 6, 7, 8);
+    ASSERT(35, n);
+    ASSERT(42, p_add7(3, 4, 5, 6, 7, 8, 9));
+    ASSERT(104, p_add7(p_add7(2, 3, 4, 5, 6, 7, 8), p_add7(1, 1, 1, 1, 1, 1, 3), 10, 11, 12, 13, 14));
+}
 
 int main(void) {
+    testFptrInGlobalScope();
     testFptrInLocalScope();
     testFptrInStruct();
+    testFptrWithMultipleArgs();
     return 0;
 }
