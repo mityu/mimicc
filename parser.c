@@ -2151,9 +2151,11 @@ static Node *typecast(void) {
 
         expectReserved(")");
 
-        if (matchReserved("{")) {  // Compound literal.  Not a type cast.
+        // When array type or struct type is specified, it's the start of
+        // compound literal.  Skip type-casting.
+        if (obj->type->type == TypeArray || obj->type->type == TypeStruct) {
             globals.token = tokenSave;
-            return postfix();
+            return unary();
         }
 
 
