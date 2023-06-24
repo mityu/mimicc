@@ -535,15 +535,11 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         **curType = *baseType;
         baseType = arrayType;
     } else if (matchReserved("(")) {
-        TypeInfo *funcType = NULL;
-
         obj->func = parseFuncArgDeclaration();
         obj->func->retType = baseType;
 
-        funcType = newTypeInfo(TypeFunction);
-        funcType->funcDef = obj->func;
-
-        baseType = funcType;
+        baseType = newTypeInfo(TypeFunction);
+        baseType->funcDef = obj->func;
     }
     if (placeHolder)
         *placeHolder = *baseType;
