@@ -15,6 +15,10 @@ void (*ret_inc_counter(void))(void) {
     return inc_counter;
 }
 
+void (*(*ret_ret_inc_counter(void))(void))(void) {
+    return ret_inc_counter;
+}
+
 void call_fptr(void (*fptr)(void)) {
     fptr();
 }
@@ -53,6 +57,7 @@ void testFptrInLocalScope(void) {
     void (*fptr)(void);
     void (*(*fptr_ret_fptr)(void))(void);
     void (*fptr_accept_fptr)(void (*)(void));
+    void (*(*(*fptr_ret_fptr_ret_fptr)(void))(void))(void);
     void (*fptr2)(void) = inc_counter;
 
     counter = 0;
@@ -61,6 +66,7 @@ void testFptrInLocalScope(void) {
     fptr = inc_counter;
     fptr_ret_fptr = ret_inc_counter;
     fptr_accept_fptr = call_fptr;
+    fptr_ret_fptr_ret_fptr = ret_ret_inc_counter;
 
     fptr();
     ASSERT(1, counter);
@@ -77,6 +83,9 @@ void testFptrInLocalScope(void) {
 
     fptr2();
     ASSERT(5, counter);
+
+    fptr_ret_fptr_ret_fptr()()();
+    ASSERT(6, counter);
 }
 
 void testFptrInStruct(void) {
