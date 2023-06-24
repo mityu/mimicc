@@ -609,7 +609,6 @@ static void genCodeDoWhile(const Node *n) {
 }
 
 static void genCodeFCall(const Node *n) {
-    // TODO: Add support for function pointer
     if (!n)
         return;
 
@@ -639,6 +638,9 @@ static void genCodeFCall(const Node *n) {
         stackArgSize += (n->fcall->argsCount - regargs) * ONE_WORD_BYTES;
         stackVarSize += stackArgSize;
     }
+
+    if (!isSimpleFuncCall)
+        stackVarSize += ONE_WORD_BYTES;  // Capacity for function pointer on stack
 
     stackAlignState = (stackAlignState + stackVarSize) % 16;
     if (stackAlignState)
