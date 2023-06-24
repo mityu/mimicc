@@ -488,6 +488,7 @@ static Obj *parseEntireDeclaration(int allowTentativeArray) {
 
 static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeArray) {
     Obj *obj = NULL;
+    Obj *inner = NULL;
     TypeInfo *placeHolder = NULL;
     Token *ident = NULL;
 
@@ -505,14 +506,9 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         obj->token = ident;
         obj->type = baseType;
     } else if (consumeReserved("(")) {
-        // TODO: Free 'inner' object
-        Obj *inner = NULL;
         placeHolder = newTypeInfo(TypeNone);
         inner = parseAdvancedTypeDeclaration(placeHolder, 0);
         // TODO: Check sizeOf(inner->type)
-        obj->type = inner->type;
-        obj->token = inner->token;
-        inner->token = NULL;
         expectReserved(")");
     }
     // TODO: Give error "ident expected" here?
@@ -546,7 +542,6 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
 
         funcType = newTypeInfo(TypeFunction);
         funcType->funcDef = obj->func;
-        funcType->funcDef->retType = baseType;
 
         baseType = funcType;
     }
@@ -554,7 +549,7 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         *placeHolder = *baseType;
     else
         obj->type = baseType;
-    return obj;
+    return inner ? inner : obj;
 }
 
 static Function *parseFuncArgDeclaration(void) {

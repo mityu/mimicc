@@ -11,10 +11,9 @@ void inc_counter(void) {
     counter++;
 }
 
-// TODO: Make this work.
-// void (*ret_inc_counter(void))(void) {
-//     return inc_counter;
-// }
+void (*ret_inc_counter(void))(void) {
+    return inc_counter;
+}
 
 void call_fptr(void (*fptr)(void)) {
     fptr();
@@ -33,14 +32,14 @@ void testFptrInGlobalScope(void) {
     ASSERT(0, counter);
 
     g_fptr = inc_counter;
-    // g_fptr_ret_fptr = ret_inc_counter;
+    g_fptr_ret_fptr = ret_inc_counter;
     g_fptr_accept_fptr = call_fptr;
 
     g_fptr();
     ASSERT(1, counter);
 
-    // fptr_ret_fptr()();
-    // ASSERT(2, counter);
+    g_fptr_ret_fptr()();
+    ASSERT(2, counter);
     counter = 2;
 
     g_fptr_accept_fptr(inc_counter);
@@ -60,14 +59,14 @@ void testFptrInLocalScope(void) {
     ASSERT(0, counter);
 
     fptr = inc_counter;
-    // fptr_ret_fptr = ret_inc_counter;
+    fptr_ret_fptr = ret_inc_counter;
     fptr_accept_fptr = call_fptr;
 
     fptr();
     ASSERT(1, counter);
 
-    // fptr_ret_fptr()();
-    // ASSERT(2, counter);
+    fptr_ret_fptr()();
+    ASSERT(2, counter);
     counter = 2;
 
     fptr_accept_fptr(inc_counter);
@@ -93,14 +92,14 @@ void testFptrInStruct(void) {
     ASSERT(0, counter);
 
     s.fptr = inc_counter;
-    // s.fptr_ret_fptr = ret_inc_counter;
+    s.fptr_ret_fptr = ret_inc_counter;
     s.fptr_accept_fptr = call_fptr;
 
     s.fptr();
     ASSERT(1, counter);
 
-    // fptr_ret_fptr()();
-    // ASSERT(2, counter);
+    s.fptr_ret_fptr()();
+    ASSERT(2, counter);
     counter = 2;
 
     s.fptr_accept_fptr(inc_counter);
