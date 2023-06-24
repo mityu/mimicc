@@ -1,5 +1,5 @@
-#ifndef __MIMIC_STRING_H
-#define __MIMIC_STRING_H
+#ifndef __MIMICC_STRING_H
+#define __MIMICC_STRING_H
 
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
-#ifndef __MIMIC_STDIO_H
-#define __MIMIC_STDIO_H
+#ifndef __MIMICC_STDIO_H
+#define __MIMICC_STDIO_H
 
 #include <stdarg.h>
 #include <stddef.h>

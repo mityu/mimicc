@@ -1,5 +1,5 @@
-#ifndef __MIMIC_STDARG_H
-#define __MIMIC_STDARG_H
+#ifndef __MIMICC_STDARG_H
+#define __MIMICC_STDARG_H
 
 #define va_start(ap, fmt) __builtin_va_start(ap, fmt)
 #define va_end(ap)

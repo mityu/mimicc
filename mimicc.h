@@ -1,5 +1,5 @@
-#ifndef HEADER_MIMIC_H
-#define HEADER_MIMIC_H
+#ifndef HEADER_MIMICC_H
+#define HEADER_MIMICC_H
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -369,4 +369,4 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
 int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 int isLvalue(const Node *n);
 int isWorkLikePointer(const TypeInfo *t);
-#endif // HEADER_MIMIC_H
+#endif // HEADER_MIMICC_H

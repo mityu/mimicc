@@ -1,5 +1,5 @@
-#ifndef __MIMIC_STDLIB_H
-#define __MIMIC_STDLIB_H
+#ifndef __MIMICC_STDLIB_H
+#define __MIMICC_STDLIB_H
 
 #include <stddef.h>
 
