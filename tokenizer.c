@@ -458,6 +458,16 @@ Token *tokenize(char *source, FilePath *file) {
                     errorAtChar(p, "Invalid hex number token.");
                 current->val = val;
                 current->len = (int)(p - q);
+            } else if (*p == '0') {
+                // Octal number or zero
+                char *q = p++;
+                int val = 0;
+                while (*p && '0' <= *p && *p <= '7') {
+                    val = (val << 3) | (*p - '0');
+                    p++;
+                }
+                current->val = val;
+                current->len = (int)(p - q);
             } else {
                 // Decimal number
                 char *q = p;

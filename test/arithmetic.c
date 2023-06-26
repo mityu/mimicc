@@ -100,16 +100,25 @@ void testArithmeticAssignment(void) {
     ASSERT(-2, n);
 }
 
-void testHexNumber() {
+void testHexNumber(void) {
     ASSERT(15, 0xf);
     ASSERT(10, 0xa);
     ASSERT(240, 0xf0);
     ASSERT(2623, 0xa3f);
 }
 
+void testOctalNumber(void) {
+    ASSERT(0, 0);
+    ASSERT(0, 00);
+    ASSERT(7, 07);
+    ASSERT(8, 010);
+    ASSERT(59, 073);
+}
+
 int main(void) {
     testArithmeticComputation();
     testArithmeticAssignment();
     testHexNumber();
+    testOctalNumber();
     return 0;
 }
