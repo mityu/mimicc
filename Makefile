@@ -27,13 +27,17 @@ TEST_FRAMEWORK_OBJ=$(TEST_FRAMEWORK:./test/%=./test/Xtmp/%.o)
 $(TARGET): $(OBJ)
 	gcc $(CFLAGS) -o $@ $^
 
-.PHONY: debug
-debug: CFLAGS+=-g -O0
-debug: clean $(TARGET)
-
 obj/%.o: %.c mimicc.h
 	@[ -d ./obj ] || mkdir ./obj
 	gcc $(CFLAGS) -o $@ -c $<
+
+.PHONY: debug
+debug: $(OBJ:.o=.debug.o)
+	gcc $(CFLAGS) -g -O0 -o $(TARGET)_debug $^
+
+obj/%.debug.o: %.c mimicc.h
+	@[ -d ./obj ] || mkdir ./obj
+	gcc $(CFLAGS) -g -O0 -o $@ -c $<
 
 .PHONY: clean
 clean:
