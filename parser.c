@@ -26,8 +26,10 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
 static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *varInitializer(void);
 static Node *varInitializerList(void);
+static Node *evalConstantExpr(Node *n);
 static Node *expr(void);
 static Node *assign(void);
+static Node *constant(void);
 static Node *conditional(void);
 static Node *logicalOR(void);
 static Node *logicalAND(void);
@@ -518,13 +520,22 @@ static Obj *parseAdvancedTypeDeclaration(TypeInfo *baseType, int allowTentativeA
         TypeInfo **curType = &arrayType;
         int needSize = !allowTentativeArray;
         while (consumeReserved("[")) {
+            Token *token = globals.token;
             int arraySize = -1;
-            if (needSize) {
-                arraySize = expectNumber();
+
+            if (consumeReserved("]")) {
+                if (needSize)
+                    errorAt(token, "Array size required.");
             } else {
-                consumeNumber(&arraySize);
+                Node *sizeSpec = constant();
+                if (!sizeSpec)
+                    errorAt(token, "Constant expression required.");
+                expectReserved("]");
+
+                if (sizeSpec->kind != NodeNum)
+                    errorUnreachable();
+                arraySize = sizeSpec->val;
             }
-            expectReserved("]");
 
             *curType = newTypeInfo(TypeArray);
             (*curType)->arraySize = arraySize;
@@ -1857,6 +1868,145 @@ static Node *varInitializerList(void) {
     return head.next;
 }
 
+// Evaluate "constant-expr" and returns result (NodeNumber).  If evaluation
+// failed, returns NULL.
+static Node *evalConstantExpr(Node *n) {
+    switch (n->kind) {
+    case NodeConditional:
+        {
+            Node *cond = evalConstantExpr(n->condition);
+            if (cond) {
+                if (cond->val)
+                    return evalConstantExpr(n->lhs);
+                else
+                    return evalConstantExpr(n->rhs);
+            }
+            return NULL;
+        }
+    case NodeLogicalOR:
+        {
+            Node *child = evalConstantExpr(n->lhs);
+            if (!child)
+                return NULL;
+            else if (child->val)
+                return newNodeNum(1);
+
+            child = evalConstantExpr(n->rhs);
+            if (child) {
+                if (child->val)
+                    return newNodeNum(1);
+                else
+                    return newNodeNum(0);
+            }
+            return NULL;
+        }
+    case NodeLogicalAND:
+        {
+            Node *child = evalConstantExpr(n->lhs);
+            if (!child)
+                return NULL;
+            else if (!child->val)
+                return newNodeNum(0);
+
+            child = evalConstantExpr(n->rhs);
+            if (child) {
+                if (child->val)
+                    return newNodeNum(1);
+                else
+                    return newNodeNum(0);
+            }
+            return NULL;
+        }
+    case NodeTypeCast:
+        return evalConstantExpr(n->rhs);
+    case NodeBitwiseXOR:  // fallthroughs
+    case NodeBitwiseOR:
+    case NodeBitwiseAND:
+    case NodeEq:
+    case NodeNeq:
+    case NodeLT:
+    case NodeLE:
+    case NodeArithShiftL:
+    case NodeArithShiftR:
+    case NodeAdd:
+    case NodeSub:
+    case NodeMul:
+    case NodeDiv:
+    case NodeDivRem:
+        {
+            int result = 0, lhs = 0, rhs = 0;
+            Node *nlhs, *nrhs;
+            nlhs = evalConstantExpr(n->lhs);
+            nrhs = evalConstantExpr(n->rhs);
+
+            if (nlhs && nrhs) {
+                lhs = nlhs->val;
+                rhs = nrhs->val;
+                switch (n->kind) {
+                case NodeBitwiseXOR:
+                    result = lhs ^ rhs;
+                    break;
+                case NodeBitwiseOR:
+                    result = lhs | rhs;
+                    break;
+                case NodeBitwiseAND:
+                    result = lhs & rhs;
+                    break;
+                case NodeEq:
+                    result = lhs == rhs;
+                    break;
+                case NodeNeq:
+                    result = lhs != rhs;
+                    break;
+                case NodeLT:
+                    result = lhs < rhs;
+                    break;
+                case NodeLE:
+                    result = lhs <= rhs;
+                    break;
+                case NodeArithShiftL:
+                    result = lhs << rhs;
+                    break;
+                case NodeArithShiftR:
+                    result = lhs >> rhs;
+                    break;
+                case NodeAdd:
+                    result = lhs + rhs;
+                    break;
+                case NodeSub:
+                    result = lhs - rhs;
+                    break;
+                case NodeMul:
+                    result = lhs * rhs;
+                    break;
+                case NodeDiv:
+                    result = lhs / rhs;
+                    break;
+                case NodeDivRem:
+                    result = lhs % rhs;
+                    break;
+                default:
+                    errorUnreachable();
+                }
+                return newNodeNum(result);
+            }
+            return NULL;
+        }
+    case NodeNot:
+        {
+            Node *value = evalConstantExpr(n->rhs);
+            if (value)
+                return newNodeNum(!value->val);
+            return NULL;
+        }
+    case NodeNum:
+        return n;
+    default:
+        break;
+    }
+    return NULL;
+}
+
 static Node *expr(void) {
     Node *list = NULL;
     Node *n = assign();
@@ -1960,6 +2110,10 @@ static Node *assign(void) {
         n->token = t;
     }
     return n;
+}
+
+static Node *constant(void) {
+    return evalConstantExpr(conditional());
 }
 
 static Node *conditional(void) {

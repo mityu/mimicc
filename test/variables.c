@@ -346,6 +346,53 @@ void test_extern_variable(void) {
     ASSERT(101, gExternVar);
 }
 
+void testDeclArray(void) {
+    {
+        char a[3];
+        ASSERT(3, sizeof(a));
+    }
+    {
+        char a[(3)];
+        ASSERT(3, sizeof(a));
+    }
+    {
+        char a[2 + 3];
+        ASSERT(5, sizeof(a));
+    }
+    {
+        char a[3*5+7];
+        ASSERT(22, sizeof(a));
+    }
+    {
+        char a[1 ? 3 : 0];
+        ASSERT(3, sizeof(a));
+    }
+    {
+        char a[0 ? 2 : 3 + 5];
+        ASSERT(8, sizeof(a));
+    }
+    {
+        char a[!(0+(-0)) ? 2 : 3 + 5];
+        ASSERT(2, sizeof(a));
+    }
+    {
+        char a[1 | 2];
+        ASSERT(3, sizeof(a));
+    }
+    {
+        char a[3 & 2];
+        ASSERT(2, sizeof(a));
+    }
+    {
+        char a[!0];
+        ASSERT(1, sizeof(a));
+    }
+    {
+        char a[!7];
+        ASSERT(0, sizeof(a));
+    }
+}
+
 int main(void) {
     test_local_variables();
     test_increment_or_decrement_array_element();
@@ -354,5 +401,6 @@ int main(void) {
     test_static_local_variable();
     test_access_results_in_array();
     test_extern_variable();
+    testDeclArray();
     return 0;
 }

@@ -198,8 +198,7 @@ void verifyType(const Node *n) {
 // actual arguments are assignable to the formal parameters.  Exit program if
 // some does not match.
 static void verifyTypeFCall(const Node *n) {
-// #define ARGS_BUFFER_SIZE    (10)
-#define ARGS_BUFFER_SIZE    10
+#define ARGS_BUFFER_SIZE    (10)
     Node *actualArgBuf[ARGS_BUFFER_SIZE];
     Node **actualArgs = actualArgBuf;
     Node *arg = NULL;
