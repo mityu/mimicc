@@ -11,6 +11,10 @@ static int isDigit(char c) {
     return 0 <= c && c <= 9;
 }
 
+static int isHexDigit(char c) {
+    return isDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
+}
+
 static int isAlnum(char c) {
     if (('a' <= c && c <= 'z') ||
             ('A' <= c && c <= 'Z') ||
@@ -434,9 +438,32 @@ Token *tokenize(char *source, FilePath *file) {
         }
         if (isDigit(*p)) {
             appendNewToken(TokenNumber, p, 0);
-            char *q = p;
-            current->val = strtol(p, &p, 10);
-            current->len = (int)(p - q);
+            if (*p == '0' && (p[1] == 'x' || p[1] == 'X')) {
+                // Hex number
+                char *q = p;
+                int val = 0;
+                p += 2;
+                while (*p && isHexDigit(*p)) {
+                    int d = 0;
+                    if (isDigit(*p))
+                        d = *p - '0';
+                    else if ('a' <= *p && *p <= 'f')
+                        d = *p - 'a' + 10;
+                    else
+                        d = *p - 'A' + 10;
+                    val = (val << 4) | d;
+                    p++;
+                }
+                if ((int)(p - q) <= 2)
+                    errorAtChar(p, "Invalid hex number token.");
+                current->val = val;
+                current->len = (int)(p - q);
+            } else {
+                // Decimal number
+                char *q = p;
+                current->val = strtol(p, &p, 10);
+                current->len = (int)(p - q);
+            }
             continue;
         }
 

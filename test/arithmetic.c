@@ -100,8 +100,16 @@ void testArithmeticAssignment(void) {
     ASSERT(-2, n);
 }
 
+void testHexNumber() {
+    ASSERT(15, 0xf);
+    ASSERT(10, 0xa);
+    ASSERT(240, 0xf0);
+    ASSERT(2623, 0xa3f);
+}
+
 int main(void) {
     testArithmeticComputation();
     testArithmeticAssignment();
+    testHexNumber();
     return 0;
 }
