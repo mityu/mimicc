@@ -54,7 +54,7 @@ _Noreturn static void errorIdentExpected(void) {
 }
 
 _Noreturn static void errorTypeExpected(void) {
-    errorAt(globals.token, "An type is expected");
+    errorAt(globals.token, "A type is expected");
 }
 
 _Noreturn static void errorUnexpectedEOF(void) {
@@ -483,8 +483,13 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
 }
 
 static Obj *parseEntireDeclaration(int allowTentativeArray) {
-    TypeInfo *baseType = parseBaseType(NULL);
-    Obj *obj = parseAdvancedTypeDeclaration(baseType, allowTentativeArray);
+    TypeInfo *baseType = NULL;
+    Obj *obj = NULL;
+
+    baseType = parseBaseType(NULL);
+    if (!baseType)
+        errorTypeExpected();
+    obj = parseAdvancedTypeDeclaration(baseType, allowTentativeArray);
     return obj;
 }
 

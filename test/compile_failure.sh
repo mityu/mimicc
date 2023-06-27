@@ -69,6 +69,7 @@ assert_fail 'typedef int Ar[2]; int main(void) {Ar array = {3, 5, 7};}'
 assert_fail 'int f(void); char str[f()];'
 assert_fail 'int main(void) {int n = 5; int array[n];}'
 assert_fail 'int main(void) {int n = 5; int array[3 + n];}'
+assert_fail 'void f(undefined_type varname);'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
 $TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c || exit 1
