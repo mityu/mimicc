@@ -1343,7 +1343,6 @@ static Struct *structDeclaration(const ObjAttr *attr) {
 
     if (matchReserved("{")) {
         Struct *s = NULL;
-        int registerStruct = 0;
         if (tagName) {
             s = findStruct(tagName->str, tagName->len);
             if (s && s->hasImpl) {
@@ -1354,15 +1353,14 @@ static Struct *structDeclaration(const ObjAttr *attr) {
         }
         if (!s) {
             s = newStruct();
-            registerStruct = 1;
+
+            // Register struct
+            s->next = globals.currentEnv->structs;
+            globals.currentEnv->structs = s;
         }
         s->tagName = tagName;
         s->hasImpl = 1;
         structBody(s);
-        if (registerStruct) {
-            s->next = globals.currentEnv->structs;
-            globals.currentEnv->structs = s;
-        }
 
         return s;
     } else if (tagName) {

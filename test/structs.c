@@ -193,6 +193,19 @@ void test_compare_struct_pointers(void) {
     ASSERT(1, &a == &a);
 }
 
+void testUseStructImmediately(void) {
+    struct S {
+        int a;
+        struct S *s;
+    };
+
+    struct S inner = (struct S){11, (struct S*)0};
+    struct S obj = {5, &inner};
+    ASSERT(5, obj.a);
+    ASSERT(11, obj.s->a);
+    ASSERT(1, (struct S*)0 == obj.s->s);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
@@ -202,5 +215,6 @@ int main(void) {
     test_decl_global_struct_without_tag();
     test_struct_assign();
     test_compare_struct_pointers();
+    testUseStructImmediately();
     return 0;
 }
