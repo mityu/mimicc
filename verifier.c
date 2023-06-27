@@ -314,12 +314,12 @@ static int checkComparable(const TypeInfo *t1, const TypeInfo *t2) {
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
     } else if (isWorkLikePointer(t1)) {
-        TypeInfo *t;
+        const TypeInfo *t;
         for (t = t1->baseType; t->type == TypePointer; t = t->baseType);
         if (t->type == TypeVoid)
             return isWorkLikePointer(t2);
 
-        for (t = t2->baseType; t->type == TypePointer; t = t->baseType);
+        for (t = t2; t->type == TypePointer; t = t->baseType);
         if (t->type == TypeVoid)
             return isWorkLikePointer(t1);
 
