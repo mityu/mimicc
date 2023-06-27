@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
     else if (!outFile)
         cmdlineArgsError(argc, argv, argc, "No output file is specified");
 
-#define PrimitiveType(type) (TypeInfo){NULL, type, NULL, 0, NULL, NULL, NULL}
+#define PrimitiveType(type) (TypeInfo){NULL, type}
     Types.None   = PrimitiveType(TypeNone),
     Types.Void   = PrimitiveType(TypeVoid),
     Types.Int    = PrimitiveType(TypeInt),
