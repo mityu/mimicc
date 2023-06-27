@@ -1206,11 +1206,11 @@ static Node *stmt(void) {
                     "\"case\" label not within a switch statement");
 
         n = newNode(NodeSwitchCase, &Types.None);
-        n->condition = expr();
+        n->condition = constant();
         n->blockID = switchNode->blockID;
         expectReserved(":");
 
-        if (n->condition->kind != NodeNum)
+        if (!n->condition)
             errorAt(n->token, "Constant expression required.");
 
         thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
@@ -2117,6 +2117,8 @@ static Node *assign(void) {
     return n;
 }
 
+// Parse constant-expression.  Returns Node* with kind NodeNum if there's a
+// constant-expression.  Otherwise returns NULL.
 static Node *constant(void) {
     return evalConstantExpr(conditional());
 }

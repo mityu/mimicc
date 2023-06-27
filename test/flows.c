@@ -247,6 +247,18 @@ void test_switch_nest(void) {
     ASSERT(37, outer);
 }
 
+void test_switch_constFolding(void) {
+    int n = 0;
+    switch (13) {
+    case 1 + 2: n = 3; break;
+    case (2 + 3 - 1) * 4 / 2 + ((12 | 4 ^ (3 + (1 << 3))) & 3) + (1 << 1): n = 5; break;
+    case 3+10-2*3: n = 7; break;
+    case 3 ? 5 : 0: n = 11; break;
+    case 0 ? 5 : 0: n = 13; break;
+    }
+    ASSERT(5, n);
+}
+
 int test_for_return_1(void) {
     for (;;)
         return 10;
@@ -611,6 +623,7 @@ int main(void) {
     test_switch_duffs_device();
     test_switch_break_in_loop();
     test_switch_nest();
+    test_switch_constFolding();
     ASSERT(10, test_for_return_1());
     ASSERT(10, test_for_return_2());
     ASSERT(10, test_for_return_3());
