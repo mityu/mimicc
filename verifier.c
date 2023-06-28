@@ -4,9 +4,10 @@
 #include "mimicc.h"
 
 static void verifyTypeFCall(const Node *n);
-static int checkComparable(const TypeInfo *t1, const TypeInfo *t2);
+static int checkRelationallyComparable(const TypeInfo *t1, const TypeInfo *t2);
 static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
+static int isScalarType(const TypeInfo *t);
 
 void verifyFlow(const Node *n) {
     static int loopDepth = 0;
@@ -91,11 +92,18 @@ void verifyType(const Node *n) {
             verifyType(c->body);
         }
     } else if (n->kind == NodeReturn) {
+        int isReturnable = 0;
+        int isBothVoid = 0;
+
         // Check if {expr} is valid.
         verifyType(n->lhs);
 
         // Check the returned value's types.
-        if (!checkAssignable(currentFunction->func->retType, n->type)) {
+        isReturnable = checkAssignable(currentFunction->func->retType, n->type);
+        isBothVoid =
+            currentFunction->func->retType->type == TypeVoid &&
+            n->type->type == TypeVoid;
+        if (!(isReturnable || isBothVoid)) {
             errorAt(n->token, "Type mismatch. Cannot return this.");
         }
     } else if (n->kind == NodeDeref) {
@@ -125,10 +133,25 @@ void verifyType(const Node *n) {
             errorAt(n->token, "Different struct.");
 
         verifyType(n->rhs);
-    } else if (n->kind == NodeEq || n->kind == NodeNeq ||
-            n->kind == NodeLE || n->kind == NodeLT) {
+    } else if (n->kind == NodeEq || n->kind == NodeNeq) {
         verifyType(n->lhs);
-        if (!checkComparable(n->lhs->type, n->rhs->type)) {
+        if (!checkRelationallyComparable(n->lhs->type, n->rhs->type)) {
+            // Different from "<" and "<=", "==" and "!=" are allowed to
+            // compare pointer with NULL constant, so do check for it.
+            Node *other = NULL;
+
+            if (isWorkLikePointer(n->lhs->type))
+                other = evalConstantExpr(n->rhs);
+            else if (isWorkLikePointer(n->rhs->type))
+                other = evalConstantExpr(n->lhs);
+
+            if (!(other && other->kind == NodeNum && other->val == 0))
+                errorAt(n->token, "Type mismatch. Cannot compare these.");
+        }
+        verifyType(n->rhs);
+    } else if (n->kind == NodeLE || n->kind == NodeLT) {
+        verifyType(n->lhs);
+        if (!checkRelationallyComparable(n->lhs->type, n->rhs->type)) {
             errorAt(n->token, "Type mismatch. Cannot compare these.");
         }
         verifyType(n->rhs);
@@ -174,6 +197,12 @@ void verifyType(const Node *n) {
             errorAt(n->token, "This operation is not supported.");
         }
         verifyType(n->rhs);
+    } else if (n->kind == NodeLogicalAND || n->kind == NodeLogicalOR) {
+        verifyType(n->lhs);
+        if (!(isScalarType(n->lhs->type) && isScalarType(n->rhs->type))) {
+            errorAt(n->token, "Both operands should have scalar type.");
+        }
+        verifyType(n->rhs);
     } else if (n->kind == NodePostIncl || n->kind == NodePostDecl ||
             n->kind == NodePreIncl || n->kind == NodePreDecl) {
         Node *value =
@@ -187,6 +216,16 @@ void verifyType(const Node *n) {
                     );
         }
         verifyType(value);
+    } else if (n->kind == NodeBitwiseAND ||n->kind == NodeBitwiseOR ||
+            n->kind == NodeBitwiseXOR) {
+        verifyType(n->lhs);
+        if (!(isIntegerType(n->lhs->type) && isIntegerType(n->rhs->type)))
+            errorAt(n->token, "Both operands should have integer type.");
+        verifyType(n->rhs);
+    } else if (n->kind == NodeNot) {
+        if (!isScalarType(n->rhs->type))
+            errorAt(n->token, "Operand should has scalar type.");
+        verifyType(n->rhs);
     } else if (n->kind == NodeTypeCast) {
         // TODO: Check n->rhs lefts a value (?)
         // TODO: Check cast operation can be carried out.
@@ -272,62 +311,50 @@ static void verifyTypeFCall(const Node *n) {
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.
 int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
-    if (lhs->type == TypePointer) {
-        TypeInfo *t;
-        // void* accepts any pointer/array type.
-        for (t = lhs->baseType; t->type == TypePointer; t = t->baseType);
-        if (t->type == TypeVoid) {
-            return isWorkLikePointer(rhs);
-        } else if (t->type == TypeFunction) {
-            const TypeInfo *rbase = rhs;
-            while (rbase->type == TypePointer)
-                rbase = rbase->baseType;
-            return rbase->type == TypeFunction;
-            // TODO: check retType and argsType.
-        }
+    if (isArithmeticType(lhs)) {
+        return isArithmeticType(rhs);
+    } else if (lhs->type == TypeStruct) {
+        return checkTypeEqual(lhs, rhs);
+    } else if (lhs->type == TypePointer &&
+            getBaseType(lhs)->type == TypeFunction) {
+        return checkTypeEqual(getBaseType(lhs), getBaseType(rhs));
 
-        // void* can be assigned to any pointer type.
-        if (rhs->type == TypePointer) {
-            for (t = rhs->baseType; t->type == TypePointer; t = t->baseType);
-            if (t->type == TypeVoid)
-                return 1;
+    } else if (lhs->type == TypePointer && isWorkLikePointer(rhs)) {
+        const TypeInfo *lhsBase = getBaseType(lhs);
+        if (lhsBase->type == TypeVoid || getBaseType(rhs)->type == TypeVoid) {
+            return 1;
         }
-
-        if (isWorkLikePointer(rhs)) {
-            return checkAssignable(lhs->baseType, rhs->baseType);
+        return checkTypeEqual(lhs->baseType, rhs->baseType);
+    } else if (lhs->type == TypePointer) {
+        if (rhs->type == TypeNumber) {
+            return 0;  // TODO: Allow when assigning NULL.
         }
         return 0;
-    } else if (lhs->type == TypeArray) {
-        return 0;
-    } else if (rhs->type == TypeNumber) {
-        return lhs->type == TypeInt || lhs->type == TypeChar || lhs->type == TypeEnum;
-    } else if (lhs->type == TypeInt) {
-        return rhs->type == TypeInt || rhs->type == TypeChar || rhs->type == TypeEnum;  // TODO: Truely OK?
-    } else {
-        return lhs->type == rhs->type;
     }
-    errorUnreachable();
+    return 0;
 }
 
-static int checkComparable(const TypeInfo *t1, const TypeInfo *t2) {
-    // What's real type?
+// Return TRUE if operands are compareble.
+static int checkRelationallyComparable(const TypeInfo *t1, const TypeInfo *t2) {
     if (isArithmeticType(t1) && isArithmeticType(t2)) {
         return 1;
-    } else if (isWorkLikePointer(t1)) {
-        const TypeInfo *t;
-        for (t = t1->baseType; t->type == TypePointer; t = t->baseType);
-        if (t->type == TypeVoid)
-            return isWorkLikePointer(t2);
+    } else if (isWorkLikePointer(t1) && isWorkLikePointer(t2)) {
+        const TypeInfo *base;
 
-        for (t = t2; t->type == TypePointer; t = t->baseType);
-        if (t->type == TypeVoid)
-            return isWorkLikePointer(t1);
+        base = t1->baseType;
+        while (base->type == TypePointer)
+            base = base->baseType;
+        if (base->type == TypeVoid)
+            return 1;
 
-        if (isWorkLikePointer(t2)) {
-            return checkComparable(t1->baseType, t2->baseType) ||
-                checkTypeEqual(t1->baseType, t2->baseType);
-        }
-        return 0;
+        base = t2->baseType;
+        while (base->type == TypePointer)
+            base = base->baseType;
+        if (base->type == TypeVoid)
+            return 1;
+
+        return checkRelationallyComparable(t1->baseType, t2->baseType) ||
+            checkTypeEqual(t1->baseType, t2->baseType);
     }
     return 0;
 }
@@ -368,6 +395,10 @@ static int isArithmeticType(const TypeInfo *t) {
     return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber || t->type == TypeEnum;
 }
 
+static int isScalarType(const TypeInfo *t) {
+    return isArithmeticType(t) || isWorkLikePointer(t);
+}
+
 // Return TRUE is `n` is lvalue.
 int isLvalue(const Node *n) {
     return n->kind == NodeLVar || n->kind == NodeGVar ||
@@ -380,4 +411,11 @@ int isWorkLikePointer(const TypeInfo *t) {
     if (t->type == TypePointer || t->type == TypeArray)
         return 1;
     return 0;
+}
+
+// Get base type of pointer/array.
+const TypeInfo *getBaseType(const TypeInfo *type) {
+    while (type->type == TypePointer || type->type == TypeArray)
+        type = type->baseType;
+    return type;
 }

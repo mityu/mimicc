@@ -285,6 +285,25 @@ void test_local_variables(void) {
         vp = &p;
         ASSERT(1, vp == &p);
     }
+    {
+        // Test equality checking with NULL constant.
+        int *p = (int *)0;
+        ASSERT(1, p == 0);
+        ASSERT(0, p != 0);
+
+        p = (int *)13;
+        ASSERT(0, p == 0);
+        ASSERT(1, p != 0);
+    }
+    {
+        char *p = (char *)0;
+        ASSERT(1, p == 0);
+        ASSERT(0, p != 0);
+
+        p = (char *)15;
+        ASSERT(0, p == 0);
+        ASSERT(1, p != 0);
+    }
 }
 
 void test_increment_or_decrement_array_element(void) {

@@ -361,6 +361,7 @@ GVar *findGlobalVar(char *name, int len);
 Obj *findLVar(char *name, int len);
 int sizeOf(const TypeInfo *ti);
 int matchToken(const Token *token, const char *name, const int len);
+Node *evalConstantExpr(Node *n);
 
 // verifier.c
 void verifyFlow(const Node *n);
@@ -369,4 +370,5 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2);
 int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs);
 int isLvalue(const Node *n);
 int isWorkLikePointer(const TypeInfo *t);
+const TypeInfo *getBaseType(const TypeInfo *t);
 #endif // HEADER_MIMICC_H

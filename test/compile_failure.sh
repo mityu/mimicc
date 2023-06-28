@@ -70,6 +70,18 @@ assert_fail 'int f(void); char str[f()];'
 assert_fail 'int main(void) {int n = 5; int array[n];}'
 assert_fail 'int main(void) {int n = 5; int array[3 + n];}'
 assert_fail 'void f(undefined_type varname);'
+assert_fail 'int main(void) {int n, *p; n & p;}'
+assert_fail 'int main(void) {int n, *p; n | p;}'
+assert_fail 'int main(void) {int n, *p; n ^ p;}'
+assert_fail 'int main(void) {struct {} obj; !obj;}'
+assert_fail 'int main(void) {struct {} obj; 3 && obj;}'
+assert_fail 'int main(void) {struct {} obj; 3 || obj;}'
+assert_fail 'int main(void) {int *p; p < 3;}'
+assert_fail 'int main(void) {int *p; p <= 3;}'
+assert_fail 'int main(void) {int *p; p < 0;}'
+assert_fail 'int main(void) {int *p; p <= 0;}'
+assert_fail 'int main(void) {int *p; p == 3;}'
+assert_fail 'int main(void) {int *p; p != 3;}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
 $TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c || exit 1

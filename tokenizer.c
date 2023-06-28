@@ -463,7 +463,9 @@ Token *tokenize(char *source, FilePath *file) {
                 char *q = p++;
                 int val = 0;
                 while (*p && '0' <= *p && *p <= '7') {
-                    val = (val << 3) | (*p - '0');
+                    // Type casting from char to int is necessary because
+                    // mimicc doesn't have usual arithmetic conversion yet.
+                    val = (val << 3) | (int)(*p - '0');
                     p++;
                 }
                 current->val = val;

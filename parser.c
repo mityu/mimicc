@@ -26,7 +26,6 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
 static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *varInitializer(void);
 static Node *varInitializerList(void);
-static Node *evalConstantExpr(Node *n);
 static Node *expr(void);
 static Node *assign(void);
 static Node *constant(void);
@@ -676,17 +675,20 @@ static int alignOf(const TypeInfo *ti) {
 // C11 draft PDF:
 // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1548.pdf
 static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
-    // TODO: Suport missing types: e.g. pointer
     if (lhs->type == rhs->type) {
         return lhs;
     } else if (lhs->type == TypeNumber) {
         return rhs;
     } else if (rhs->type == TypeNumber) {
         return lhs;
-    } else if (lhs->type == TypeInt) {
-        return lhs;
-    } else if (rhs->type == TypeInt) {
+    } else if (lhs->type == TypeChar) {
         return rhs;
+    } else if (rhs->type == TypeChar) {
+        return lhs;
+    } else if (lhs->type == TypeInt) {
+        return rhs;
+    } else if (rhs->type == TypeInt) {
+        return lhs;
     }
     errorUnreachable();
 }
@@ -1873,7 +1875,7 @@ static Node *varInitializerList(void) {
 
 // Evaluate "constant-expr" and returns result (NodeNumber).  If evaluation
 // failed, returns NULL.
-static Node *evalConstantExpr(Node *n) {
+Node *evalConstantExpr(Node *n) {
     switch (n->kind) {
     case NodeConditional:
         {
@@ -2074,40 +2076,40 @@ static Node *assign(void) {
     } else if (consumeReserved("&=")) {
         Node *lhs = n;
         Node *rhs = assign();
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseAND, lhs, rhs, &Types.Number);
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseAND, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
     } else if (consumeReserved("|=")) {
         Node *lhs = n;
         Node *rhs = assign();
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseOR, lhs, rhs, &Types.Number);
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseOR, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
     } else if (consumeReserved("^=")) {
         Node *lhs = n;
         Node *rhs = assign();
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseXOR, lhs, rhs, &Types.Number);
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseXOR, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
     } else if (consumeReserved("<<=")) {
         Node *lhs = n;
         Node *rhs = assign();
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeArithShiftL, lhs, rhs, &Types.Number);
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeArithShiftL, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
     } else if (consumeReserved(">>=")) {
         Node *lhs = n;
         Node *rhs = assign();
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeArithShiftR, lhs, rhs, &Types.Number);
+        TypeInfo *type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeArithShiftR, lhs, rhs, type);
         n->token = t;
         n = newNodeBinary(NodeAssign, lhs, n, lhs->type);
         n->token = t;
@@ -2165,17 +2167,34 @@ static Node *logicalAND(void) {
 static Node *XORexpr(void) {
     Node *n = ORexpr();
     while (consumeReserved("^")) {
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseXOR, n, ORexpr(), &Types.Number);
+        Node *lhs, *rhs;
+        TypeInfo *type;
+        Token *token;
+
+        token = globals.token->prev;
+        lhs = n;
+        rhs = ORexpr();
+        type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseXOR, lhs, rhs, type);
+        n->token = token;
     }
     return n;
 }
 
 static Node *ORexpr(void) {
+    // TODO: Apply usual arithmetic conversion
     Node *n = ANDexpr();
     while (consumeReserved("|")) {
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseOR, n, ANDexpr(), &Types.Number);
+        Node *lhs, *rhs;
+        TypeInfo *type;
+        Token *token;
+
+        token = globals.token->prev;
+        lhs = n;
+        rhs = ANDexpr();
+        type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseOR, lhs, rhs, type);
+        n->token = token;
     }
     return n;
 }
@@ -2183,8 +2202,16 @@ static Node *ORexpr(void) {
 static Node *ANDexpr(void) {
     Node *n = equality();
     while (consumeReserved("&")) {
-        // TODO: Set proper type.
-        n = newNodeBinary(NodeBitwiseAND, n, equality(), &Types.Number);
+        Node *lhs, *rhs;
+        TypeInfo *type;
+        Token *token;
+
+        token = globals.token->prev;
+        lhs = n;
+        rhs = equality();
+        type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+        n = newNodeBinary(NodeBitwiseAND, lhs, rhs, type);
+        n->token = token;
     }
     return n;
 }
@@ -2227,11 +2254,19 @@ static Node *shift(void) {
     Node *n = add();
     for (;;) {
         if (consumeReserved("<<")) {
-            // TODO: Set proper type.
-            n = newNodeBinary(NodeArithShiftL, n, add(), &Types.Number);
+            Node *lhs, *rhs;
+            TypeInfo *type;
+            lhs = n;
+            rhs = add();
+            type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+            n = newNodeBinary(NodeArithShiftL, lhs, rhs, type);
         } else if (consumeReserved(">>")) {
-            // TODO: Set proper type.
-            n = newNodeBinary(NodeArithShiftR, n, add(), &Types.Number);
+            Node *lhs, *rhs;
+            TypeInfo *type;
+            lhs = n;
+            rhs = add();
+            type = getTypeForArithmeticOperands(lhs->type, rhs->type);
+            n = newNodeBinary(NodeArithShiftR, lhs, rhs, type);
         } else {
             break;
         }
