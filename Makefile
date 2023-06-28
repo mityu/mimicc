@@ -1,5 +1,6 @@
 CFLAGS=-std=c11 -static
 TARGET=./mimicc
+TARGET_DEBUG=$(TARGET)_debug
 SRC=main.c tokenizer.c preproc.c parser.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
 INCLUDE=./include
@@ -32,8 +33,10 @@ obj/%.o: %.c mimicc.h
 	gcc $(CFLAGS) -o $@ -c $<
 
 .PHONY: debug
-debug: $(OBJ:.o=.debug.o)
-	gcc $(CFLAGS) -g -O0 -o $(TARGET)_debug $^
+debug: $(TARGET_DEBUG);
+
+$(TARGET_DEBUG): $(OBJ:.o=.debug.o)
+	gcc $(CFLAGS) -g -O0 -o $@ $^
 
 obj/%.debug.o: %.c mimicc.h
 	@[ -d ./obj ] || mkdir ./obj
