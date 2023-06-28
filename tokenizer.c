@@ -187,7 +187,7 @@ void printTokenList(Token *token) {
         current->str = string;\
         current->len = length;\
         current->line = line;\
-        current->column = (int)((string) - lineHead);\
+        current->column = ((string) - lineHead);\
         current->file = file;\
     } while (0)
 #define errorAtChar(pos, msg) \
@@ -342,7 +342,7 @@ Token *tokenize(char *source, FilePath *file) {
                 ++q;
             if (isToken(q, "if")) {
                 q += 2;
-                appendNewToken(TokenElseif, p, (int)(q - p));
+                appendNewToken(TokenElseif, p, q - p);
                 p = q;
             } else {
                 appendNewToken(TokenElse, p, 4);
@@ -454,10 +454,10 @@ Token *tokenize(char *source, FilePath *file) {
                     val = (val << 4) | d;
                     p++;
                 }
-                if ((int)(p - q) <= 2)
+                if (p - q <= 2)
                     errorAtChar(p, "Invalid hex number token.");
                 current->val = val;
-                current->len = (int)(p - q);
+                current->len = p - q;
             } else if (*p == '0') {
                 // Octal number or zero
                 char *q = p++;
@@ -469,12 +469,12 @@ Token *tokenize(char *source, FilePath *file) {
                     p++;
                 }
                 current->val = val;
-                current->len = (int)(p - q);
+                current->len = p - q;
             } else {
                 // Decimal number
                 char *q = p;
                 current->val = strtol(p, &p, 10);
-                current->len = (int)(p - q);
+                current->len = p - q;
             }
             continue;
         }
@@ -498,8 +498,8 @@ Token *tokenize(char *source, FilePath *file) {
             if (*(++p) != '\'') {
                 errorAtChar(p, "Character literal is too long.");
             }
-            appendNewToken(TokenNumber, q, (int)(p - q + 1));
-            current->val = (int)c;
+            appendNewToken(TokenNumber, q, p - q + 1);
+            current->val = c;
             p++;
             continue;
         }
@@ -540,7 +540,7 @@ Token *tokenize(char *source, FilePath *file) {
             str->next = globals.strings;
             globals.strings = str;
 
-            appendNewToken(TokenLiteralString, q, (int)(p - q + 1));
+            appendNewToken(TokenLiteralString, q, p - q + 1);
             current->literalStr = str;
 
             p++;  // Skip closing double quote.
@@ -551,7 +551,7 @@ Token *tokenize(char *source, FilePath *file) {
             char *q = p;
             while (isAlnum(*p))
                 ++p;
-            appendNewToken(TokenIdent, q, (int)(p - q));
+            appendNewToken(TokenIdent, q, p - q);
             continue;
         }
 
