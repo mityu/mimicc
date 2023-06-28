@@ -1,6 +1,7 @@
 #include "test.h"
 
 int counter;
+int another_counter;
 
 // Test only compiler accepts function pointer declaration.
 void (*g_fptr)(void);
@@ -8,6 +9,15 @@ void (*(*g_fptr_ret_fptr)(void))(void);
 void (*g_fptr_accept_fptr)(void (*)(void));
 
 void inc_counter(void) {
+    counter++;
+}
+
+int inc_another_counter(void) {
+    return ++another_counter;
+}
+
+void call_fptr_and_inc_counter(int n) {
+    (void)n;
     counter++;
 }
 
@@ -137,10 +147,22 @@ void testFptrWithMultipleArgs(void) {
     ASSERT(104, p_add7(p_add7(2, 3, 4, 5, 6, 7, 8), p_add7(1, 1, 1, 1, 1, 1, 3), 10, 11, 12, 13, 14));
 }
 
+void testFptrCallAtArgument(void) {
+    void (*outer)(int) = call_fptr_and_inc_counter;
+    int (*inner)(void) = inc_another_counter;
+
+    counter = 0;
+    another_counter = 0;
+    outer(inner());
+    ASSERT(1, counter);
+    ASSERT(1, another_counter);
+}
+
 int main(void) {
     testFptrInGlobalScope();
     testFptrInLocalScope();
     testFptrInStruct();
     testFptrWithMultipleArgs();
+    testFptrCallAtArgument();
     return 0;
 }
