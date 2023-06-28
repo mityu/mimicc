@@ -1,3 +1,7 @@
+// Should ignore a line with just a hash.
+#
+# // Comment
+
 #define ASSERT(act, expr)    \
     do{ subassert(__FILE__, __LINE__, (act), (expr)); } while (0);
 

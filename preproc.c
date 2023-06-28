@@ -1161,6 +1161,8 @@ void preprocess(Token *token) {
                 token = parseIfdefDirective(tokenHash, 1);
             } else if (consumeTokenCertainType(&token, TokenIf)) {
                 token = parseIfDirective(tokenHash);
+            } else if (consumeTokenCertainType(&token, TokenNewLine)) {
+                popTokenRange(tokenHash, tokenHash->next);
             }
         } else {
             Token *applied = NULL;
