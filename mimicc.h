@@ -32,6 +32,8 @@ typedef struct Typedef Typedef;
 typedef struct Token Token;
 typedef struct FilePath FilePath;
 
+#define TypePtrdiff_t TypeInt
+#define Ptrdiff_t Int
 typedef enum {
     TypeNone,   // No type (block, if, for, while, ...)
     TypeVoid,   // `void`

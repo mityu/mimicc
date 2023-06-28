@@ -967,18 +967,28 @@ static void genCodeSub(const Node *n) {
     if (!n)
         return;
 
-    int altOne = getAlternativeOfOneForType(n->type);
     genCode(n->lhs);
     genCode(n->rhs);
 
     dumps("  pop rdi");
     dumps("  pop rax");
-    if (altOne != 1) {
-        dumpf("  mov rsi, %d\n", altOne);
-        dumps("  imul rdi, rsi");
+    if (n->lhs->type->type == TypePointer) {
+        int altOne = getAlternativeOfOneForType(n->lhs->type);
+        int subBetweenPtr = n->type->type == TypePtrdiff_t;
+        if (!subBetweenPtr) {
+            dumpf("  mov rsi, %d\n", altOne);
+            dumps("  imul rdi, rsi");
+        }
         dumps("  sub rax, rdi");
+        if (subBetweenPtr) {
+            dumpf("  mov rsi, %d\n", altOne);
+            dumps("  cqo");
+            dumps("  idiv rsi");
+        }
         dumps("  push rax");
     } else {
+        // Subtraction between arithmetic types.
+        // It should be that lhs, rhs, and result have all the same type.
         switch (sizeOf(n->type)) {
         case 8:
             dumps("  sub rax, rdi");

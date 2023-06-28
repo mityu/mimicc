@@ -412,6 +412,47 @@ void testDeclArray(void) {
     }
 }
 
+void testSubBetweenPointers(void) {
+    typedef struct S {
+        int a;
+        char b[10];
+        int c;
+    } S;
+    {
+        int *p = (int *)0;
+        int *q = (int *)(sizeof(int) * 13);
+        ASSERT(13, q - p);
+        ASSERT(-13, p - q);
+    }
+    {
+        char *p = (char *)0;
+        char *q = (char *)(sizeof(char) * 13);
+        ASSERT(13, q - p);
+        ASSERT(-13, p - q);
+    }
+    {
+        int a[4] = {};
+        int *p = a;
+        int *q = a + 3;
+        ASSERT(3, q - p);
+        ASSERT(-3, p - q);
+    }
+    {
+        char a[10] = {};
+        char *p = a;
+        char *q = a + 5;
+        ASSERT(5, q - p);
+        ASSERT(-5, p - q);
+    }
+    {
+        S a[10] = {};
+        S *p = a;
+        S *q = a + 7;
+        ASSERT(7, q - p);
+        ASSERT(-7, p - q);
+    }
+}
+
 int main(void) {
     test_local_variables();
     test_increment_or_decrement_array_element();
@@ -421,5 +462,6 @@ int main(void) {
     test_access_results_in_array();
     test_extern_variable();
     testDeclArray();
+    testSubBetweenPointers();
     return 0;
 }

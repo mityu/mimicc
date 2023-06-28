@@ -2285,6 +2285,10 @@ static Node *add(void) {
         } else if (consumeReserved("-")) {
             Node *rhs = mul();
             TypeInfo *type = getTypeForArithmeticOperands(n->type, rhs->type);
+            if (n->type->type == TypePointer && rhs->type->type == TypePointer) {
+                // Subtraction between pointers should results in ptrdiff_t.
+                type = &Types.Ptrdiff_t;
+            }
             n = newNodeBinary(NodeSub, n, rhs, type);
         } else {
             return n;
