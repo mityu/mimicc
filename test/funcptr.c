@@ -158,11 +158,48 @@ void testFptrCallAtArgument(void) {
     ASSERT(1, another_counter);
 }
 
+void testFptrAddress(void) {
+    void (*fp)(void);
+    void (*fp2)(void) = &inc_counter;
+    void (**fpp)(void);
+    fp = &inc_counter;
+    fpp = &fp;
+
+    counter = 0;
+    fp();
+    ASSERT(1, counter);
+    fp2();
+    ASSERT(2, counter);
+    (*fpp)();
+    ASSERT(3, counter);
+}
+
+void testFptrDereference(void) {
+    void (*fp)(void);
+    void (**fpp)(void);
+    fp = &inc_counter;
+    fpp = &fp;
+
+    counter = 0;
+    (*fp)();
+    ASSERT(1, counter);
+    (***fp)();
+    ASSERT(2, counter);
+    (****inc_counter)();
+    ASSERT(3, counter);
+    (*fpp)();
+    ASSERT(4, counter);
+    (****fpp)();
+    ASSERT(5, counter);
+}
+
 int main(void) {
     testFptrInGlobalScope();
     testFptrInLocalScope();
     testFptrInStruct();
     testFptrWithMultipleArgs();
     testFptrCallAtArgument();
+    testFptrAddress();
+    testFptrDereference();
     return 0;
 }

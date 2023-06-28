@@ -2376,12 +2376,18 @@ static Node *unary(void) {
     } else if (consumeReserved("*")) {
         Node *rhs = typecast();
         TypeKind typeKind = rhs->type->type;
-        if (!(rhs->type && (typeKind == TypePointer || typeKind == TypeArray))) {
+
+        if (typeKind == TypeFunction ||
+                (typeKind == TypePointer &&
+                 rhs->type->baseType->type == TypeFunction)) {
+            // Do nothing for dereference of function or function pointer.
+            return rhs;
+        } else if (!(typeKind == TypePointer || typeKind == TypeArray)) {
             errorAt(tokenOperator,
                     "Cannot dereference a non-pointer value.");
+        } else {
+            n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->baseType);
         }
-
-        n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->baseType);
     } else if (consumeReserved("++")) {
         Node *rhs = unary();
         n = newNodeBinary(NodePreIncl, NULL, rhs, rhs->type);
@@ -2562,11 +2568,11 @@ static Node *postfix(void) {
                 n->parentFunc = globals.currentFunction;
             } else {
                 TypeInfo *base = n->type;
-                while (base->type == TypePointer)
+                if (base->type == TypePointer)
                     base = base->baseType;
 
                 if (base->type != TypeFunction)
-                    errorAt(n->token, "Not a function.");
+                    errorAt(n->token, "Not a function or function pointer.");
                 fntoken = n->token;
                 n = newNodeFCall(base->funcDef->retType);
             }

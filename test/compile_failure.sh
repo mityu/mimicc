@@ -82,6 +82,9 @@ assert_fail 'int main(void) {int *p; p < 0;}'
 assert_fail 'int main(void) {int *p; p <= 0;}'
 assert_fail 'int main(void) {int *p; p == 3;}'
 assert_fail 'int main(void) {int *p; p != 3;}'
+assert_fail 'int main(void) {void (**fpp)(void); fpp();}'
+assert_fail 'int main(void) {void (*fp1)(void), (*fp2)(void); fp1 = &fp2;}'
+assert_fail 'void f(void); int main(void) {void (**fpp)(void); fpp = &f;}'
 
 echo 'static int main(void) { return 0;}' > ./Xtmp/tmp.c
 $TESTCC -o ./Xtmp/tmp.s -S ./Xtmp/tmp.c || exit 1

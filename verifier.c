@@ -315,10 +315,6 @@ int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
         return isArithmeticType(rhs);
     } else if (lhs->type == TypeStruct) {
         return checkTypeEqual(lhs, rhs);
-    } else if (lhs->type == TypePointer &&
-            getBaseType(lhs)->type == TypeFunction) {
-        return checkTypeEqual(getBaseType(lhs), getBaseType(rhs));
-
     } else if (lhs->type == TypePointer && isWorkLikePointer(rhs)) {
         const TypeInfo *lhsBase = getBaseType(lhs);
         if (lhsBase->type == TypeVoid || getBaseType(rhs)->type == TypeVoid) {
@@ -328,6 +324,9 @@ int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
     } else if (lhs->type == TypePointer) {
         if (rhs->type == TypeNumber) {
             return 0;  // TODO: Allow when assigning NULL.
+        } else if (lhs->baseType->type == TypeFunction &&
+                rhs->type == TypeFunction) {
+            return 1;
         }
         return 0;
     }
