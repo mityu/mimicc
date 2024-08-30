@@ -13,3 +13,5 @@ devtools/*
 sandbox/*
 !sandbox/Makefile
 !.gitignore
+/make
+/docker-shell

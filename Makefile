@@ -24,6 +24,17 @@ TEST_EXECUTABLES=$(TEST_SOURCES:./test/%.c=./test/Xtmp/%.exe)
 TEST_FRAMEWORK=./test/test.framework
 TEST_FRAMEWORK_OBJ=$(TEST_FRAMEWORK:./test/%=./test/Xtmp/%.o)
 
+ifeq ($(shell uname),Darwin)
+d%:
+	docker run --rm -v ./:/mimicc -w /mimicc mimicc make $*
+
+docker-shell:
+	docker run --rm -it -v ./:/home/user/mimicc -w /home/user/mimicc mimicc
+
+docker-image: | Dockerfile
+	docker build -t mimicc ./
+endif
+
 # Compilation: 1st gen
 $(TARGET): $(OBJ)
 	gcc $(CFLAGS) -o $@ $^
