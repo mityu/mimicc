@@ -1,10 +1,8 @@
+#include "mimicc.h"
 #include <stdlib.h>
 #include <string.h>
-#include "mimicc.h"
 
-int isSpace(char c) {
-    return c == ' ' || c == '\n' || c == '\t';
-}
+int isSpace(char c) { return c == ' ' || c == '\n' || c == '\t'; }
 
 static int isDigit(char c) {
     c = c - '0';
@@ -16,9 +14,7 @@ static int isHexDigit(char c) {
 }
 
 static int isAlnum(char c) {
-    if (('a' <= c && c <= 'z') ||
-            ('A' <= c && c <= 'Z') ||
-            ('0' <= c && c <= '9') ||
+    if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') ||
             c == '_')
         return 1;
     return 0;
@@ -36,20 +32,20 @@ static int isToken(char *p, char *op) {
 // If so, set the escape character to *decoded and returns TRUE.
 int checkEscapeChar(char c, char *decoded) {
     static const char table[][2] = {
-        {'\'', '\''},
-        {'"', '"'},
-        {'\\', '\\'},
-        {'?', '\?'},
-        {'a', '\a'},
-        {'b', '\b'},
-        {'f', '\f'},
-        {'n', '\n'},
-        {'r', '\r'},
-        {'t', '\t'},
-        {'v', '\v'},
-        {'0', '\0'},
+            {'\'', '\''},
+            {'"', '"'},
+            {'\\', '\\'},
+            {'?', '\?'},
+            {'a', '\a'},
+            {'b', '\b'},
+            {'f', '\f'},
+            {'n', '\n'},
+            {'r', '\r'},
+            {'t', '\t'},
+            {'v', '\v'},
+            {'0', '\0'},
     };
-    for (int i = 0; i < (sizeof(table)/sizeof(table[0])); ++i) {
+    for (int i = 0; i < (sizeof(table) / sizeof(table[0])); ++i) {
         if (c == table[i][0]) {
             *decoded = table[i][1];
             return 1;
@@ -178,22 +174,22 @@ void printTokenList(Token *token) {
         printToken(token);
 }
 
-#define appendNewToken(tokenType, string, length) \
-    do {\
-        current->next = (Token *)safeAlloc(sizeof(Token));\
-        current->next->prev = current;\
-        current = current->next;\
-        current->type = tokenType;\
-        current->str = string;\
-        current->len = length;\
-        current->line = line;\
-        current->column = ((string) - lineHead);\
-        current->file = file;\
+#define appendNewToken(tokenType, string, length)                                        \
+    do {                                                                                 \
+        current->next = (Token *)safeAlloc(sizeof(Token));                               \
+        current->next->prev = current;                                                   \
+        current = current->next;                                                         \
+        current->type = tokenType;                                                       \
+        current->str = string;                                                           \
+        current->len = length;                                                           \
+        current->line = line;                                                            \
+        current->column = ((string) - lineHead);                                         \
+        current->file = file;                                                            \
     } while (0)
-#define errorAtChar(pos, msg) \
-    do { \
-        appendNewToken(TokenReserved, pos, 0);\
-        errorAt(current, msg);\
+#define errorAtChar(pos, msg)                                                            \
+    do {                                                                                 \
+        appendNewToken(TokenReserved, pos, 0);                                           \
+        errorAt(current, msg);                                                           \
     } while (0)
 Token *tokenize(char *source, FilePath *file) {
     typedef struct List List;
@@ -209,7 +205,7 @@ Token *tokenize(char *source, FilePath *file) {
     char *lineHead = p;
     List *erasedNewLine = NULL;
 
-    {  // Remove line continuation ('\\' + '\n')
+    { // Remove line continuation ('\\' + '\n')
         List erasedNewLineHead = {};
         char *r, *w;
 
@@ -417,16 +413,12 @@ Token *tokenize(char *source, FilePath *file) {
             continue;
         }
 
-        if (hasPrefix(p, "==") || hasPrefix(p, "!=") ||
-                hasPrefix(p, ">=") || hasPrefix(p, "<=")  ||
-                hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
-                hasPrefix(p, "*=") || hasPrefix(p, "/=") ||
-                hasPrefix(p, "&=") || hasPrefix(p, "|=") ||
-                hasPrefix(p, "^=") ||
-                hasPrefix(p, "++") || hasPrefix(p, "--") ||
-                hasPrefix(p, "&&") || hasPrefix(p, "||") ||
-                hasPrefix(p, "<<") || hasPrefix(p, ">>") ||
-                hasPrefix(p, "->")) {
+        if (hasPrefix(p, "==") || hasPrefix(p, "!=") || hasPrefix(p, ">=") ||
+                hasPrefix(p, "<=") || hasPrefix(p, "+=") || hasPrefix(p, "-=") ||
+                hasPrefix(p, "*=") || hasPrefix(p, "/=") || hasPrefix(p, "&=") ||
+                hasPrefix(p, "|=") || hasPrefix(p, "^=") || hasPrefix(p, "++") ||
+                hasPrefix(p, "--") || hasPrefix(p, "&&") || hasPrefix(p, "||") ||
+                hasPrefix(p, "<<") || hasPrefix(p, ">>") || hasPrefix(p, "->")) {
             appendNewToken(TokenReserved, p, 2);
             p += 2;
             continue;
@@ -506,8 +498,8 @@ Token *tokenize(char *source, FilePath *file) {
 
         if (*p == '"') {
             char *q = p;
-            int literalLen = 0;  // String length on text editor.
-            int len = 0;  // String length in program.
+            int literalLen = 0; // String length on text editor.
+            int len = 0;        // String length in program.
             LiteralString *str = NULL;
 
             while (*(++p) != '\0') {
@@ -543,7 +535,7 @@ Token *tokenize(char *source, FilePath *file) {
             appendNewToken(TokenLiteralString, q, p - q + 1);
             current->literalStr = str;
 
-            p++;  // Skip closing double quote.
+            p++; // Skip closing double quote.
             continue;
         }
 

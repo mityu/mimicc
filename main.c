@@ -1,9 +1,9 @@
-#include <stdio.h>
-#include <stdarg.h>
+#include "mimicc.h"
 #include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mimicc.h"
 
 struct Types Types;
 Globals globals;
@@ -29,8 +29,8 @@ void error(const char *fmt, ...) {
 }
 
 _Noreturn void errorAt(Token *loc, const char *fmt, ...) {
-    char *head = NULL;  // Head of error line
-    char *tail = NULL;  // Tail of error line
+    char *head = NULL; // Head of error line
+    char *tail = NULL; // Tail of error line
     int indent = 0;
     va_list ap;
 
@@ -175,11 +175,11 @@ int main(int argc, char *argv[]) {
         cmdlineArgsError(argc, argv, argc, "No output file is specified");
 
 #define PrimitiveType(type) (TypeInfo){NULL, type}
-    Types.None   = PrimitiveType(TypeNone),
-    Types.Void   = PrimitiveType(TypeVoid),
-    Types.Int    = PrimitiveType(TypeInt),
-    Types.Char   = PrimitiveType(TypeChar),
-    Types.Number = PrimitiveType(TypeNumber),
+    Types.None = PrimitiveType(TypeNone);
+    Types.Void = PrimitiveType(TypeVoid);
+    Types.Int = PrimitiveType(TypeInt);
+    Types.Char = PrimitiveType(TypeChar);
+    Types.Number = PrimitiveType(TypeNumber);
 #undef PrimitiveType
 
     memset(&globals, 0, sizeof(globals));

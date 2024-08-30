@@ -1,12 +1,16 @@
+#include "mimicc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mimicc.h"
 
 // TODO: Accept using pointer to unknown type in struct member: e.g.:
 //   struct A { struct B *obj };
 
-#define abortIfEOF()  do { if (atEOF()) errorUnexpectedEOF(); } while (0)
+#define abortIfEOF()                                                                     \
+    do {                                                                                 \
+        if (atEOF())                                                                     \
+            errorUnexpectedEOF();                                                        \
+    } while (0)
 
 static int atEOF(void);
 static Obj *parseEntireDeclaration(int allowTentativeArray);
@@ -19,7 +23,7 @@ static Node *stmt(void);
 static Struct *structDeclaration(const ObjAttr *attr);
 static void structBody(Struct *s);
 static Enum *enumDeclaration(const ObjAttr *attr);
-static void enumBody(Enum * e);
+static void enumBody(Enum *e);
 static Node *varDeclaration(void);
 static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
@@ -46,7 +50,6 @@ static Node *compoundLiteral(void);
 static Node *postfix(void);
 static FCall *funcArgList(void);
 static Node *primary(void);
-
 
 _Noreturn static void errorIdentExpected(void) {
     errorAt(globals.token, "An identifier is expected");
@@ -190,13 +193,11 @@ static Token *expectIdent(void) {
 // not consume any tokens.
 static void assureReserved(char *op) {
     if (matchReserved(op))
-            return;
+        return;
     errorAt(globals.token, "'%s' is expected.", op);
 }
 
-static int atEOF(void) {
-    return globals.token->type == TokenEOF;
-}
+static int atEOF(void) { return globals.token->type == TokenEOF; }
 
 static Token *buildTagNameForNamelessObject(int id) {
     static const char prefix[] = "nameless-object-";
@@ -266,8 +267,8 @@ static Typedef *newTypedef(Obj *obj) {
 static Node *newNode(NodeKind kind, TypeInfo *type) {
     Node *n = safeAlloc(sizeof(Node));
     n->kind = kind;
-    n->lhs  = NULL;
-    n->rhs  = NULL;
+    n->lhs = NULL;
+    n->rhs = NULL;
     n->body = NULL;
     n->next = NULL;
     n->env = globals.currentEnv;
@@ -306,7 +307,7 @@ static Node *newNodeFor(void) {
 
 static Node *newNodeFCall(TypeInfo *retType) {
     Node *n = newNode(NodeFCall, retType);
-    n->fcall = (FCall*)safeAlloc(sizeof(FCall));
+    n->fcall = (FCall *)safeAlloc(sizeof(FCall));
     return n;
 }
 
@@ -445,8 +446,7 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
             }
         }
         if ((attr->isStatic + attr->isExtern + attr->isTypedef) >= 2) {
-            errorAt(tokenSave,
-                    "Cannot combine \"static\" ,\"extern\" and \"typedef\".");
+            errorAt(tokenSave, "Cannot combine \"static\" ,\"extern\" and \"typedef\".");
         }
     }
 
@@ -593,7 +593,8 @@ static Function *parseFuncArgDeclaration(void) {
         }
 
         // Read array as pointer when it appears on function arguments.
-        for (TypeInfo **type = &(*arg)->type; (*type)->type == TypeArray; type = &(*type)->baseType) {
+        for (TypeInfo **type = &(*arg)->type; (*type)->type == TypeArray;
+                type = &(*type)->baseType) {
             *type = cloneTypeInfo(*type);
             (*type)->type = TypePointer;
         }
@@ -694,16 +695,14 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
 }
 
 static int isNamelessObject(Obj *obj) {
-    return obj->token->len >= 12 &&
-        memcmp(obj->token->str, "nameless-object-", 12) == 0;
+    return obj->token->len >= 12 && memcmp(obj->token->str, "nameless-object-", 12) == 0;
 }
 
 static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
     if (!initializer) {
         return newGVarInit(GVarInitZero, NULL, sizeOf(varType));
-    } else if (varType->type == TypeArray &&
-            varType->baseType->type == TypeChar &&
-            initializer->kind == NodeLiteralString) {
+    } else if (varType->type == TypeArray && varType->baseType->type == TypeChar &&
+               initializer->kind == NodeLiteralString) {
         GVarInit head = {};
         GVarInit *init = &head;
         int strSize = initializer->token->literalStr->len;
@@ -712,8 +711,8 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (arraySize < 0)
             varType->arraySize = strSize;
         else if (strSize > arraySize)
-            errorAt(initializer->token,
-                    "%d items given to array sized %d.", strSize, arraySize);
+            errorAt(initializer->token, "%d items given to array sized %d.", strSize,
+                    arraySize);
 
         init->next = newGVarInit(GVarInitString, initializer, strSize);
         init = init->next;
@@ -736,8 +735,8 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (varType->arraySize < 0)
             varType->arraySize = initLen;
         else if (initLen > varType->arraySize)
-            errorAt(initializer->token,
-                    "%d items given to array sized %d.", initLen, varType->arraySize);
+            errorAt(initializer->token, "%d items given to array sized %d.", initLen,
+                    varType->arraySize);
 
         for (Node *c = initializer->body; c; c = c->next) {
             init->next = buildGVarInitSection(varType->baseType, c);
@@ -763,8 +762,8 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
 
             if (tmpObj->isStatic && isNamelessObject(tmpObj)) {
                 for (GVar *var = globals.staticVars; var; var = var->next) {
-                    if (matchToken(var->obj->token,
-                                tmpObj->token->str, tmpObj->token->len))
+                    if (matchToken(
+                                var->obj->token, tmpObj->token->str, tmpObj->token->len))
                         return var->initializer;
                 }
             }
@@ -815,7 +814,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
 
         for (int keepGoing = 1; keepGoing;) {
             switch (initializer->kind) {
-            case NodeTypeCast:  // fallthrough.
+            case NodeTypeCast: // fallthrough.
             case NodeAddress:
                 initializer = initializer->rhs;
                 break;
@@ -826,8 +825,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         }
 
         if (initializer->type->type == TypeArray) {
-            if (initializer->kind == NodeGVar ||
-                    initializer->kind == NodeLVar ||
+            if (initializer->kind == NodeGVar || initializer->kind == NodeLVar ||
                     initializer->kind == NodeLiteralString ||
                     initializer->kind == NodeNum) {
                 return newGVarInit(GVarInitPointer, initializer, size);
@@ -850,7 +848,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
                 if (initializer->lhs->kind == NodeNum &&
                         initializer->rhs->kind == NodeNum) {
                     initializer =
-                        newNodeNum(initializer->lhs->val - initializer->rhs->val);
+                            newNodeNum(initializer->lhs->val - initializer->rhs->val);
                 } else {
                     keepGoing = 0;
                 }
@@ -868,8 +866,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (initializer->kind != NodeNum) {
             errorAt(initializer->token, "Constant value required.");
         } else if (modBySize != initializer->val) {
-            errorAt(initializer->token,
-                    "Value overflows: value will be %d.", modBySize);
+            errorAt(initializer->token, "Value overflows: value will be %d.", modBySize);
         }
         return newGVarInit(GVarInitNum, initializer, size);
     }
@@ -911,7 +908,7 @@ static Node *decl(void) {
         Token *last = globals.token->prev;
 
         if (last->len == 1 && last->str[0] == '}' && consumeReserved(";"))
-            return NULL;  // Just declaring a struct or an enum.
+            return NULL; // Just declaring a struct or an enum.
     }
 
     for (;;) {
@@ -961,7 +958,7 @@ static Node *decl(void) {
                     errorAt(tokenBaseType,
                             "Function return type mismatch with previous declaration.");
                 } else if (funcFound->func->argsCount != obj->func->argsCount ||
-                        funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
+                           funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
                     errorAt(tokenObjHead,
                             "Mismatch number of function arguments with previous declaration.");
                 } else {
@@ -1001,8 +998,7 @@ static Node *decl(void) {
                     if (argNum > REG_ARGS_MAX_COUNT) {
                         v->offset = -ONE_WORD_BYTES * (argNum - REG_ARGS_MAX_COUNT + 1);
                     } else {
-                        v->offset =
-                            (REG_ARGS_MAX_COUNT - argNum + 1) * ONE_WORD_BYTES;
+                        v->offset = (REG_ARGS_MAX_COUNT - argNum + 1) * ONE_WORD_BYTES;
                     }
                 }
                 n->env->varSize = REG_ARGS_MAX_COUNT * ONE_WORD_BYTES;
@@ -1042,7 +1038,7 @@ static Node *decl(void) {
                     errorAt(tokenBaseType,
                             "Function return type mismatch with previous declaration.");
                 } else if (funcFound->func->argsCount != obj->func->argsCount ||
-                        funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
+                           funcFound->func->haveVaArgs != obj->func->haveVaArgs) {
                     errorAt(tokenObjHead,
                             "Mismatch number of function arguments with previous declaration.");
                 } else {
@@ -1068,8 +1064,7 @@ static Node *decl(void) {
             if (existingVar && !existingVar->obj->isExtern)
                 errorAt(obj->token, "Redefinition of variable.");
             else if (obj->type->type == TypeVoid)
-                errorAt(obj->token,
-                        "Cannot declare variable with type \"void\"");
+                errorAt(obj->token, "Cannot declare variable with type \"void\"");
 
             if (existingVar) {
                 gvar = existingVar;
@@ -1078,7 +1073,6 @@ static Node *decl(void) {
             } else {
                 gvar = newGVar(obj);
             }
-
 
             if (consumeReserved("=")) {
                 Node *init = NULL;
@@ -1204,8 +1198,7 @@ static Node *stmt(void) {
         SwitchCase *thisCase;
 
         if (!switchNode)
-            errorAt(globals.token->prev,
-                    "\"case\" label not within a switch statement");
+            errorAt(globals.token->prev, "\"case\" label not within a switch statement");
 
         n = newNode(NodeSwitchCase, &Types.None);
         n->condition = constant();
@@ -1215,7 +1208,7 @@ static Node *stmt(void) {
         if (!n->condition)
             errorAt(n->token, "Constant expression required.");
 
-        thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
+        thisCase = (SwitchCase *)safeAlloc(sizeof(SwitchCase));
         thisCase->node = n;
 
         if (switchNode->cases) {
@@ -1240,7 +1233,7 @@ static Node *stmt(void) {
         n = newNode(NodeSwitchCase, &Types.None);
         n->blockID = switchNode->blockID;
 
-        thisCase = (SwitchCase*)safeAlloc(sizeof(SwitchCase));
+        thisCase = (SwitchCase *)safeAlloc(sizeof(SwitchCase));
         thisCase->node = n;
 
         if (switchNode->cases) {
@@ -1401,8 +1394,7 @@ static void structBody(Struct *s) {
 
             if (!member->token) {
                 errorAt(tokenMember, "Member name required.");
-            } else if (member->type->type == TypeStruct &&
-                    member->type->structDef == s) {
+            } else if (member->type->type == TypeStruct && member->type->structDef == s) {
                 errorAt(tokenMember, "Cannot use struct itself for member type.");
             }
 
@@ -1551,13 +1543,12 @@ static Node *varDeclaration(void) {
 
         // Do not consume ";" here; it's handled by stmt().
         if (last->str[0] == '}' && last->len == 1 && matchReserved(";"))
-            return NULL;  // Just declaring a struct or an enum.
+            return NULL; // Just declaring a struct or an enum.
     }
 
     for (Env *env = globals.currentEnv; env; env = env->outer) {
         totalVarSize += env->varSize;
     }
-
 
     for (;;) {
         Token *tokenVar = globals.token;
@@ -1608,8 +1599,7 @@ static Node *varDeclaration(void) {
             Node *initializer = NULL;
 
             if (attr.isExtern)
-                errorAt(globals.token->prev,
-                        "Extern variable cannot have initializers");
+                errorAt(globals.token->prev, "Extern variable cannot have initializers");
 
             initializer = varInitializer();
 
@@ -1630,7 +1620,6 @@ static Node *varDeclaration(void) {
         if (sizeOf(varType) < 0) {
             errorAt(varObj->token, "Variable has incomplete type.");
         }
-
 
         if (varObj->isStatic) {
             // Register static variable.
@@ -1660,7 +1649,6 @@ static Node *varDeclaration(void) {
         varObj->next = globals.currentEnv->vars;
         globals.currentEnv->vars = varObj;
 
-
         if (!consumeReserved(","))
             break;
     }
@@ -1682,8 +1670,7 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
         if (initializer->kind == NodeInitList || initializer->kind == NodeLiteralString) {
             n->next = buildArrayInitNodes(varNode, varType, initializer);
         } else {
-            errorAt(initializer->token,
-                    "Initializer-list is expected here.");
+            errorAt(initializer->token, "Initializer-list is expected here.");
         }
     } else if (varType->type == TypeStruct) {
         if (initializer->type->type == TypeStruct)
@@ -1692,8 +1679,7 @@ static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializ
             n->next = buildStructInitNodes(varNode, varType, initializer);
     } else {
         if (initializer->kind == NodeInitList) {
-            errorAt(initializer->token,
-                    "Initializer-list is not expected here.");
+            errorAt(initializer->token, "Initializer-list is not expected here.");
         }
         n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
     }
@@ -1717,17 +1703,13 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                 arraySize = elemCount;
                 varType->arraySize = arraySize;
             } else if (elemCount > arraySize) {
-                errorAt(
-                        initializer->token,
-                        "%d items given to array sized %d.",
-                        elemCount,
-                        arraySize);
+                errorAt(initializer->token, "%d items given to array sized %d.",
+                        elemCount, arraySize);
             }
 
             index = 0;
             for (Node *init = initializer->body; init; init = init->next) {
-                Node *elem = newNodeBinary(
-                        NodeAdd, varNode, newNodeNum(index), varType);
+                Node *elem = newNodeBinary(NodeAdd, varNode, newNodeNum(index), varType);
                 index++;
                 node->next = buildArrayInitNodes(elem, varType->baseType, init);
                 while (node->next)
@@ -1761,12 +1743,10 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                         --i;
                 }
 
-                shiftptr = newNodeBinary(
-                        NodeAdd, varNode, newNodeNum(elemIdx), varType);
-                elem = newNodeBinary(
-                        NodeDeref, NULL, shiftptr, varType->baseType);
-                node->next = newNodeBinary(
-                        NodeAssign, elem, newNodeNum((int)c), elem->type);
+                shiftptr = newNodeBinary(NodeAdd, varNode, newNodeNum(elemIdx), varType);
+                elem = newNodeBinary(NodeDeref, NULL, shiftptr, varType->baseType);
+                node->next =
+                        newNodeBinary(NodeAssign, elem, newNodeNum((int)c), elem->type);
                 node = node->next;
                 elemIdx++;
             }
@@ -1776,17 +1756,13 @@ static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initial
                 arraySize = elemCount;
                 varType->arraySize = arraySize;
             } else if (elemCount > arraySize) {
-                errorAt(
-                        initializer->token,
-                        "%d items given to array sized %d.",
-                        elemCount,
-                        arraySize);
+                errorAt(initializer->token, "%d items given to array sized %d.",
+                        elemCount, arraySize);
             }
 
             return head.next;
         } else {
-            errorAt(initializer->token,
-                    "Initializer-list is expected for array");
+            errorAt(initializer->token, "Initializer-list is expected for array");
         }
     } else {
         Node *elem = newNodeBinary(NodeDeref, NULL, varNode, varType);
@@ -1877,54 +1853,51 @@ static Node *varInitializerList(void) {
 // failed, returns NULL.
 Node *evalConstantExpr(Node *n) {
     switch (n->kind) {
-    case NodeConditional:
-        {
-            Node *cond = evalConstantExpr(n->condition);
-            if (cond) {
-                if (cond->val)
-                    return evalConstantExpr(n->lhs);
-                else
-                    return evalConstantExpr(n->rhs);
-            }
-            return NULL;
+    case NodeConditional: {
+        Node *cond = evalConstantExpr(n->condition);
+        if (cond) {
+            if (cond->val)
+                return evalConstantExpr(n->lhs);
+            else
+                return evalConstantExpr(n->rhs);
         }
-    case NodeLogicalOR:
-        {
-            Node *child = evalConstantExpr(n->lhs);
-            if (!child)
-                return NULL;
-            else if (child->val)
+        return NULL;
+    }
+    case NodeLogicalOR: {
+        Node *child = evalConstantExpr(n->lhs);
+        if (!child)
+            return NULL;
+        else if (child->val)
+            return newNodeNum(1);
+
+        child = evalConstantExpr(n->rhs);
+        if (child) {
+            if (child->val)
                 return newNodeNum(1);
-
-            child = evalConstantExpr(n->rhs);
-            if (child) {
-                if (child->val)
-                    return newNodeNum(1);
-                else
-                    return newNodeNum(0);
-            }
-            return NULL;
-        }
-    case NodeLogicalAND:
-        {
-            Node *child = evalConstantExpr(n->lhs);
-            if (!child)
-                return NULL;
-            else if (!child->val)
+            else
                 return newNodeNum(0);
-
-            child = evalConstantExpr(n->rhs);
-            if (child) {
-                if (child->val)
-                    return newNodeNum(1);
-                else
-                    return newNodeNum(0);
-            }
-            return NULL;
         }
+        return NULL;
+    }
+    case NodeLogicalAND: {
+        Node *child = evalConstantExpr(n->lhs);
+        if (!child)
+            return NULL;
+        else if (!child->val)
+            return newNodeNum(0);
+
+        child = evalConstantExpr(n->rhs);
+        if (child) {
+            if (child->val)
+                return newNodeNum(1);
+            else
+                return newNodeNum(0);
+        }
+        return NULL;
+    }
     case NodeTypeCast:
         return evalConstantExpr(n->rhs);
-    case NodeBitwiseXOR:  // fallthroughs
+    case NodeBitwiseXOR: // fallthroughs
     case NodeBitwiseOR:
     case NodeBitwiseAND:
     case NodeEq:
@@ -1937,73 +1910,71 @@ Node *evalConstantExpr(Node *n) {
     case NodeSub:
     case NodeMul:
     case NodeDiv:
-    case NodeDivRem:
-        {
-            int result = 0, lhs = 0, rhs = 0;
-            Node *nlhs, *nrhs;
-            nlhs = evalConstantExpr(n->lhs);
-            nrhs = evalConstantExpr(n->rhs);
+    case NodeDivRem: {
+        int result = 0, lhs = 0, rhs = 0;
+        Node *nlhs, *nrhs;
+        nlhs = evalConstantExpr(n->lhs);
+        nrhs = evalConstantExpr(n->rhs);
 
-            if (nlhs && nrhs) {
-                lhs = nlhs->val;
-                rhs = nrhs->val;
-                switch (n->kind) {
-                case NodeBitwiseXOR:
-                    result = lhs ^ rhs;
-                    break;
-                case NodeBitwiseOR:
-                    result = lhs | rhs;
-                    break;
-                case NodeBitwiseAND:
-                    result = lhs & rhs;
-                    break;
-                case NodeEq:
-                    result = lhs == rhs;
-                    break;
-                case NodeNeq:
-                    result = lhs != rhs;
-                    break;
-                case NodeLT:
-                    result = lhs < rhs;
-                    break;
-                case NodeLE:
-                    result = lhs <= rhs;
-                    break;
-                case NodeArithShiftL:
-                    result = lhs << rhs;
-                    break;
-                case NodeArithShiftR:
-                    result = lhs >> rhs;
-                    break;
-                case NodeAdd:
-                    result = lhs + rhs;
-                    break;
-                case NodeSub:
-                    result = lhs - rhs;
-                    break;
-                case NodeMul:
-                    result = lhs * rhs;
-                    break;
-                case NodeDiv:
-                    result = lhs / rhs;
-                    break;
-                case NodeDivRem:
-                    result = lhs % rhs;
-                    break;
-                default:
-                    errorUnreachable();
-                }
-                return newNodeNum(result);
+        if (nlhs && nrhs) {
+            lhs = nlhs->val;
+            rhs = nrhs->val;
+            switch (n->kind) {
+            case NodeBitwiseXOR:
+                result = lhs ^ rhs;
+                break;
+            case NodeBitwiseOR:
+                result = lhs | rhs;
+                break;
+            case NodeBitwiseAND:
+                result = lhs & rhs;
+                break;
+            case NodeEq:
+                result = lhs == rhs;
+                break;
+            case NodeNeq:
+                result = lhs != rhs;
+                break;
+            case NodeLT:
+                result = lhs < rhs;
+                break;
+            case NodeLE:
+                result = lhs <= rhs;
+                break;
+            case NodeArithShiftL:
+                result = lhs << rhs;
+                break;
+            case NodeArithShiftR:
+                result = lhs >> rhs;
+                break;
+            case NodeAdd:
+                result = lhs + rhs;
+                break;
+            case NodeSub:
+                result = lhs - rhs;
+                break;
+            case NodeMul:
+                result = lhs * rhs;
+                break;
+            case NodeDiv:
+                result = lhs / rhs;
+                break;
+            case NodeDivRem:
+                result = lhs % rhs;
+                break;
+            default:
+                errorUnreachable();
             }
-            return NULL;
+            return newNodeNum(result);
         }
-    case NodeNot:
-        {
-            Node *value = evalConstantExpr(n->rhs);
-            if (value)
-                return newNodeNum(!value->val);
-            return NULL;
-        }
+        return NULL;
+    }
+    case NodeNot: {
+        Node *value = evalConstantExpr(n->rhs);
+        if (value)
+            return newNodeNum(!value->val);
+        return NULL;
+    }
     case NodeNum:
         return n;
     default:
@@ -2119,9 +2090,7 @@ static Node *assign(void) {
 
 // Parse constant-expression.  Returns Node* with kind NodeNum if there's a
 // constant-expression.  Otherwise returns NULL.
-static Node *constant(void) {
-    return evalConstantExpr(conditional());
-}
+static Node *constant(void) { return evalConstantExpr(conditional()); }
 
 static Node *conditional(void) {
     static int condOpCount = 0;
@@ -2347,7 +2316,6 @@ static Node *typecast(void) {
             return unary();
         }
 
-
         if (sizeOf(obj->type) < 0) {
             errorAt(tokenSave->next, "Incomplete type.");
         }
@@ -2378,13 +2346,11 @@ static Node *unary(void) {
         TypeKind typeKind = rhs->type->type;
 
         if (typeKind == TypeFunction ||
-                (typeKind == TypePointer &&
-                 rhs->type->baseType->type == TypeFunction)) {
+                (typeKind == TypePointer && rhs->type->baseType->type == TypeFunction)) {
             // Do nothing for dereference of function or function pointer.
             return rhs;
         } else if (!(typeKind == TypePointer || typeKind == TypeArray)) {
-            errorAt(tokenOperator,
-                    "Cannot dereference a non-pointer value.");
+            errorAt(tokenOperator, "Cannot dereference a non-pointer value.");
         } else {
             n = newNodeBinary(NodeDeref, NULL, rhs, rhs->type->baseType);
         }
@@ -2437,12 +2403,11 @@ static Node *unary(void) {
 }
 
 static Node *compoundLiteral(void) {
-    Token * tokenSave = globals.token;
+    Token *tokenSave = globals.token;
     TypeInfo *type = NULL;
 
     if (!consumeReserved("("))
         return NULL;
-
 
     type = parseBaseType(NULL);
     if (!type || type->type != TypeStruct) {
@@ -2587,7 +2552,7 @@ static Node *postfix(void) {
             n->token = fntoken;
             n->body = pNode;
 
-            safeFree(arg);  // Do NOT free its members! They've been used!
+            safeFree(arg); // Do NOT free its members! They've been used!
         } else if (consumeReserved("++")) {
             n = newNodeBinary(NodePostIncl, n, NULL, n->type);
         } else if (consumeReserved("--")) {
@@ -2597,8 +2562,7 @@ static Node *postfix(void) {
             Obj *member;
 
             if (globals.token->prev->str[0] == '-') {
-                if (n->type->type != TypePointer ||
-                        n->type->baseType->type != TypeStruct)
+                if (n->type->type != TypePointer || n->type->baseType->type != TypeStruct)
                     errorAt(n->token, "Pointer for struct required.");
                 n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
             }
@@ -2607,7 +2571,8 @@ static Node *postfix(void) {
                 errorAt(n->token, "Struct required.");
 
             memberToken = expectIdent();
-            member = findStructMember(n->type->structDef, memberToken->str, memberToken->len);
+            member = findStructMember(
+                    n->type->structDef, memberToken->str, memberToken->len);
             if (!member)
                 errorAt(memberToken, "No such struct member.");
 

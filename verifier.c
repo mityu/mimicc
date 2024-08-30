@@ -1,7 +1,7 @@
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include "mimicc.h"
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static void verifyTypeFCall(const Node *n);
 static int checkRelationallyComparable(const TypeInfo *t1, const TypeInfo *t2);
@@ -100,9 +100,8 @@ void verifyType(const Node *n) {
 
         // Check the returned value's types.
         isReturnable = checkAssignable(currentFunction->func->retType, n->type);
-        isBothVoid =
-            currentFunction->func->retType->type == TypeVoid &&
-            n->type->type == TypeVoid;
+        isBothVoid = currentFunction->func->retType->type == TypeVoid &&
+                     n->type->type == TypeVoid;
         if (!(isReturnable || isBothVoid)) {
             errorAt(n->token, "Type mismatch. Cannot return this.");
         }
@@ -204,20 +203,17 @@ void verifyType(const Node *n) {
         }
         verifyType(n->rhs);
     } else if (n->kind == NodePostIncl || n->kind == NodePostDecl ||
-            n->kind == NodePreIncl || n->kind == NodePreDecl) {
+               n->kind == NodePreIncl || n->kind == NodePreDecl) {
         Node *value =
-            (n->kind == NodePreIncl || n->kind == NodePreDecl) ? n->rhs : n->lhs;
+                (n->kind == NodePreIncl || n->kind == NodePreDecl) ? n->rhs : n->lhs;
         if (!isLvalue(value)) {
             int isIncrement = n->kind == NodePreIncl || n->kind == NodePostIncl;
-            errorAt(
-                    value->token,
-                    "Lvalue is required for %s operator",
-                    isIncrement ? "incremental" : "decremental"
-                    );
+            errorAt(value->token, "Lvalue is required for %s operator",
+                    isIncrement ? "incremental" : "decremental");
         }
         verifyType(value);
-    } else if (n->kind == NodeBitwiseAND ||n->kind == NodeBitwiseOR ||
-            n->kind == NodeBitwiseXOR) {
+    } else if (n->kind == NodeBitwiseAND || n->kind == NodeBitwiseOR ||
+               n->kind == NodeBitwiseXOR) {
         verifyType(n->lhs);
         if (!(isIntegerType(n->lhs->type) && isIntegerType(n->rhs->type)))
             errorAt(n->token, "Both operands should have integer type.");
@@ -237,7 +233,7 @@ void verifyType(const Node *n) {
 // actual arguments are assignable to the formal parameters.  Exit program if
 // some does not match.
 static void verifyTypeFCall(const Node *n) {
-#define ARGS_BUFFER_SIZE    (10)
+#define ARGS_BUFFER_SIZE (10)
     Node *actualArgBuf[ARGS_BUFFER_SIZE];
     Node **actualArgs = actualArgBuf;
     Node *arg = NULL;
@@ -260,24 +256,15 @@ static void verifyTypeFCall(const Node *n) {
     }
 
     if (n->fcall->argsCount != fdecl->argsCount && !fdecl->haveVaArgs) {
-        errorAt(
-                n->token,
-                "%d arguments are expected, but got %d.",
-                fdecl->argsCount,
-                n->fcall->argsCount
-                );
+        errorAt(n->token, "%d arguments are expected, but got %d.", fdecl->argsCount,
+                n->fcall->argsCount);
     } else if (n->fcall->argsCount < fdecl->argsCount && fdecl->haveVaArgs) {
-        errorAt(
-                n->token,
-                "At least %d arguments are expected, but got just %d.",
-                fdecl->argsCount,
-                n->fcall->argsCount
-                );
+        errorAt(n->token, "At least %d arguments are expected, but got just %d.",
+                fdecl->argsCount, n->fcall->argsCount);
     }
 
     if (fdecl->argsCount > ARGS_BUFFER_SIZE) {
-        actualArgs =
-            (Node **)safeAlloc(fdecl->argsCount * sizeof(Node *));
+        actualArgs = (Node **)safeAlloc(fdecl->argsCount * sizeof(Node *));
     }
 
     if (fdecl->argsCount == 0)
@@ -287,7 +274,7 @@ static void verifyTypeFCall(const Node *n) {
     // Skip args in variadic arguments area
     for (int i = 0; i < n->fcall->argsCount - fdecl->argsCount; ++i)
         arg = arg->next;
-    for (Node **store = &actualArgs[fdecl->argsCount-1]; arg; arg = arg->next) {
+    for (Node **store = &actualArgs[fdecl->argsCount - 1]; arg; arg = arg->next) {
         *store = arg;
         --store;
     }
@@ -295,10 +282,7 @@ static void verifyTypeFCall(const Node *n) {
     formalArg = fdecl->args;
     for (int i = 0; i < fdecl->argsCount; ++i) {
         if (!checkAssignable(formalArg->type, actualArgs[i]->type)) {
-            errorAt(
-                    actualArgs[i]->token,
-                    "Type mismatch."
-                    );
+            errorAt(actualArgs[i]->token, "Type mismatch.");
         }
         formalArg = formalArg->next;
     }
@@ -323,9 +307,8 @@ int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
         return checkTypeEqual(lhs->baseType, rhs->baseType);
     } else if (lhs->type == TypePointer) {
         if (rhs->type == TypeNumber) {
-            return 0;  // TODO: Allow when assigning NULL.
-        } else if (lhs->baseType->type == TypeFunction &&
-                rhs->type == TypeFunction) {
+            return 0; // TODO: Allow when assigning NULL.
+        } else if (lhs->baseType->type == TypeFunction && rhs->type == TypeFunction) {
             return 1;
         }
         return 0;
@@ -353,7 +336,7 @@ static int checkRelationallyComparable(const TypeInfo *t1, const TypeInfo *t2) {
             return 1;
 
         return checkRelationallyComparable(t1->baseType, t2->baseType) ||
-            checkTypeEqual(t1->baseType, t2->baseType);
+               checkTypeEqual(t1->baseType, t2->baseType);
     }
     return 0;
 }
@@ -391,7 +374,8 @@ static int isIntegerType(const TypeInfo *t) {
 
 // Return TRUE if given type is arithmetic type.
 static int isArithmeticType(const TypeInfo *t) {
-    return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber || t->type == TypeEnum;
+    return t->type == TypeChar || t->type == TypeInt || t->type == TypeNumber ||
+           t->type == TypeEnum;
 }
 
 static int isScalarType(const TypeInfo *t) {
@@ -400,8 +384,8 @@ static int isScalarType(const TypeInfo *t) {
 
 // Return TRUE is `n` is lvalue.
 int isLvalue(const Node *n) {
-    return n->kind == NodeLVar || n->kind == NodeGVar ||
-        n->kind == NodeDeref || n->kind == NodeMemberAccess;
+    return n->kind == NodeLVar || n->kind == NodeGVar || n->kind == NodeDeref ||
+           n->kind == NodeMemberAccess;
 }
 
 // Return TRUE if given type can work like a pointer. Currently returns TRUE

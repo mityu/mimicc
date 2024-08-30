@@ -1,13 +1,13 @@
-#include <string.h>
 #include "mimicc.h"
+#include <string.h>
 
 typedef struct Macro Macro;
 struct Macro {
     Macro *next;
-    Token *token;    // Macro name.
-    Token *replace;  // Replacement-list is tokens, until "TokenNewLine" appears.
-    int isFunc;      // TRUE if macro is function-like macro.
-    Token *args;     // Argument list of function-like macro.
+    Token *token;   // Macro name.
+    Token *replace; // Replacement-list is tokens, until "TokenNewLine" appears.
+    int isFunc;     // TRUE if macro is function-like macro.
+    Token *args;    // Argument list of function-like macro.
 };
 
 // Structure to use in function-like macro expansion.  Holds which tokens are
@@ -15,9 +15,9 @@ struct Macro {
 typedef struct MacroArg MacroArg;
 struct MacroArg {
     MacroArg *next;
-    Token *name;        // Argument name
-    Token *begin;       // Start of replacement
-    Token *end;         // End of replacement
+    Token *name;  // Argument name
+    Token *begin; // Start of replacement
+    Token *end;   // End of replacement
 };
 
 typedef struct Range Range;
@@ -28,8 +28,8 @@ struct Range {
 
 typedef struct Preproc Preproc;
 struct Preproc {
-    Macro *macros;            // All macro list.
-    int expandDefined;        // If TRUE, expand "define(macro)" macro.
+    Macro *macros;     // All macro list.
+    int expandDefined; // If TRUE, expand "define(macro)" macro.
 };
 
 static Preproc preproc;
@@ -278,8 +278,8 @@ static Token *parseUndefDirective(Token *token) {
 // of this "#include" directive. Note that "token" parameter must points the
 // "#" token of "#include".
 static Token *parseIncludeDirective(Token *token) {
-    Range src = {};   // This "#include" directive
-    Range dest = {};  // Embedded file contents.
+    Range src = {};  // This "#include" directive
+    Range dest = {}; // Embedded file contents.
     Token *retpos = NULL;
     FilePath *file = NULL;
     char *source = NULL;
@@ -298,11 +298,11 @@ static Token *parseIncludeDirective(Token *token) {
     if (token->type == TokenLiteralString) {
         // #include "..."
         char *header = token->literalStr->string;
-        if (header[0] == '/') {  // Full path
+        if (header[0] == '/') { // Full path
             file = analyzeFilepath(header, header);
         } else {
-            char *path = (char *)safeAlloc(
-                    strlen(token->file->dirname) + strlen(header) + 1);
+            char *path =
+                    (char *)safeAlloc(strlen(token->file->dirname) + strlen(header) + 1);
             sprintf(path, "%s%s", token->file->dirname, header);
             file = analyzeFilepath(path, header);
         }
@@ -466,7 +466,8 @@ static Node *parseIfCondRelational(Token **token) {
             n = newNodeBinary(NodeLT, tokenOp, lhs, rhs);
             if (tokenOp->len == 2)
                 n->kind = NodeLE;
-        } else if (consumeTokenReserved(token, ">") || consumeTokenReserved(token, ">=")) {
+        } else if (consumeTokenReserved(token, ">") ||
+                   consumeTokenReserved(token, ">=")) {
             Node *lhs = parseIfCondShift(token);
             Node *rhs = n;
             n = newNodeBinary(NodeLT, tokenOp, lhs, rhs);
@@ -572,9 +573,7 @@ static Node *parseIfCondConditional(Token **token) {
     return n;
 }
 
-static Node *parseIfCond(Token **token) {
-    return parseIfCondConditional(token);
-}
+static Node *parseIfCond(Token **token) { return parseIfCondConditional(token); }
 
 static int evalIfCondNodes(Node *node) {
     int lhs = 0, rhs = 0;
@@ -596,7 +595,6 @@ static int evalIfCondNodes(Node *node) {
         else
             return evalIfCondNodes(node->rhs);
     }
-
 
     if (node->lhs)
         lhs = evalIfCondNodes(node->lhs);
@@ -677,12 +675,12 @@ static Token *parseIfDirective(Token *token) {
     typedef struct Elif Elif;
     struct Elif {
         Elif *next;
-        Range cond;  // NULL if #else
-        Range body;  // Use [body.begin, body.end) as body statement.
+        Range cond; // NULL if #else
+        Range body; // Use [body.begin, body.end) as body statement.
     };
     typedef struct {
         Range cond;
-        Range body;  // Use [body.begin, body.end) as body statement.
+        Range body; // Use [body.begin, body.end) as body statement.
         Range directive;
         Elif *elifs;
     } IfDirective;
@@ -696,8 +694,7 @@ static Token *parseIfDirective(Token *token) {
     entire.directive.begin = token;
     entire.elifs = &elifHead;
 
-    if (!(consumeTokenReserved(&token, "#") &&
-                consumeTokenCertainType(&token, TokenIf)))
+    if (!(consumeTokenReserved(&token, "#") && consumeTokenCertainType(&token, TokenIf)))
         errorUnreachable();
 
     entire.cond.begin = token;
@@ -719,7 +716,7 @@ static Token *parseIfDirective(Token *token) {
                 else if (token->type == TokenNewLine)
                     errorAt(token, "An expression is expected.");
 
-                curBody->end = token->prev->prev;  // Should points to "#" token
+                curBody->end = token->prev->prev; // Should points to "#" token
                 entire.elifs->next = (Elif *)safeAlloc(sizeof(Elif));
                 entire.elifs = entire.elifs->next;
                 entire.elifs->cond.begin = token;
@@ -733,7 +730,7 @@ static Token *parseIfDirective(Token *token) {
                 if (token->type != TokenNewLine)
                     errorAt(token, "Unexpected token.");
 
-                curBody->end = token->prev->prev;  // Should points to "#" token.
+                curBody->end = token->prev->prev; // Should points to "#" token.
                 token = token->next;
                 entire.elifs->next = (Elif *)safeAlloc(sizeof(Elif));
                 entire.elifs = entire.elifs->next;
@@ -749,7 +746,7 @@ static Token *parseIfDirective(Token *token) {
                 if (depth != 0) {
                     depth--;
                 } else {
-                    curBody->end = token->prev->prev;  // Should points to "#" token.
+                    curBody->end = token->prev->prev; // Should points to "#" token.
                     entire.directive.end = token;
                     entire.elifs = elifHead.next;
                     break;
@@ -801,7 +798,7 @@ static Token *parseIfdefDirective(Token *token, int inverse) {
     if (!consumeTokenReserved(&token, "#"))
         errorUnreachable();
     else if (!(inverse && consumeTokenIdent(&token, "ifndef") ||
-            consumeTokenIdent(&token, "ifdef")))
+                     consumeTokenIdent(&token, "ifdef")))
         errorUnreachable();
 
     ident = consumeTokenAnyIdent(&token);
@@ -858,7 +855,7 @@ static Token *applyBuiltinDefinedMacro(Token *token) {
 
 // Apply predefined macros.  Return TRUE if applied.
 static int applyPredefinedMacro(Token *token) {
-    if (matchToken(token , "__LINE__", 8)) {
+    if (matchToken(token, "__LINE__", 8)) {
         token->type = TokenNumber;
         token->val = token->line;
     } else if (matchToken(token, "__FILE__", 8)) {
@@ -878,9 +875,9 @@ static int applyPredefinedMacro(Token *token) {
 }
 
 // Stringify tokens in range in range [begin, end].  This is for "#" operator.
-#define NEED_SPACING(ptr)   \
-    (isSpace(*((char *)(ptr))) ||\
-     (*((char *)(ptr)) == '/' && strchr("*/", (*((char *)(ptr)+1)))))
+#define NEED_SPACING(ptr)                                                                \
+    (isSpace(*((char *)(ptr))) ||                                                        \
+            (*((char *)(ptr)) == '/' && strchr("*/", (*((char *)(ptr) + 1)))))
 static char *stringifyTokens(Token *begin, Token *end, int *len) {
     int totalSize = 0;
     int w = 0;
@@ -925,13 +922,13 @@ static char *stringifyTokens(Token *begin, Token *end, int *len) {
         }
     }
     if (!NEED_SPACING(end->str + end->len))
-        totalSize++;    // Capture one more size for '\0'.
+        totalSize++; // Capture one more size for '\0'.
 
     buf = (char *)safeAlloc(totalSize);
     w = 0;
     for (Token *token = begin; token != termination; token = token->next) {
         switch (token->type) {
-        case TokenLiteralString:  // fallthrough
+        case TokenLiteralString: // fallthrough
         case TokenNumber:
             for (int r = 0; r < token->len; ++r) {
                 if (strchr("\"\\", token->str[r]))
@@ -993,8 +990,7 @@ static void replaceMacroArgs(MacroArg *args, Token *begin, Token *end) {
             dest.begin->literalStr = s;
             dest.begin->prev = dest.begin->next = NULL;
         } else {
-            dest.begin = dest.end =
-                cloneTokenList(replacement->begin, replacement->end);
+            dest.begin = dest.end = cloneTokenList(replacement->begin, replacement->end);
             while (dest.end->next)
                 dest.end = dest.end->next;
         }
@@ -1018,7 +1014,7 @@ static MacroArg *parseMacroArguments(Macro *macro, Token *begin, Token **endOfAr
     if (!matchToken(macro->token, token->str, token->len))
         errorUnreachable();
 
-    token = token->next;  // Skip macro name token.
+    token = token->next; // Skip macro name token.
 
     if (!consumeTokenReserved(&token, "("))
         errorAt(token, "'(' is expected.");

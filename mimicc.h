@@ -2,25 +2,23 @@
 #define HEADER_MIMICC_H
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#define REG_ARGS_MAX_COUNT  (6)
-#define ONE_WORD_BYTES  (8)
-#define errorUnreachable()  \
-    error("%s:%d: Internal error: unreachable", __FILE__, __LINE__)
-#define runtimeAssert(expr)  \
-    do {\
-        if (!(expr)) \
-            error("%d:%d: Internal error: assert: %s", \
-                    __FILE__, __LINE__, #expr); \
+#define REG_ARGS_MAX_COUNT (6)
+#define ONE_WORD_BYTES (8)
+#define errorUnreachable() error("%s:%d: Internal error: unreachable", __FILE__, __LINE__)
+#define runtimeAssert(expr)                                                              \
+    do {                                                                                 \
+        if (!(expr))                                                                     \
+            error("%d:%d: Internal error: assert: %s", __FILE__, __LINE__, #expr);       \
     } while (0)
-#define safeFree(p) \
-    do {\
-        if (p) { \
-            free(p); \
-            p = NULL; \
-        } \
+#define safeFree(p)                                                                      \
+    do {                                                                                 \
+        if (p) {                                                                         \
+            free(p);                                                                     \
+            p = NULL;                                                                    \
+        }                                                                                \
     } while (0)
 
 typedef struct LiteralString LiteralString;
@@ -53,9 +51,9 @@ struct TypeInfo {
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
-    Function *funcDef;  // Valid when type is TypeFunction
-    Struct *structDef;  // Valid when type is TypeStruct
-    Enum *enumDef;      // Valid when type is TypeEnum
+    Function *funcDef; // Valid when type is TypeFunction
+    Struct *structDef; // Valid when type is TypeStruct
+    Enum *enumDef;     // Valid when type is TypeEnum
 };
 
 extern struct Types {
@@ -91,8 +89,8 @@ typedef enum {
     TokenStruct,
     TokenEnum,
     TokenNewLine,
-    TokenSOF,            // Start of file.
-    TokenEOF,            // End of file.
+    TokenSOF, // Start of file.
+    TokenEOF, // End of file.
 } TokenType;
 
 struct Token {
@@ -116,8 +114,8 @@ struct Env {
     Struct *structs;
     Enum *enums;
     Typedef *typedefs;
-    Obj *vars;     // List of variables local to this env.
-    int varSize;   // Total size of variables local to this env.
+    Obj *vars;   // List of variables local to this env.
+    int varSize; // Total size of variables local to this env.
 };
 
 typedef enum {
@@ -160,17 +158,17 @@ typedef enum {
     NodeSwitchCase,
     NodeFor,
     NodeDoWhile,
-    NodeExprList,      // Expressions concatenated by commas.
-    NodeInitList,      // Initializer list
-    NodeBlock,         // { ... }
-    NodeBreak,         // break;
-    NodeContinue,      // continue;
-    NodeReturn,        // return {expr};
+    NodeExprList, // Expressions concatenated by commas.
+    NodeInitList, // Initializer list
+    NodeBlock,    // { ... }
+    NodeBreak,    // break;
+    NodeContinue, // continue;
+    NodeReturn,   // return {expr};
     NodeFunction,
-    NodeGVar,          // Global variable, work as lvar.
-    NodeTypeCast,      // Type casting.
-    NodeClearStack,    // Clear certain range of stack with 0.
-    NodeVaStart,       // Built-in va_args()
+    NodeGVar,       // Global variable, work as lvar.
+    NodeTypeCast,   // Type casting.
+    NodeClearStack, // Clear certain range of stack with 0.
+    NodeVaStart,    // Built-in va_args()
 } NodeKind;
 
 typedef struct SwitchCase SwitchCase;
@@ -194,17 +192,17 @@ struct Node {
     SwitchCase *cases; // "case" or "default" nodes within switch statement.
     Obj *obj;
     Obj *parentFunc;
-    int val;           // Used when kind is NodeNum.
-    int blockID;       // Unique ID for jump labels. Valid only when the node
-                       // is control syntax, logical AND, and logical OR.
+    int val;     // Used when kind is NodeNum.
+    int blockID; // Unique ID for jump labels. Valid only when the node
+                 // is control syntax, logical AND, and logical OR.
 };
 
 struct FCall {
-    char *name;    // Function name.
-    int len;       // Function name length.
-    int argsCount; // The number of arguments.
-    Node *args;    // Function arguments in reversed order.
-    TypeInfo *declType;  // Called function's type
+    char *name;         // Function name.
+    int len;            // Function name length.
+    int argsCount;      // The number of arguments.
+    Node *args;         // Function arguments in reversed order.
+    TypeInfo *declType; // Called function's type
 };
 
 struct SwitchCase {
@@ -231,15 +229,15 @@ struct ObjAttr {
 
 // Struct for objects; variables and functions.
 struct Obj {
-    Obj      *next;
-    Token    *token;
-    TypeInfo *type;        // Type of object.
-    int      offset;       // Offset from rbp.  Variable adress is calculated
-                           // as RBP - offset.
-    int      isExtern;     // TRUE if object is declared with "extern".
-    int      isStatic;     // TRUE if object is declared with "static".
-    int      staticVarID;  // ID for static local variables.
-    Function *func;        // Valid when object holds function.
+    Obj *next;
+    Token *token;
+    TypeInfo *type;  // Type of object.
+    int offset;      // Offset from rbp.  Variable adress is calculated
+                     // as RBP - offset.
+    int isExtern;    // TRUE if object is declared with "extern".
+    int isStatic;    // TRUE if object is declared with "static".
+    int staticVarID; // ID for static local variables.
+    Function *func;  // Valid when object holds function.
 };
 
 // Struct for global variables.
@@ -268,7 +266,7 @@ struct GVarInit {
 struct LiteralString {
     LiteralString *next;
     char *string;
-    int len;            // String length in program. (Not on text editor.)
+    int len; // String length in program. (Not on text editor.)
     int id;
 };
 
@@ -296,36 +294,38 @@ struct EnumItem {
 
 struct Typedef {
     Typedef *next;
-    Token *name;     // Typedef name.
-    TypeInfo *type;  // Actual type.
+    Token *name;    // Typedef name.
+    TypeInfo *type; // Actual type.
 };
 
 struct FilePath {
     char *basename;
-    char *dirname;  // Parent directory name with '/' at the end.
+    char *dirname; // Parent directory name with '/' at the end.
     char *path;
-    char *display;  // File path for display (error message, __FILE__ macro, etc.)
+    char *display; // File path for display (error message, __FILE__ macro,
+                   // etc.)
 };
 
 typedef struct Globals Globals;
 struct Globals {
-    Node *code;                // The root node of program.
+    Node *code; // The root node of program.
     Env globalEnv;
-    Obj *functions;            // Declared function list.
-    GVar *globalVars;          // Global variable list.
-    GVar *staticVars;          // Static local variable list.
-    LiteralString *strings;    // Literal string list.
+    Obj *functions;         // Declared function list.
+    GVar *globalVars;       // Global variable list.
+    GVar *staticVars;       // Static local variable list.
+    LiteralString *strings; // Literal string list.
     Env *currentEnv;
-    Obj *currentFunction;      // Function currently parsed.
-    int blockCount;            // The number of blocks appeared in program.
-    int literalStringCount;    // The number of literal strings appeared in program.
-    int staticVarCount;        // The number of variables declared with "static."
-    int namelessEnumCount;     // The number of nameless enums.
-    int namelessStructCount;   // The number of nameless structs.
-    Token *token;              // Token currently watches.
-    FILE *destFile;            // The output file.
-    FilePath *ccFile;          // The binary file path infomation.
-    char *includePath;         // The include path.
+    Obj *currentFunction;    // Function currently parsed.
+    int blockCount;          // The number of blocks appeared in program.
+    int literalStringCount;  // The number of literal strings appeared in
+                             // program.
+    int staticVarCount;      // The number of variables declared with "static."
+    int namelessEnumCount;   // The number of nameless enums.
+    int namelessStructCount; // The number of nameless structs.
+    Token *token;            // Token currently watches.
+    FILE *destFile;          // The output file.
+    FilePath *ccFile;        // The binary file path infomation.
+    char *includePath;       // The include path.
 };
 extern Globals globals;
 

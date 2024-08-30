@@ -28,9 +28,11 @@ ifeq ($(shell uname),Darwin)
 d%:
 	docker run --rm -v ./:/mimicc -w /mimicc mimicc make $*
 
+.PHONY: docker-shell
 docker-shell:
 	docker run --rm -it -v ./:/home/user/mimicc -w /home/user/mimicc mimicc
 
+.PHONY: docker-image
 docker-image: | Dockerfile
 	docker build -t mimicc ./
 endif
@@ -236,3 +238,7 @@ $(TEST_FRAMEWORK_OBJ): $(TEST_FRAMEWORK)
 	gcc -o $@ -E -P $<
 
 .PRECIOUS: $(TEST_EXECUTABLES:%.exe=%.s) $(TEST_EXECUTABLES:%.exe=%.c)
+
+.PHONY: format
+format:
+	clang-format -i *.[ch] include/*.h

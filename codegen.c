@@ -1,6 +1,6 @@
+#include "mimicc.h"
 #include <stdio.h>
 #include <string.h>
-#include "mimicc.h"
 
 // TODO: Do not use "push" and "pop" when store too much arguments to stack?
 // TODO: Maybe even when sizeOf(number) returns 4, it actually uses 8 bytes.
@@ -211,6 +211,7 @@ const int Reg16 = 2;
 const int Reg32 = 1;
 const int Reg64 = 0;
 
+// clang-format off
 static const char *RegTable[RegCount][4] = {
     {"rax", "eax",  "ax",   "al"},
     {"rdi", "edi",  "di",   "dil"},
@@ -229,13 +230,18 @@ static const char *RegTable[RegCount][4] = {
     {"r14", "r14d", "r14w", "r14b"},
     {"r15", "r15d", "r15w", "r15b"},
 };
+// clang-format on
 
 static const char *getReg(RegKind reg, int size) {
     switch (size) {
-    case 1: return RegTable[reg][3];
-    case 2: return RegTable[reg][2];
-    case 4: return RegTable[reg][1];
-    case 8: return RegTable[reg][0];
+    case 1:
+        return RegTable[reg][3];
+    case 2:
+        return RegTable[reg][2];
+    case 4:
+        return RegTable[reg][1];
+    case 8:
+        return RegTable[reg][0];
     }
     errorUnreachable();
     return "";
@@ -247,9 +253,7 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 };
 */
 
-static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {
-    RDI, RSI, RDX, RCX, R8, R9
-};
+static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {RDI, RSI, RDX, RCX, R8, R9};
 
 static void genCodeGVarInit(GVarInit *initializer) {
     for (GVarInit *elem = initializer; elem; elem = elem->next) {
@@ -273,8 +277,7 @@ static void genCodeGVarInit(GVarInit *initializer) {
             dumpf("  .string \"%s\"\n", elem->rhs->token->literalStr->string);
         } else if (elem->kind == GVarInitPointer) {
             if (elem->rhs->kind == NodeLiteralString) {
-                dumpf("  .quad .LiteralString%d\n",
-                        elem->rhs->token->literalStr->id);
+                dumpf("  .quad .LiteralString%d\n", elem->rhs->token->literalStr->id);
             } else if (elem->rhs->kind == NodeGVar) {
                 Token *token = initializer->rhs->token;
                 dumpf("  .quad %.*s\n", token->len, token->str);
@@ -362,8 +365,7 @@ static void genCodeLVal(const Node *n) {
         dumpf("  lea rax, %.*s[rip]\n", n->token->len, n->token->str);
         dumps("  push rax");
     } else if (n->kind == NodeMemberAccess) {
-        Obj *m = findStructMember(
-                n->lhs->type->structDef, n->token->str, n->token->len);
+        Obj *m = findStructMember(n->lhs->type->structDef, n->token->str, n->token->len);
         genCodeLVal(n->lhs);
         dumps("  pop rax");
         dumpf("  add rax, %d\n", m->offset);
@@ -458,8 +460,8 @@ static void genCodeReturn(const Node *n) {
         genCode(n->lhs);
         dumps("  pop rax");
     }
-    dumpf("  jmp .Lreturn_%.*s\n",
-            dumpEnv.currentFunc->token->len, dumpEnv.currentFunc->token->str);
+    dumpf("  jmp .Lreturn_%.*s\n", dumpEnv.currentFunc->token->len,
+            dumpEnv.currentFunc->token->str);
 }
 
 static void genCodeIf(const Node *n) {
@@ -493,7 +495,7 @@ static void genCodeIf(const Node *n) {
                 dumps("  cmp rax, 0");
                 if (e->next)
                     dumpf("  je .Lelse%d_%d\n", n->blockID, elseblockCount);
-                else  // Last 'else' is omitted.
+                else // Last 'else' is omitted.
                     dumpf("  je .Lend%d\n", n->blockID);
             }
             genCode(e->body);
@@ -510,7 +512,6 @@ static void genCodeSwitch(const Node *n) {
     if (!n)
         return;
 
-
     loopBlockIDSave = dumpEnv.loopBlockID;
     dumpEnv.loopBlockID = n->blockID;
     genCode(n->condition);
@@ -522,8 +523,7 @@ static void genCodeSwitch(const Node *n) {
         }
         dumpf("  mov rdi, %d\n", c->node->condition->val);
         dumps("  cmp rax, rdi");
-        dumpf("  je .Lswitch_case_%d_%d\n",
-                n->blockID, c->node->condition->val);
+        dumpf("  je .Lswitch_case_%d_%d\n", n->blockID, c->node->condition->val);
     }
     if (haveDefaultLabel)
         dumpf("  jmp .Lswitch_default_%d\n", n->blockID);
@@ -610,14 +610,14 @@ static void genCodeFCall(const Node *n) {
     if (!n)
         return;
 
-    static int stackAlignState = -1;  // RSP % 16
+    static int stackAlignState = -1; // RSP % 16
     int stackAlignStateSave = 0;
-    int stackVarSize = 0;  // Size of local variables on stack.
-    int stackArgSize = 0;  // Size of arguments (passed to function) on stack.
+    int stackVarSize = 0;    // Size of local variables on stack.
+    int stackArgSize = 0;    // Size of arguments (passed to function) on stack.
     int exCapToAlignRSP = 0; // Extra memory size to capture in order to align RSP.
     int regargs = n->fcall->argsCount;
     int isSimpleFuncCall =
-        n->body->type->type == TypeFunction;  // TRUE if simple function call.
+            n->body->type->type == TypeFunction; // TRUE if simple function call.
 
     if (!isSimpleFuncCall)
         genCode(n->body);
@@ -638,7 +638,7 @@ static void genCodeFCall(const Node *n) {
     }
 
     if (!isSimpleFuncCall)
-        stackVarSize += ONE_WORD_BYTES;  // Capacity for function pointer on stack
+        stackVarSize += ONE_WORD_BYTES; // Capacity for function pointer on stack
 
     stackAlignState = (stackAlignState + stackVarSize) % 16;
     if (stackAlignState)
@@ -681,7 +681,7 @@ static void genCodeFCall(const Node *n) {
 
 static void genCodeVaStart(const Node *n) {
     Obj *lastArg = NULL;
-    int offset = 0;  // va_list member's offset currently watching
+    int offset = 0; // va_list member's offset currently watching
     int argsOverflows = 0;
 
     for (Obj *arg = n->parentFunc->func->args; arg; arg = arg->next)
@@ -695,8 +695,8 @@ static void genCodeVaStart(const Node *n) {
         dumpf("  mov DWORD PTR %d[rax], %d\n", offset,
                 ONE_WORD_BYTES * (REG_ARGS_MAX_COUNT + 1) - lastArg->offset);
     } else {
-        dumpf("  mov DWORD PTR %d[rax], %d\n",
-                offset, ONE_WORD_BYTES * REG_ARGS_MAX_COUNT);
+        dumpf("  mov DWORD PTR %d[rax], %d\n", offset,
+                ONE_WORD_BYTES * REG_ARGS_MAX_COUNT);
     }
 
     offset += sizeOf(&Types.Int);
@@ -774,8 +774,7 @@ static void genCodeFunction(const Node *n) {
                 offset = -arg->offset;
         for (int i = regargs; i < REG_ARGS_MAX_COUNT; ++i) {
             offset += ONE_WORD_BYTES;
-            dumpf("  mov %d[rbp], %s\n",
-                    offset, getReg(argRegs[i], ONE_WORD_BYTES));
+            dumpf("  mov %d[rbp], %s\n", offset, getReg(argRegs[i], ONE_WORD_BYTES));
         }
     }
 
@@ -933,7 +932,7 @@ static void genCodeAdd(const Node *n) {
         if (isWorkLikePointer(n->lhs->type)) { // ptr + num
             dumps("  pop rax");
             dumps("  pop rdi");
-        } else {  // num + ptr
+        } else { // num + ptr
             dumps("  pop rdi");
             dumps("  pop rax");
         }
@@ -1044,10 +1043,10 @@ void genCode(const Node *n) {
         dumps("  pop rax");
         switch (destSize) {
         case 4:
-            dumps("  movsx rax, eax");  // We only have signed variables yet.
+            dumps("  movsx rax, eax"); // We only have signed variables yet.
             break;
         case 1:
-            dumps("  movsx rax, al");  // We only have signed variable yet.
+            dumps("  movsx rax, al"); // We only have signed variable yet.
             break;
         default:
             errorUnreachable();
@@ -1130,7 +1129,7 @@ void genCode(const Node *n) {
         dumpf("  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
         dumps("  push rax");
     } else if (n->kind == NodeLVar || n->kind == NodeGVar ||
-            n->kind == NodeMemberAccess) {
+               n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
         // rvalue, not a lvalue.
         genCodeLVal(n);
