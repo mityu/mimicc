@@ -110,6 +110,9 @@ typedef struct {
     int loopBlockID;
 } DumpEnv;
 static DumpEnv dumpEnv;
+static void genCodeInitVarArray(const Node *n, TypeInfo *varType);
+static void genCodeInitVarStruct(const Node *n, TypeInfo *varType);
+static void genCodeInitVar(const Node *n, TypeInfo *varType);
 
 static int isExprNode(const Node *n) {
     // All cases in this switch uses fallthrough.
@@ -163,6 +166,7 @@ static int isExprNode(const Node *n) {
     case NodeClearStack:
     case NodeVaStart:
     case NodeNop:
+    case NodeInitVar:
         return 0;
     case NodeConditional:
         if (n->lhs->type->type == TypeVoid)
@@ -173,6 +177,27 @@ static int isExprNode(const Node *n) {
     }
     errorUnreachable();
     return 0;
+}
+
+static void fillNodeNum(Node *n, int val) {
+    n->kind = NodeNum;
+    n->val = val;
+    n->type = &Types.Int;
+}
+
+static void fillNodeAdd(Node *n, Node *var, Node *shifter, TypeInfo *type) {
+    n->kind = NodeAdd;
+    n->lhs = var;
+    n->rhs = shifter;
+    n->type = type;
+}
+
+static void fillNodeInitVar(Node *n, Token *token, Node *var, Node *init) {
+    n->kind = NodeInitVar;
+    n->token = token;
+    n->lhs = var;
+    n->rhs = init;
+    n->type = &Types.Void;
 }
 
 // Return an integer corresponding to 1 for given type.
@@ -1007,12 +1032,145 @@ static void genCodeSub(const Node *n) {
     }
 }
 
+static void genCodeInitVarArray(const Node *n, TypeInfo *varType) {
+    if (!n)
+        return;
+
+    Node *var = n->lhs;
+
+    if (varType->type == TypeArray) {
+        if (n->rhs->kind == NodeInitList) {
+            int index = 0;
+            Node *initVal = n->rhs->body;
+            for (; initVal; initVal = initVal->next, ++index) {
+                Node constNum = {};
+                Node elem = {};
+                Node initNode = {};
+
+                fillNodeNum(&constNum, index);
+                fillNodeAdd(&elem, var, &constNum, varType);
+                fillNodeInitVar(&initNode, var->token, &elem, initVal);
+
+                genCodeInitVarArray(&initNode, varType->baseType);
+            }
+        } else if (n->rhs->kind == NodeLiteralString) {
+            LiteralString *string = n->rhs->token->literalStr;
+            int len = 0;
+            int elemIdx = 0;
+
+            if (!string)
+                errorUnreachable();
+
+            len = strlen(string->string);
+
+            // Checks for array size is done later.
+            for (int i = 0; i < len; ++i) {
+                Node chNode = {};
+                Node numNode = {};
+                Node shiftptr = {};
+                Node elem = {};
+                Node initNode = {};
+                char c = string->string[i];
+
+                if (c == '\\') {
+                    char cc = 0;
+                    if (checkEscapeChar(string->string[++i], &cc))
+                        c = cc;
+                    else
+                        --i;
+                }
+
+                fillNodeNum(&chNode, (int)c);
+                fillNodeNum(&numNode, elemIdx);
+                fillNodeAdd(&shiftptr, var, &numNode, varType);
+
+                elem.kind = NodeDeref;
+                elem.rhs = &shiftptr;
+                elem.type = varType->baseType;
+
+                initNode.kind = NodeAssign;
+                initNode.lhs = &elem;
+                initNode.rhs = &chNode;
+                initNode.type = elem.type;
+                initNode.token = var->token;
+
+                elemIdx++;
+
+                genCodeAssign(&initNode);
+                dumps("  pop rax");
+            }
+        } else {
+            errorUnreachable();
+        }
+    } else {
+        Node deref = {};
+        Node init = {};
+
+        deref.kind = NodeDeref;
+        deref.lhs = NULL;
+        deref.rhs = var;
+        deref.type = varType;
+        deref.token = var->token;
+
+        fillNodeInitVar(&init, var->token, &deref, n->rhs);
+
+        genCodeInitVar(&init, deref.type);
+    }
+}
+
+static void genCodeInitVarStruct(const Node *n, TypeInfo *varType) {
+    if (varType->type != TypeStruct)
+        errorUnreachable();
+
+    Node *var = n->lhs;
+    if (n->rhs->type->type == TypeStruct) {
+        Node initNode = *n;
+        initNode.kind = NodeAssignStruct;
+        initNode.type = n->lhs->type;
+        genCode(&initNode);
+    } else {
+        Node *initVal = n->rhs->body;
+        Obj *member = var->type->structDef->members;
+
+        for (; initVal && member; initVal = initVal->next, member = member->next) {
+            Node access = {};
+            Node initNode = {};
+
+            access.kind = NodeMemberAccess;
+            access.lhs = var;
+            access.type = member->type;
+            access.token = member->token;
+
+            fillNodeInitVar(&initNode, var->token, &access, initVal);
+
+            genCode(&initNode);
+        }
+    }
+}
+
+static void genCodeInitVar(const Node *n, TypeInfo *varType) {
+    if (varType->type == TypeArray) {
+        genCodeInitVarArray(n, varType);
+    } else if (varType->type == TypeStruct) {
+        genCodeInitVarStruct(n, varType);
+    } else {
+        // TODO: Support this: char *str = "...";
+        Node copy = *n;
+        copy.kind = NodeAssign;
+        copy.type = varType;
+        genCodeAssign(&copy);
+        dumps("  pop rax");
+    }
+}
+
 void genCode(const Node *n) {
     if (!n)
         return;
 
     if (n->kind == NodeNop) {
         // Do nothing.
+    } else if (n->kind == NodeInitVar) {
+        genCodeInitVar(n, n->lhs->type);
     } else if (n->kind == NodeClearStack) {
         int entire, rest;
         entire = rest = sizeOf(n->rhs->type);

@@ -34,6 +34,15 @@ _Noreturn void errorAt(Token *loc, const char *fmt, ...) {
     int indent = 0;
     va_list ap;
 
+    if (!loc) {
+        fputs("Error while processing internal node: ", stderr);
+        va_start(ap, fmt);
+        vfprintf(stderr, fmt, ap);
+        fprintf(stderr, "\n");
+        va_end(ap);
+        exit(1);
+    }
+
     va_start(ap, fmt);
 
     head = (char *)(loc->str - loc->column);
@@ -174,7 +183,8 @@ int main(int argc, char *argv[]) {
     else if (!outFile)
         cmdlineArgsError(argc, argv, argc, "No output file is specified");
 
-#define PrimitiveType(type) (TypeInfo){NULL, type}
+#define PrimitiveType(type)                                                              \
+    (TypeInfo) { NULL, type }
     Types.None = PrimitiveType(TypeNone);
     Types.Void = PrimitiveType(TypeVoid);
     Types.Int = PrimitiveType(TypeInt);

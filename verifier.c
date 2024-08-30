@@ -4,10 +4,18 @@
 #include <stdlib.h>
 
 static void verifyTypeFCall(const Node *n);
+static void verityTypeInitVar(Node *var, Node *initializer, Token *token);
 static int checkRelationallyComparable(const TypeInfo *t1, const TypeInfo *t2);
 static int isIntegerType(const TypeInfo *t);
 static int isArithmeticType(const TypeInfo *t);
 static int isScalarType(const TypeInfo *t);
+
+static void fillNodeBinary(Node *n, NodeKind kind, Token *token, Node *lhs, Node *rhs) {
+    n->kind = kind;
+    n->token = token;
+    n->lhs = lhs;
+    n->rhs = rhs;
+}
 
 void verifyFlow(const Node *n) {
     static int loopDepth = 0;
@@ -226,6 +234,8 @@ void verifyType(const Node *n) {
         // TODO: Check n->rhs lefts a value (?)
         // TODO: Check cast operation can be carried out.
         verifyType(n->rhs);
+    } else if (n->kind == NodeInitVar) {
+        verityTypeInitVar(n->lhs, n->rhs, n->rhs->token);
     }
 }
 
@@ -291,6 +301,82 @@ static void verifyTypeFCall(const Node *n) {
         actualArgs = NULL;
     }
 #undef ARGS_BUFFER_SIZE
+}
+
+static void verityTypeInitVar(Node *var, Node *initializer, Token *token) {
+    const TypeKind type = var->type->type;
+
+    if (type == TypeArray) {
+        if (initializer->kind == NodeInitList) {
+            int initCount = 0;
+            for (Node *e = initializer->body; e; e = e->next)
+                initCount++;
+
+            if (initCount > var->type->arraySize) {
+                errorAt(initializer->token, "%d items given to array sized %d.",
+                        initCount, var->type->arraySize);
+            }
+
+            for (Node *init = initializer->body; init; init = init->next) {
+                Node elem = *var;
+                elem.type = elem.type->baseType;
+
+                verityTypeInitVar(&elem, init, token);
+            }
+        } else if (initializer->kind == NodeLiteralString) {
+            LiteralString *string = initializer->token->literalStr;
+            if (!string)
+                errorUnreachable();
+
+            if (var->type->baseType->type != TypeChar) {
+                errorAt(var->token, "char[] required.");
+            } else if (string->len > var->type->arraySize) {
+                errorAt(initializer->token, "String overflows.");
+            }
+        } else {
+            errorAt(initializer->token, "Initializer-list is expected for array.");
+        }
+    } else if (type == TypeStruct) {
+        if (initializer->type->type == TypeStruct) {
+            // Check if given struct and variable type is same.
+            Node assign = {};
+            fillNodeBinary(&assign, NodeAssignStruct, token, var, initializer);
+            verifyType(&assign);
+        } else if (initializer->kind == NodeInitList) {
+            int initCount = 0;
+            int memberCount = 0;
+            for (Node *e = initializer->body; e; e = e->next)
+                initCount++;
+            for (Obj *m = var->type->structDef->members; m; m = m->next)
+                memberCount++;
+
+            if (initCount > memberCount)
+                errorAt(token, "Too much items are given.");
+
+            // Check whether each member is assignable.
+            Obj *m = var->type->structDef->members;
+            Node *initVal = initializer->body;
+            for (; m && initVal; m = m->next, initVal = initVal->next) {
+                Node memberNode = {};
+
+                fillNodeBinary(&memberNode, NodeMemberAccess, var->token, var, NULL);
+                memberNode.type = m->type;
+
+                verityTypeInitVar(&memberNode, initVal, token);
+            }
+        } else {
+            errorAt(token, "Initializer-list is expected here");
+        }
+    } else {
+        if (initializer->kind == NodeInitList) {
+            errorAt(initializer->token, "Cannot have initializer-list here.");
+        }
+
+        // Check given value is assignable to variable.
+        Node assign = {};
+        fillNodeBinary(&assign, NodeAssign, initializer->token, var, initializer);
+        verifyType(&assign);
+    }
 }
 
 // Check if rhs is assignable to lhs.  Return TRUE if can.

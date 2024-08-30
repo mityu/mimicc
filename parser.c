@@ -25,9 +25,6 @@ static void structBody(Struct *s);
 static Enum *enumDeclaration(const ObjAttr *attr);
 static void enumBody(Enum *e);
 static Node *varDeclaration(void);
-static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
-static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
-static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer);
 static Node *varInitializer(void);
 static Node *varInitializerList(void);
 static Node *expr(void);
@@ -1597,6 +1594,7 @@ static Node *varDeclaration(void) {
         // Parse initializer statement
         if (consumeReserved("=")) {
             Node *initializer = NULL;
+            Token *tokenSave = globals.token->prev;
 
             if (attr.isExtern)
                 errorAt(globals.token->prev, "Extern variable cannot have initializers");
@@ -1608,10 +1606,25 @@ static Node *varDeclaration(void) {
             } else {
                 n->next = newNodeBinary(NodeClearStack, NULL, varNode, &Types.None);
                 n = n->next;
-                n->next = buildVarInitNodes(varNode, varType, initializer);
-
-                while (n->next)
-                    n = n->next;
+                n->next = newNodeBinary(NodeInitVar, varNode, initializer, &Types.None);
+                n->next->token = tokenSave;
+                n = n->next;
+                if (varType->type == TypeArray && varType->arraySize == -1) {
+                    if (initializer->kind == NodeInitList) {
+                        int size = 0;
+                        for (Node *e = initializer->body; e; e = e->next)
+                            size++;
+                        varType->arraySize = size;
+                    } else if (initializer->kind == NodeLiteralString) {
+                        LiteralString *string = initializer->token->literalStr;
+                        if (!string)
+                            errorUnreachable();
+                        varType->arraySize = string->len;
+                    } else {
+                        errorAt(initializer->token,
+                                "Initializer-list is expected for array");
+                    }
+                }
             }
         } else if (varType->type == TypeArray && varType->arraySize == -1) {
             errorAt(globals.token, "Initializer list required.");
@@ -1661,155 +1674,6 @@ static Node *varDeclaration(void) {
     initNode = newNode(NodeBlock, &Types.None);
     initNode->body = headNode.next;
     return initNode;
-}
-
-static Node *buildVarInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
-    Node head = {};
-    Node *n = &head;
-    if (varType->type == TypeArray) {
-        if (initializer->kind == NodeInitList || initializer->kind == NodeLiteralString) {
-            n->next = buildArrayInitNodes(varNode, varType, initializer);
-        } else {
-            errorAt(initializer->token, "Initializer-list is expected here.");
-        }
-    } else if (varType->type == TypeStruct) {
-        if (initializer->type->type == TypeStruct)
-            n->next = newNodeBinary(NodeAssignStruct, varNode, initializer, varType);
-        else
-            n->next = buildStructInitNodes(varNode, varType, initializer);
-    } else {
-        if (initializer->kind == NodeInitList) {
-            errorAt(initializer->token, "Initializer-list is not expected here.");
-        }
-        n->next = newNodeBinary(NodeAssign, varNode, initializer, varType);
-    }
-    return head.next;
-}
-
-static Node *buildArrayInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
-    if (varType->type == TypeArray) {
-        int elemCount = 0;
-        int arraySize = varType->arraySize;
-
-        if (initializer->kind == NodeInitList) {
-            int index = 0;
-            Node head = {};
-            Node *node = &head;
-
-            for (Node *elem = initializer->body; elem; elem = elem->next)
-                elemCount++;
-
-            if (arraySize == -1) {
-                arraySize = elemCount;
-                varType->arraySize = arraySize;
-            } else if (elemCount > arraySize) {
-                errorAt(initializer->token, "%d items given to array sized %d.",
-                        elemCount, arraySize);
-            }
-
-            index = 0;
-            for (Node *init = initializer->body; init; init = init->next) {
-                Node *elem = newNodeBinary(NodeAdd, varNode, newNodeNum(index), varType);
-                index++;
-                node->next = buildArrayInitNodes(elem, varType->baseType, init);
-                while (node->next)
-                    node = node->next;
-            }
-            return head.next;
-        } else if (initializer->kind == NodeLiteralString) {
-            // TODO: Check type of lhs is char[] or char*?
-            LiteralString *string = initializer->token->literalStr;
-            Node head = {};
-            Node *node = &head;
-            int len = 0;
-            int elemIdx = 0;
-
-            if (!string)
-                errorUnreachable();
-
-            len = strlen(string->string);
-
-            // Checks for array size is done later.
-            for (int i = 0; i < len; ++i) {
-                Node *shiftptr = NULL;
-                Node *elem = NULL;
-                char c = string->string[i];
-
-                if (c == '\\') {
-                    char cc = 0;
-                    if (checkEscapeChar(string->string[++i], &cc))
-                        c = cc;
-                    else
-                        --i;
-                }
-
-                shiftptr = newNodeBinary(NodeAdd, varNode, newNodeNum(elemIdx), varType);
-                elem = newNodeBinary(NodeDeref, NULL, shiftptr, varType->baseType);
-                node->next =
-                        newNodeBinary(NodeAssign, elem, newNodeNum((int)c), elem->type);
-                node = node->next;
-                elemIdx++;
-            }
-
-            elemCount = elemIdx + 1;
-            if (arraySize == -1) {
-                arraySize = elemCount;
-                varType->arraySize = arraySize;
-            } else if (elemCount > arraySize) {
-                errorAt(initializer->token, "%d items given to array sized %d.",
-                        elemCount, arraySize);
-            }
-
-            return head.next;
-        } else {
-            errorAt(initializer->token, "Initializer-list is expected for array");
-        }
-    } else {
-        Node *elem = newNodeBinary(NodeDeref, NULL, varNode, varType);
-        return buildVarInitNodes(elem, elem->type, initializer);
-    }
-}
-
-static Node *buildStructInitNodes(Node *varNode, TypeInfo *varType, Node *initializer) {
-    Node head = {};
-    Node *node = &head;
-    Node *init = NULL;
-    Obj *member = NULL;
-    int initLen = 0;
-    int memberCount = 0;
-
-    if (varType->type != TypeStruct)
-        errorUnreachable();
-    else if (initializer->kind != NodeInitList)
-        errorAt(initializer->token, "Initializer-list is expected here.");
-
-    for (Node *c = initializer->body; c; c = c->next)
-        initLen++;
-    for (member = varNode->type->structDef->members; member; member = member->next)
-        memberCount++;
-
-    if (initLen > memberCount)
-        errorAt(initializer->token, "Too much items are given.");
-
-    member = varNode->type->structDef->members;
-    init = initializer->body;
-    for (;;) {
-        Node *memberNode = NULL;
-
-        if (!(init && member))
-            break;
-
-        memberNode = newNodeBinary(NodeMemberAccess, varNode, NULL, member->type);
-        memberNode->token = member->token;
-        node->next = buildVarInitNodes(memberNode, memberNode->type, init);
-
-        init = init->next;
-        member = member->next;
-        while (node->next)
-            node = node->next;
-    }
-
-    return head.next;
 }
 
 static Node *varInitializer(void) {
@@ -2476,13 +2340,8 @@ static Node *compoundLiteral(void) {
         init = varInitializer();
 
         n = newNode(NodeExprList, type);
-        n->body = buildStructInitNodes(objNode, type, init);
-        for (Node *c = n->body; c; c = c->next) {
-            if (!c->next) {
-                c->next = objNode;
-                break;
-            }
-        }
+        n->body = newNodeBinary(NodeInitVar, objNode, init, type);
+        n->body->next = objNode;
         return n;
     }
 }
