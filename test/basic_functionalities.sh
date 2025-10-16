@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Basic functionalities test to guarantee functions in test.framework (mainly
 # assert* functions) works correctly.
 
