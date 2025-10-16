@@ -756,6 +756,7 @@ static void genCodeFunction(const Node *n) {
         regargs = REG_ARGS_MAX_COUNT;
 
     dumpc('\n');
+    dumps(".section .text.startup,\"ax\",@progbits");
     if (!n->obj->isStatic) {
         dumpf(".globl %.*s\n", n->obj->token->len, n->obj->token->str);
     }
@@ -812,6 +813,7 @@ static void genCodeFunction(const Node *n) {
     dumps("  mov rsp, rbp");
     dumps("  pop rbp");
     dumps("  ret");
+    dumps(".section .note.GNU-stack,\"\",@progbits");
 
     dumpEnv.currentFunc = NULL;
 }
