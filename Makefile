@@ -1,7 +1,7 @@
 CFLAGS=-std=c11 -static
 TARGET=./mimicc
 TARGET_DEBUG=$(TARGET)_debug
-SRC=main.c tokenizer.c preproc.c parser.c codegen.c verifier.c
+SRC=main.c tokenizer.c preproc.c parser.c asm.c codegen.c verifier.c
 OBJ=$(SRC:%.c=obj/%.o)
 INCLUDE=./include
 HEADERS=$(wildcard $(INCLUDE)/*)

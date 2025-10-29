@@ -330,6 +330,55 @@ struct Globals {
 };
 extern Globals globals;
 
+typedef enum {
+    RAX,
+    RDI,
+    RSI,
+    RDX,
+    RCX,
+    RBP,
+    RSP,
+    RBX,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    R15,
+    RegCount,
+} RegKind;
+
+typedef enum {
+    Reg8,
+    Reg16,
+    Reg32,
+    Reg64,
+} RegSize;
+
+typedef struct Register Register;
+struct Register {
+    RegKind kind;
+    RegSize size;
+};
+
+typedef enum {
+    AsmAnyText,
+    AsmPush,
+    AsmPop,
+    AsmLabel,
+} AsmInstKind;
+
+typedef struct AsmInst AsmInst;
+struct AsmInst {
+    AsmInst *next;
+    AsmInstKind kind;
+
+    char *text;    //  AsmAnyText, AsmLabel, etc.
+    Register *reg; // Target register of AsmPush/AsmPop.
+};
+
 // main.c
 void *safeAlloc(size_t size);
 _Noreturn void error(const char *fmt, ...);
@@ -340,9 +389,12 @@ int dumpf(const char *fmt, ...);
 FilePath *analyzeFilepath(const char *path, const char *display);
 char *readFile(const char *path);
 
+// asm.c
+void genAsm(const Node *n);
+void genAsmGlobals(void);
+
 // codegen.c
-void genCode(const Node *n);
-void genCodeGlobals(void);
+void genCode(const AsmInst *inst);
 
 // tokenizer.c
 int isSpace(char c);

@@ -183,8 +183,7 @@ int main(int argc, char *argv[]) {
     else if (!outFile)
         cmdlineArgsError(argc, argv, argc, "No output file is specified");
 
-#define PrimitiveType(type)                                                              \
-    (TypeInfo) { NULL, type }
+#define PrimitiveType(type) (TypeInfo){NULL, type}
     Types.None = PrimitiveType(TypeNone);
     Types.Void = PrimitiveType(TypeVoid);
     Types.Int = PrimitiveType(TypeInt);
@@ -213,8 +212,8 @@ int main(int argc, char *argv[]) {
         error("Failed to open file: %s", outFile);
 
     dumps(".intel_syntax noprefix");
-    genCode(globals.code);
-    genCodeGlobals();
+    genAsm(globals.code);
+    genAsmGlobals();
 
     fclose(globals.destFile);
 
