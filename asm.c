@@ -553,6 +553,9 @@ static void genCodeIf(const Node *n) {
                     asmDumpf("  je .Lend%d\n", n->blockID);
             }
             genAsm(e->body);
+            if (isExprNode(e->body)) {
+                asmDumps("  pop rax");
+            }
             asmDumpf("  jmp .Lend%d\n", n->blockID);
         }
     }
@@ -1160,6 +1163,7 @@ static void genCodeInitVarStruct(const Node *n, TypeInfo *varType) {
         initNode.kind = NodeAssignStruct;
         initNode.type = n->lhs->type;
         genAsm(&initNode);
+        asmDumps("  pop rax");
     } else {
         Node *initVal = n->rhs->body;
         Obj *member = var->type->structDef->members;
