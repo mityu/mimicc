@@ -115,12 +115,20 @@ static void genCodeInitVarArray(const Node *n, TypeInfo *varType);
 static void genCodeInitVarStruct(const Node *n, TypeInfo *varType);
 static void genCodeInitVar(const Node *n, TypeInfo *varType);
 
+static AsmInst asmCodeHead = {};
+static AsmInst *curAsm = &asmCodeHead;
+const AsmInst *getAsm(void) {
+    return asmCodeHead.next;
+}
+
 static AsmInst *newAsmInst(AsmInstKind kind) {
+    static AsmInst zero = {};
     AsmInst *inst = safeAlloc(sizeof(AsmInst));
+
+    *inst = zero;
     inst->kind = kind;
     inst->next = NULL;
     inst->text = NULL;
-    inst->reg = NULL;
     return inst;
 }
 
@@ -146,20 +154,55 @@ static AsmInst *getLastAsmInst(AsmInst *inst) {
     return inst;
 }
 
-static int asmDumpc(int c) { return dumpc(c); }
-static int asmDumps(const char *s) { return dumps(s); }
-
-static int asmDumpf(const char *fmt, ...) {
+/**
+ * Like sprintf(), but with safe and automatic allocation of a new memory.
+ * Returns the pointer to newly allocated memory with contents of formatted string.
+ */
+static char *format(const char *fmt, ...) {
+    int n = 0;
+    char *stack;
     va_list ap;
-    int retval;
-
-    if (!globals.destFile)
-        errorUnreachable();
 
     va_start(ap, fmt);
-    retval = vfprintf(globals.destFile, fmt, ap);
+    n = vsnprintf(NULL, 0, fmt, ap);
+    if (n < 0) {
+        va_end(ap);
+        error("vsnprintf() error: returned: %d", n);
+    }
     va_end(ap);
-    return retval;
+
+    va_start(ap, fmt);
+    stack = safeAlloc(sizeof(char) * (++n)); // One more space for NUL at the end of string.
+    vsnprintf(stack, n, fmt, ap);
+    va_end(ap);
+    return stack;
+}
+
+static int asmDumps(char *s) {
+    curAsm->next = newAsmInstAnyText(s);
+    curAsm = curAsm->next;
+}
+
+static int asmDumpf(const char *fmt, ...) {
+    int n = 0;
+    char *stack;
+    va_list ap;
+
+    va_start(ap, fmt);
+    n = vsnprintf(NULL, 0, fmt, ap);
+    if (n < 0) {
+        va_end(ap);
+        error("vsnprintf() error: returned: %d", n);
+    }
+    va_end(ap);
+
+    va_start(ap, fmt);
+    stack = safeAlloc(sizeof(char) * (++n)); // One more space for NUL at the end of string.
+    vsnprintf(stack, n, fmt, ap);
+    va_end(ap);
+
+    curAsm->next = newAsmInstAnyText(stack);
+    curAsm = curAsm->next;
 }
 
 static int isExprNode(const Node *n) {
@@ -788,7 +831,7 @@ static void genCodeFunction(const Node *n) {
     if (regargs > REG_ARGS_MAX_COUNT)
         regargs = REG_ARGS_MAX_COUNT;
 
-    asmDumpc('\n');
+    // asmDumpc('\n');
     asmDumps(".section .text.startup,\"ax\",@progbits");
     if (!n->obj->isStatic) {
         asmDumpf(".globl %.*s\n", n->obj->token->len, n->obj->token->str);

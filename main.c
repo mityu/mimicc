@@ -159,6 +159,8 @@ _Noreturn void cmdlineArgsError(int argc, char *argv[], int at, const char *msg)
     exit(1);
 }
 
+const AsmInst *getAsm(void); // TODO: tmp
+
 int main(int argc, char *argv[]) {
     char *inFile = NULL;
     char *outFile = NULL;
@@ -214,6 +216,7 @@ int main(int argc, char *argv[]) {
     dumps(".intel_syntax noprefix");
     genAsm(globals.code);
     genAsmGlobals();
+    genCode(getAsm());
 
     fclose(globals.destFile);
 

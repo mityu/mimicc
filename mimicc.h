@@ -376,7 +376,7 @@ struct AsmInst {
     AsmInstKind kind;
 
     char *text;    //  AsmAnyText, AsmLabel, etc.
-    Register *reg; // Target register of AsmPush/AsmPop.
+    Register reg; // Target register of AsmPush/AsmPop.
 };
 
 // main.c
