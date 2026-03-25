@@ -122,6 +122,10 @@ static AsmInst *genCodeInitVarStruct(const Node *n, TypeInfo *varType);
 static AsmInst *genCodeInitVar(const Node *n, TypeInfo *varType);
 static char *vformat(const char *fmt, va_list ap);
 
+static int isEqualRegister(const Register *a, const Register *b) {
+    return a->kind == b->kind && a->size == b->size;
+}
+
 static AsmInst *newAsmInst(AsmInstKind kind) {
     static AsmInst zero = {};
     AsmInst *inst = safeAlloc(sizeof(AsmInst));
@@ -133,10 +137,29 @@ static AsmInst *newAsmInst(AsmInstKind kind) {
     return inst;
 }
 
+static AsmInst *newAsmInstMov(AsmInstDataMov *mov) {
+    AsmInst *inst = newAsmInst(AsmMov);
+    inst->data.mov = *mov;
+    return inst;
+}
+
 static AsmInst *newAsmInstAnyText(char *text) {
     AsmInst *inst = newAsmInst(AsmAnyText);
     inst->text = text;
     return inst;
+}
+
+static void freeAsmInst(AsmInst *inst) {
+    switch (inst->kind) {
+    case AsmAnyText:
+        // TODO: We cannot apply free() for inst->text now since it may be
+        // statically stored string.
+        // safeFree(inst->text);
+        break;
+    default:
+        break;
+    }
+    safeFree(inst);
 }
 
 /**
@@ -169,7 +192,29 @@ static void appendAsmInst(AsmInstList *list, AsmInst *inst) {
 }
 
 /**
- * Append new AsmInstAnyText-typed instruction after `inst`.
+ * Append new AsmPush-typed instruction after `list`.
+ */
+static void appendAsmInstPush(AsmInstList *list, Register *r) {
+    AsmInst *inst = newAsmInst(AsmPush);
+    inst->reg = *r;
+    appendAsmInst(list, inst);
+}
+
+/**
+ * Append new AsmPop-typed instruction after `list`.
+ */
+static void appendAsmInstPop(AsmInstList *list, Register *r) {
+    AsmInst *inst = newAsmInst(AsmPop);
+    inst->reg = *r;
+    appendAsmInst(list, inst);
+}
+
+static void appendAsmInstMov(AsmInstList *list, AsmInstDataMov *mov) {
+    appendAsmInst(list, newAsmInstMov(mov));
+}
+
+/**
+ * Append new AsmAnyText-typed instruction after `list`.
  */
 static void appendAsmInstAnyText(AsmInstList *list, const char *fmt, ...) {
     va_list ap;
@@ -345,11 +390,6 @@ static int getAlternativeOfOneForType(const TypeInfo *ti) {
     return 1;
 }
 
-// const int Reg8 = 3;
-// const int Reg16 = 2;
-// const int Reg32 = 1;
-// const int Reg64 = 0;
-
 // clang-format off
 static const char *RegTable[RegCount][4] = {
     {"rax", "eax",  "ax",   "al"},
@@ -393,6 +433,11 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 */
 
 static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {RDI, RSI, RDX, RCX, R8, R9};
+
+#define regobj(kind, size) (&(Register){(kind), (size)})
+#define reg64obj(kind) regobj(kind, Reg64)
+#define asmPushRax() appendAsmInstPush(&asmlist, reg64obj(RAX))
+#define asmPopRax() appendAsmInstPop(&asmlist, reg64obj(RAX))
 
 static AsmInst *genCodeGVarInit(GVarInit *initializer) {
     AsmInstList asmlist;
@@ -520,25 +565,25 @@ static AsmInst *genCodeLVal(const Node *n) {
     if (n->kind == NodeGVar || (n->kind == NodeLVar && n->obj->isExtern)) {
         appendAsmInstAnyText(
                 &asmlist, "  lea rax, %.*s[rip]\n", n->token->len, n->token->str);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeMemberAccess) {
         Obj *m = findStructMember(n->lhs->type->structDef, n->token->str, n->token->len);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  add rax, %d\n", m->offset);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeLVar && n->obj->isStatic) {
         appendAsmInstAnyText(
                 &asmlist, "  lea rax, .StaticVar%d[rip]\n", n->obj->staticVarID);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->obj->type->type == TypeFunction) {
         appendAsmInstAnyText(&asmlist, "  mov rax, QWORD PTR %.*s@GOTPCREL[rip]\n",
                 n->token->len, n->token->str);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else {
         appendAsmInstAnyText(&asmlist, "  mov rax, rbp");
         appendAsmInstAnyText(&asmlist, "  sub rax, %d\n", n->obj->offset);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     }
 
     return getRawAsmInstList(&asmlist);
@@ -607,7 +652,7 @@ static AsmInst *genCodeAssign(const Node *n) {
     // +---------------------+
     // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  pop rdi");
     switch (sizeOf(n->type)) {
     case 8:
@@ -638,7 +683,7 @@ static AsmInst *genCodeReturn(const Node *n) {
         if (!isExprNode(n->lhs))
             errorAt(n->lhs->token, "Expression doesn't left value.");
         appendAsmInst(&asmlist, genAsm(n->lhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
     appendAsmInstAnyText(&asmlist, "  jmp .Lreturn_%.*s\n",
             dumpEnv.currentFunc->token->len, dumpEnv.currentFunc->token->str);
@@ -655,7 +700,7 @@ static AsmInst *genCodeIf(const Node *n) {
 
     int elseblockCount = 0;
     appendAsmInst(&asmlist, genAsm(n->condition));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
     if (n->elseblock) {
         appendAsmInstAnyText(&asmlist, "  je .Lelse%d_%d\n", n->blockID, elseblockCount);
@@ -664,7 +709,7 @@ static AsmInst *genCodeIf(const Node *n) {
     }
     appendAsmInst(&asmlist, genAsm(n->body));
     if (isExprNode(n->body)) {
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
 
     if (n->elseblock) {
@@ -676,7 +721,7 @@ static AsmInst *genCodeIf(const Node *n) {
             ++elseblockCount;
             if (e->kind == NodeElseif) {
                 appendAsmInst(&asmlist, genAsm(e->condition));
-                appendAsmInstAnyText(&asmlist, "  pop rax");
+                asmPopRax();
                 appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
                 if (e->next)
                     appendAsmInstAnyText(
@@ -686,7 +731,7 @@ static AsmInst *genCodeIf(const Node *n) {
             }
             appendAsmInst(&asmlist, genAsm(e->body));
             if (isExprNode(e->body)) {
-                appendAsmInstAnyText(&asmlist, "  pop rax");
+                asmPopRax();
             }
             appendAsmInstAnyText(&asmlist, "  jmp .Lend%d\n", n->blockID);
         }
@@ -709,7 +754,7 @@ static AsmInst *genCodeSwitch(const Node *n) {
     loopBlockIDSave = dumpEnv.loopBlockID;
     dumpEnv.loopBlockID = n->blockID;
     appendAsmInst(&asmlist, genAsm(n->condition));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     for (SwitchCase *c = n->cases; c; c = c->next) {
         if (!c->node->condition) {
             haveDefaultLabel = 1;
@@ -765,7 +810,7 @@ static AsmInst *genCodeFor(const Node *n) {
         // Not always initializer statement left a value on stack.  E.g.
         // Variable declarations won't left values on stack.
         if (isExprNode(n->initializer))
-            appendAsmInstAnyText(&asmlist, "  pop rax");
+            asmPopRax();
     }
     appendAsmInstAnyText(&asmlist, ".Lbegin%d:\n", n->blockID);
     if (n->condition) {
@@ -773,17 +818,17 @@ static AsmInst *genCodeFor(const Node *n) {
     } else {
         appendAsmInstAnyText(&asmlist, "  push 1");
     }
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
     appendAsmInstAnyText(&asmlist, "  je .Lend%d\n", n->blockID);
     appendAsmInst(&asmlist, genAsm(n->body));
     if (n->body && isExprNode(n->body)) {
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
     appendAsmInstAnyText(&asmlist, ".Literator%d:\n", n->blockID);
     if (n->iterator) {
         appendAsmInst(&asmlist, genAsm(n->iterator));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
     appendAsmInstAnyText(&asmlist, "  jmp .Lbegin%d\n", n->blockID);
     appendAsmInstAnyText(&asmlist, ".Lend%d:\n", n->blockID);
@@ -805,11 +850,11 @@ static AsmInst *genCodeDoWhile(const Node *n) {
 
     appendAsmInst(&asmlist, genAsm(n->body));
     if (isExprNode(n->body)) {
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
     appendAsmInstAnyText(&asmlist, ".Literator%d:\n", n->blockID);
     appendAsmInst(&asmlist, genAsm(n->condition));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
     appendAsmInstAnyText(&asmlist, "  jne .Lbegin%d\n", n->blockID);
     appendAsmInstAnyText(&asmlist, ".Lend%d:\n", n->blockID);
@@ -897,7 +942,7 @@ static AsmInst *genCodeFCall(const Node *n) {
         appendAsmInstAnyText(
                 &asmlist, "  add rsp, %d /* Pop overflow args */\n", stackArgSize);
 
-    appendAsmInstAnyText(&asmlist, "  push rax");
+    asmPushRax();
 
     return getRawAsmInstList(&asmlist);
 }
@@ -915,7 +960,7 @@ static AsmInst *genCodeVaStart(const Node *n) {
             lastArg = arg;
 
     appendAsmInst(&asmlist, genCodeLVal(n->fcall->args->next));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
 
     if (n->parentFunc->func->argsCount < REG_ARGS_MAX_COUNT) {
         appendAsmInstAnyText(&asmlist, "  mov DWORD PTR %d[rax], %d\n", offset,
@@ -1041,7 +1086,7 @@ static AsmInst *genCodeIncrement(const Node *n, int prefix) {
 
     Node *expr = prefix ? n->rhs : n->lhs;
     appendAsmInst(&asmlist, genCodeLVal(expr));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  mov rdi, rax");
     switch (sizeOf(n->type)) {
     case 8:
@@ -1061,7 +1106,7 @@ static AsmInst *genCodeIncrement(const Node *n, int prefix) {
 
     // Postfix increment operator refers the value before increment.
     if (!prefix)
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
 
     switch (sizeOf(n->type)) {
     case 8:
@@ -1084,7 +1129,7 @@ static AsmInst *genCodeIncrement(const Node *n, int prefix) {
 
     // Prefix increment operator refers the value after increment.
     if (prefix)
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
 
     // Reflect the expression result on variable.
     switch (sizeOf(n->type)) {
@@ -1113,7 +1158,7 @@ static AsmInst *genCodeDecrement(const Node *n, int prefix) {
 
     Node *expr = prefix ? n->rhs : n->lhs;
     appendAsmInst(&asmlist, genCodeLVal(expr));
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     appendAsmInstAnyText(&asmlist, "  mov rdi, rax");
     switch (sizeOf(n->type)) {
     case 8:
@@ -1133,7 +1178,7 @@ static AsmInst *genCodeDecrement(const Node *n, int prefix) {
 
     // Postfix decrement operator refers the value before decrement.
     if (!prefix)
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
 
     switch (sizeOf(n->type)) {
     case 8:
@@ -1156,7 +1201,7 @@ static AsmInst *genCodeDecrement(const Node *n, int prefix) {
 
     // Prefix decrement operator refers the value after decrement.
     if (prefix)
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
 
     // Reflect the expression result on variable.
     switch (sizeOf(n->type)) {
@@ -1190,19 +1235,19 @@ static AsmInst *genCodeAdd(const Node *n) {
     if (isWorkLikePointer(n->lhs->type) || isWorkLikePointer(n->rhs->type)) {
         // Load integer to RAX and pointer to RDI in either case.
         if (isWorkLikePointer(n->lhs->type)) { // ptr + num
-            appendAsmInstAnyText(&asmlist, "  pop rax");
+            asmPopRax();
             appendAsmInstAnyText(&asmlist, "  pop rdi");
         } else { // num + ptr
             appendAsmInstAnyText(&asmlist, "  pop rdi");
-            appendAsmInstAnyText(&asmlist, "  pop rax");
+            asmPopRax();
         }
         appendAsmInstAnyText(&asmlist, "  mov rsi, %d\n", altOne);
         appendAsmInstAnyText(&asmlist, "  imul rax, rsi");
         appendAsmInstAnyText(&asmlist, "  add rax, rdi");
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else {
         appendAsmInstAnyText(&asmlist, "  pop rdi");
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         switch (sizeOf(n->lhs->type)) {
         case 8:
             appendAsmInstAnyText(&asmlist, "  add rax, rdi");
@@ -1218,7 +1263,7 @@ static AsmInst *genCodeAdd(const Node *n) {
         default:
             errorUnreachable();
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     }
 
     return getRawAsmInstList(&asmlist);
@@ -1235,7 +1280,7 @@ static AsmInst *genCodeSub(const Node *n) {
     appendAsmInst(&asmlist, genAsm(n->rhs));
 
     appendAsmInstAnyText(&asmlist, "  pop rdi");
-    appendAsmInstAnyText(&asmlist, "  pop rax");
+    asmPopRax();
     if (n->lhs->type->type == TypePointer) {
         int altOne = getAlternativeOfOneForType(n->lhs->type);
         int subBetweenPtr = n->type->type == TypePtrdiff_t;
@@ -1249,7 +1294,7 @@ static AsmInst *genCodeSub(const Node *n) {
             appendAsmInstAnyText(&asmlist, "  cqo");
             appendAsmInstAnyText(&asmlist, "  idiv rsi");
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else {
         // Subtraction between arithmetic types.
         // It should be that lhs, rhs, and result have all the same type.
@@ -1268,7 +1313,7 @@ static AsmInst *genCodeSub(const Node *n) {
         default:
             errorUnreachable();
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     }
 
     return getRawAsmInstList(&asmlist);
@@ -1343,7 +1388,7 @@ static AsmInst *genCodeInitVarArray(const Node *n, TypeInfo *varType) {
                 elemIdx++;
 
                 appendAsmInst(&asmlist, genCodeAssign(&initNode));
-                appendAsmInstAnyText(&asmlist, "  pop rax");
+                asmPopRax();
             }
         } else {
             errorUnreachable();
@@ -1379,7 +1424,7 @@ static AsmInst *genCodeInitVarStruct(const Node *n, TypeInfo *varType) {
         initNode.kind = NodeAssignStruct;
         initNode.type = n->lhs->type;
         appendAsmInst(&asmlist, genAsm(&initNode));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     } else {
         Node *initVal = n->rhs->body;
         Obj *member = var->type->structDef->members;
@@ -1416,7 +1461,7 @@ static AsmInst *genCodeInitVar(const Node *n, TypeInfo *varType) {
         copy.kind = NodeAssign;
         copy.type = varType;
         appendAsmInst(&asmlist, genCodeAssign(&copy));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
     }
 
     return getRawAsmInstList(&asmlist);
@@ -1463,7 +1508,7 @@ AsmInst *genAsm(const Node *n) {
         if (destSize >= 8)
             return getRawAsmInstList(&asmlist);
 
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         switch (destSize) {
         case 4:
             appendAsmInstAnyText(
@@ -1476,7 +1521,7 @@ AsmInst *genAsm(const Node *n) {
         default:
             errorUnreachable();
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeAddress) {
         appendAsmInst(&asmlist, genCodeLVal(n->rhs));
     } else if (n->kind == NodeDeref) {
@@ -1488,7 +1533,7 @@ AsmInst *genAsm(const Node *n) {
             // be thrown away. (But Block node does not put any value, so do
             // not pop value.)
             if (isExprNode(c)) {
-                appendAsmInstAnyText(&asmlist, "  pop rax");
+                asmPopRax();
             }
         }
     } else if (n->kind == NodeExprList) {
@@ -1502,58 +1547,58 @@ AsmInst *genAsm(const Node *n) {
             // expression is the exception and its result value may be used in
             // next statement.
             if (isExprNode(c) && c->next)
-                appendAsmInstAnyText(&asmlist, "  pop rax");
+                asmPopRax();
         }
     } else if (n->kind == NodeInitList) {
         errorUnreachable();
     } else if (n->kind == NodeNot) {
         // TODO: Make sure n->rhs lefts a value on stack
         appendAsmInst(&asmlist, genAsm(n->rhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, "  sete al");
         appendAsmInstAnyText(&asmlist, "  movzb rax, al");
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeLogicalAND) {
         // TODO: Make sure n->rhs lefts a value on stack
         appendAsmInst(&asmlist, genAsm(n->lhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, "  je .Llogicaland%d\n", n->blockID);
         appendAsmInst(&asmlist, genAsm(n->rhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, ".Llogicaland%d:\n", n->blockID);
         appendAsmInstAnyText(&asmlist, "  setne al");
         appendAsmInstAnyText(&asmlist, "  movzb rax, al");
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeLogicalOR) {
         appendAsmInst(&asmlist, genAsm(n->lhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, "  jne .Llogicalor%d\n", n->blockID);
         appendAsmInst(&asmlist, genAsm(n->rhs));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, ".Llogicalor%d:\n", n->blockID);
         appendAsmInstAnyText(&asmlist, "  setne al");
         appendAsmInstAnyText(&asmlist, "  movzb rax, al");
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeArithShiftL || n->kind == NodeArithShiftR) {
         char *op = n->kind == NodeArithShiftL ? "sal" : "sar";
         appendAsmInst(&asmlist, genAsm(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
         appendAsmInstAnyText(&asmlist, "  pop rcx");
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  %s eax, cl\n", op);
         appendAsmInstAnyText(&asmlist, "  movsx rax, eax");
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeNum) {
         appendAsmInstAnyText(&asmlist, "  push %d\n", n->val);
     } else if (n->kind == NodeLiteralString) {
         appendAsmInstAnyText(
                 &asmlist, "  lea rax, .LiteralString%d[rip]\n", n->token->literalStr->id);
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeLVar || n->kind == NodeGVar ||
                n->kind == NodeMemberAccess) {
         // When NodeLVar appears with itself alone, it should be treated as a
@@ -1568,7 +1613,7 @@ AsmInst *genAsm(const Node *n) {
 
         // In order to change this lvalue into rvalue, push a value of a
         // variable to the top of the stack.
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         switch (sizeOf(n->type)) {
         case 8:
             appendAsmInstAnyText(&asmlist, "  mov rax, [rax]");
@@ -1584,7 +1629,7 @@ AsmInst *genAsm(const Node *n) {
         default:
             errorUnreachable();
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
 
     } else if (n->kind == NodeAssign) {
         appendAsmInst(&asmlist, genCodeAssign(n));
@@ -1594,7 +1639,7 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
         appendAsmInstAnyText(&asmlist, "  pop rdi");
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         while (rest) {
             if (rest >= 8) {
                 appendAsmInstAnyText(
@@ -1616,7 +1661,7 @@ AsmInst *genAsm(const Node *n) {
                 rest -= 1;
             }
         }
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     } else if (n->kind == NodeBreak) {
         appendAsmInstAnyText(&asmlist, "  jmp .Lend%d\n", dumpEnv.loopBlockID);
     } else if (n->kind == NodeContinue) {
@@ -1625,7 +1670,7 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genCodeReturn(n));
     } else if (n->kind == NodeConditional) {
         appendAsmInst(&asmlist, genAsm(n->condition));
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
         appendAsmInstAnyText(&asmlist, "  cmp rax, 0");
         appendAsmInstAnyText(&asmlist, "  je .Lcond_falsy_%d\n", n->blockID);
         appendAsmInst(&asmlist, genAsm(n->lhs));
@@ -1662,7 +1707,7 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genAsm(n->rhs));
 
         appendAsmInstAnyText(&asmlist, "  pop rdi");
-        appendAsmInstAnyText(&asmlist, "  pop rax");
+        asmPopRax();
 
         // Maybe these oprands should use only 8bytes registers.
         if (n->kind == NodeMul) {
@@ -1701,8 +1746,52 @@ AsmInst *genAsm(const Node *n) {
             errorUnreachable();
         }
 
-        appendAsmInstAnyText(&asmlist, "  push rax");
+        asmPushRax();
     }
 
     return getRawAsmInstList(&asmlist);
+}
+
+/**
+ * Optimize the given assembly instructions.
+ * Returns TRUE if the given insturctions are modified.
+ */
+void optimizeAsm(AsmInst *inst) {
+    int modified = 0;
+    AsmInst *top = inst;
+    for (; inst->next; inst = inst->next) {
+        switch (inst->kind) {
+        case AsmMov:
+            if (isEqualRegister(&inst->data.mov.src, &inst->data.mov.dst)) {
+                AsmInst *next = inst->next;
+
+                *inst = *inst->next;
+                freeAsmInst(next);
+
+                modified = 1;
+            }
+            break;
+        case AsmPush:
+            if (inst->next && inst->next->kind == AsmPop) {
+                Register src = inst->reg;
+                AsmInst *next = inst->next;
+
+                inst->kind = AsmMov;
+                inst->data.mov.src = src;
+                inst->data.mov.dst = next->reg;
+                inst->next = next->next;
+
+                freeAsmInst(next);
+
+                modified = 1;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (modified) {
+        optimizeAsm(top);
+    }
 }

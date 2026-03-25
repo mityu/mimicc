@@ -215,6 +215,8 @@ int main(int argc, char *argv[]) {
     asmcode = genAsm(globals.code);
     asmglobals = genAsmGlobals();
 
+    optimizeAsm(asmcode);
+
     dumps(".intel_syntax noprefix");
     genCode(asmcode);
     genCode(asmglobals);

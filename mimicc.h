@@ -367,8 +367,17 @@ typedef enum {
     AsmAnyText,
     AsmPush,
     AsmPop,
+    AsmMov,
     AsmLabel,
 } AsmInstKind;
+
+// TODO: Support these:
+// - Use memory address as `dst` and `src`
+// - Use immediate value as `src`
+typedef struct {
+    Register dst;
+    Register src;
+} AsmInstDataMov;
 
 typedef struct AsmInst AsmInst;
 struct AsmInst {
@@ -377,6 +386,9 @@ struct AsmInst {
 
     char *text;   //  AsmAnyText, AsmLabel, etc.
     Register reg; // Target register of AsmPush/AsmPop.
+    struct {
+        AsmInstDataMov mov; // AsmMov
+    } data;
 };
 
 // main.c
@@ -392,6 +404,7 @@ char *readFile(const char *path);
 // asm.c
 AsmInst *genAsm(const Node *n);
 AsmInst *genAsmGlobals(void);
+void optimizeAsm(AsmInst *inst);
 
 // codegen.c
 void genCode(const AsmInst *inst);
