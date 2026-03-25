@@ -206,6 +206,26 @@ void testUseStructImmediately(void) {
     ASSERT(1, (struct S*)0 == obj.s->s);
 }
 
+void test_struct_assign_to_member_from_ptr(void) {
+    struct A {
+        int n, m;
+    };
+
+    struct B {
+        int x;
+        struct A a;
+    };
+
+    struct A a = { 5, 13 };
+    struct B b = {};
+    struct A *ap = &a;
+
+    // This used to have crashed.
+    b.a = *ap;
+    ASSERT(5, b.a.n);
+    ASSERT(13, b.a.m);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
@@ -216,5 +236,6 @@ int main(void) {
     test_struct_assign();
     test_compare_struct_pointers();
     testUseStructImmediately();
+    test_struct_assign_to_member_from_ptr();
     return 0;
 }

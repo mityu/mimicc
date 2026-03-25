@@ -290,6 +290,29 @@ static int isExprNode(const Node *n) {
     return 0;
 }
 
+/**
+ * Check whether given value can be stored on a register using its type
+ * information, and returns TRUE if so.
+ */
+static int isRegisterStorableValue(const Node *n) {
+    switch (n->type->type) {
+    case TypeArray:
+    case TypeStruct:
+    case TypeFunction:
+        return 0;
+    case TypeInt:
+    case TypeChar:
+    case TypeNumber:
+    case TypePointer:
+    case TypeEnum:
+        return 1;
+    default:
+    case TypeNone:
+    case TypeVoid:
+        errorUnreachable();
+    }
+}
+
 static void fillNodeNum(Node *n, int val) {
     n->kind = NodeNum;
     n->val = val;
@@ -521,14 +544,21 @@ static AsmInst *genCodeLVal(const Node *n) {
     return getRawAsmInstList(&asmlist);
 }
 
-// Generate code dereferencing variables as rvalue.  If code for dereference as
-// lvalue, use genCodeLVal() instead.
+// Generate code for dereferencing variables as rvalue.  If you need code for
+// dereferencing variables as lvalue, use genCodeLVal() instead.
 static AsmInst *genCodeDeref(const Node *n) {
     AsmInstList asmlist;
     initAsmInstList(&asmlist);
 
-    appendAsmInst(&asmlist, genCodeLVal(n));
     if (!n)
+        return getRawAsmInstList(&asmlist);
+
+    appendAsmInst(&asmlist, genCodeLVal(n));
+
+    // Even when a value is treated as rvalue, we should left a memory address
+    // on stack for values that cannot always assign to a register like struct,
+    // array or function.
+    if (!isRegisterStorableValue(n))
         return getRawAsmInstList(&asmlist);
 
     appendAsmInstAnyText(&asmlist, "  mov rax, [rsp]");
@@ -557,11 +587,11 @@ static AsmInst *genCodeAssign(const Node *n) {
     AsmInstList asmlist;
     initAsmInstList(&asmlist);
 
-    appendAsmInst(&asmlist, genAsm(n->rhs));
-    appendAsmInst(&asmlist, genCodeLVal(n->lhs));
     if (!n)
         return getRawAsmInstList(&asmlist);
 
+    appendAsmInst(&asmlist, genAsm(n->rhs));
+    appendAsmInst(&asmlist, genCodeLVal(n->lhs));
     // Stack before assign:
     // |                     |
     // |       ......        |
@@ -1531,9 +1561,9 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genCodeLVal(n));
 
         // But, array, struct, and function is an exception.  It works like a
-        // pointer even when it's being a rvalue.
-        if (n->type->type == TypeArray || n->type->type == TypeStruct ||
-                n->type->type == TypeFunction)
+        // pointer even when it's being a rvalue since it cannot always be
+        // stored on register.
+        if (!isRegisterStorableValue(n))
             return getRawAsmInstList(&asmlist);
 
         // In order to change this lvalue into rvalue, push a value of a
