@@ -159,12 +159,11 @@ _Noreturn void cmdlineArgsError(int argc, char *argv[], int at, const char *msg)
     exit(1);
 }
 
-const AsmInst *getAsm(void); // TODO: tmp
-
 int main(int argc, char *argv[]) {
     char *inFile = NULL;
     char *outFile = NULL;
     char *source = NULL;
+    AsmInst *asmcode, *asmglobals;
 
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-o") == 0) {
@@ -213,10 +212,12 @@ int main(int argc, char *argv[]) {
     if (!globals.destFile)
         error("Failed to open file: %s", outFile);
 
+    asmcode = genAsm(globals.code);
+    asmglobals = genAsmGlobals();
+
     dumps(".intel_syntax noprefix");
-    genAsm(globals.code);
-    genAsmGlobals();
-    genCode(getAsm());
+    genCode(asmcode);
+    genCode(asmglobals);
 
     fclose(globals.destFile);
 

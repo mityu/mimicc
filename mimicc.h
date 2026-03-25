@@ -375,7 +375,7 @@ struct AsmInst {
     AsmInst *next;
     AsmInstKind kind;
 
-    char *text;    //  AsmAnyText, AsmLabel, etc.
+    char *text;   //  AsmAnyText, AsmLabel, etc.
     Register reg; // Target register of AsmPush/AsmPop.
 };
 
@@ -390,8 +390,8 @@ FilePath *analyzeFilepath(const char *path, const char *display);
 char *readFile(const char *path);
 
 // asm.c
-void genAsm(const Node *n);
-void genAsmGlobals(void);
+AsmInst *genAsm(const Node *n);
+AsmInst *genAsmGlobals(void);
 
 // codegen.c
 void genCode(const AsmInst *inst);
