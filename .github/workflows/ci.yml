@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  on-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: gcc --version
+      # - run: make test_test
+      - name: 1st-gen tests
+        run: make test
+      - name: 2nd-gen tests
+        run: make test_self
+      - name: 3rd-gen tests
+        run: make test_selfself
+      - name: Run examples
+        run: |
+          for d in ./examples/*; do
+            pushd "$d"
+            make run
+            popd
+          done
+
+  on-ubuntu-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/install-nix-action@v31
+      - name: Setup Nix's devshell
+        run: nix develop .
+      - run: nix develop . -c gcc --version
+      # - run: nix develop . -c make test_test
+      - name: 1st-gen tests
+        run: nix develop . -c make test
+      - name: 2nd-gen tests
+        run: nix develop . -c make test_self
+      - name: 3rd-gen tests
+        run: nix develop . -c make test_selfself
+      - name: Run examples
+        run: |
+          for d in ./examples/*; do
+            pushd "$d"
+            nix develop ../../ -c make run
+            popd
+          done
