@@ -23,7 +23,7 @@
 
 typedef struct LiteralString LiteralString;
 typedef struct Obj Obj;
-typedef struct Struct Struct;
+typedef struct StructOrUnion StructOrUnion;
 typedef struct Enum Enum;
 typedef struct Function Function;
 typedef struct Typedef Typedef;
@@ -52,10 +52,10 @@ struct TypeInfo {
     TypeKind type;
     TypeInfo *baseType; // Valid when type is TypePointer or TypeArray.
     int arraySize;
-    Function *funcDef; // Valid when type is TypeFunction
-    Struct *structDef; // Valid when type is TypeStruct
-    Struct *unionDef;  // Valid when type is TypeUnion
-    Enum *enumDef;     // Valid when type is TypeEnum
+    Function *funcDef;        // Valid when type is TypeFunction
+    StructOrUnion *structDef; // Valid when type is TypeStruct
+    StructOrUnion *unionDef;  // Valid when type is TypeUnion
+    Enum *enumDef;            // Valid when type is TypeEnum
 };
 
 extern struct Types {
@@ -114,8 +114,8 @@ struct Token {
 typedef struct Env Env;
 struct Env {
     Env *outer;
-    Struct *structs;
-    Struct *unions;
+    StructOrUnion *structs;
+    StructOrUnion *unions;
     Enum *enums;
     Typedef *typedefs;
     Obj *vars;   // List of variables local to this env.
@@ -276,8 +276,8 @@ struct LiteralString {
     int id;
 };
 
-struct Struct {
-    Struct *next;
+struct StructOrUnion {
+    StructOrUnion *next;
     Token *tagName;
     Obj *members;
     int totalSize;
@@ -430,7 +430,7 @@ void preprocess(Token *token);
 // parser.c
 void program(void);
 Obj *findFunction(const char *name, int len);
-Obj *findStructMember(const Struct *s, const char *name, int len);
+Obj *findStructMember(const StructOrUnion *s, const char *name, int len);
 GVar *findGlobalVar(char *name, int len);
 Obj *findLVar(char *name, int len);
 int sizeOf(const TypeInfo *ti);

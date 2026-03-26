@@ -19,8 +19,8 @@ static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
-static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct);
-static void structBody(Struct *s, int isStruct);
+static StructOrUnion *structOrUnionDeclaration(const ObjAttr *attr, int isStruct);
+static void structorUnionBody(StructOrUnion *s, int isStruct);
 static Enum *enumDeclaration(const ObjAttr *attr);
 static void enumBody(Enum *e);
 static Node *varDeclaration(void);
@@ -245,8 +245,8 @@ static GVar *newGVar(Obj *obj) {
     return gvar;
 }
 
-static Struct *newStruct(void) {
-    Struct *s = (Struct *)safeAlloc(sizeof(Struct));
+static StructOrUnion *newStruct(void) {
+    StructOrUnion *s = (StructOrUnion *)safeAlloc(sizeof(StructOrUnion));
     s->totalSize = -1;
     return s;
 }
@@ -352,9 +352,9 @@ Obj *findFunction(const char *name, int len) {
 }
 
 // Look up structure and return it.  If structure didn't found, returns NULL.
-static Struct *findStruct(const char *name, int len) {
+static StructOrUnion *findStruct(const char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
-        for (Struct *s = env->structs; s; s = s->next) {
+        for (StructOrUnion *s = env->structs; s; s = s->next) {
             if (matchToken(s->tagName, name, len))
                 return s;
         }
@@ -363,9 +363,9 @@ static Struct *findStruct(const char *name, int len) {
 }
 
 // Look up structure and return it.  If structure didn't found, returns NULL.
-static Struct *findUnion(const char *name, int len) {
+static StructOrUnion *findUnion(const char *name, int len) {
     for (Env *env = globals.currentEnv; env; env = env->outer) {
-        for (Struct *s = env->unions; s; s = s->next) {
+        for (StructOrUnion *s = env->unions; s; s = s->next) {
             if (matchToken(s->tagName, name, len))
                 return s;
         }
@@ -374,7 +374,7 @@ static Struct *findUnion(const char *name, int len) {
 }
 
 // Search member in struct.  Returns the member if found, otherwise NULL.
-Obj *findStructMember(const Struct *s, const char *name, int len) {
+Obj *findStructMember(const StructOrUnion *s, const char *name, int len) {
     for (Obj *m = s->members; m; m = m->next) {
         if (matchToken(m->token, name, len))
             return m;
@@ -461,12 +461,12 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     if (type) {
         return newTypeInfo(type->varType);
     } else if (matchCertainTokenType(TokenStruct)) {
-        Struct *s = structOrUnionDeclaration(attr, 1);
+        StructOrUnion *s = structOrUnionDeclaration(attr, 1);
         TypeInfo *typeInfo = newTypeInfo(TypeStruct);
         typeInfo->structDef = s;
         return typeInfo;
     } else if (matchCertainTokenType(TokenUnion)) {
-        Struct *u = structOrUnionDeclaration(attr, 0);
+        StructOrUnion *u = structOrUnionDeclaration(attr, 0);
         TypeInfo *typeInfo = newTypeInfo(TypeUnion);
         typeInfo->unionDef = u;
         return typeInfo;
@@ -668,7 +668,8 @@ static int alignOf(const TypeInfo *ti) {
     } else if (ti->type == TypeArray) {
         return alignOf(ti->baseType);
     } else if (ti->type == TypeStruct || ti->type == TypeUnion) {
-        const Struct *objdef = ti->type == TypeStruct ? ti->structDef : ti->unionDef;
+        const StructOrUnion *objdef =
+                ti->type == TypeStruct ? ti->structDef : ti->unionDef;
         int align;
 
         // Alignment of struct with no members is 1.
@@ -957,7 +958,7 @@ void program(void) {
 // functions.
 static Node *decl(void) {
     TypeInfo *baseType = NULL;
-    Struct *s = NULL;
+    StructOrUnion *s = NULL;
     Obj *obj = NULL;
     ObjAttr attr = {};
     Token *tokenBaseType = NULL;
@@ -1388,7 +1389,7 @@ static Node *stmt(void) {
 
 // Parse struct declaration.  Returns struct if there's a struct declaration,
 // otherwise NULL.
-static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
+static StructOrUnion *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
     // TODO: Prohibit declaring new enum at function parameter.
     Token *tokenStruct = globals.token;
     Token *tagName = NULL;
@@ -1405,7 +1406,7 @@ static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
     tagName = consumeIdent();
 
     if (matchReserved("{")) {
-        Struct *s = NULL;
+        StructOrUnion *s = NULL;
         if (tagName) {
             if (isStruct) {
                 s = findStruct(tagName->str, tagName->len);
@@ -1425,7 +1426,7 @@ static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
                 tagName = buildTagNameForNamelessObject(globals.namelessUnionCount++);
         }
         if (!s) {
-            Struct **holder =
+            StructOrUnion **holder =
                     isStruct ? &globals.currentEnv->structs : &globals.currentEnv->unions;
             s = newStruct();
 
@@ -1435,11 +1436,11 @@ static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
         }
         s->tagName = tagName;
         s->hasImpl = 1;
-        structBody(s, isStruct);
+        structorUnionBody(s, isStruct);
 
         return s;
     } else if (tagName) {
-        Struct *s;
+        StructOrUnion *s;
         if (isStruct)
             s = findStruct(tagName->str, tagName->len);
         else
@@ -1447,8 +1448,8 @@ static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
 
         if (allowUndefinedStruct) {
             if (!s) {
-                Struct **holder = isStruct ? &globals.currentEnv->structs
-                                           : &globals.currentEnv->unions;
+                StructOrUnion **holder = isStruct ? &globals.currentEnv->structs
+                                                  : &globals.currentEnv->unions;
                 s = newStruct();
                 s->tagName = tagName;
                 s->hasImpl = 0;
@@ -1464,7 +1465,7 @@ static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
     }
 }
 
-static void structBody(Struct *s, int isStruct) {
+static void structorUnionBody(StructOrUnion *s, int isStruct) {
     Obj memberHead;
     Obj *members = &memberHead;
     int structAlign = 1;
