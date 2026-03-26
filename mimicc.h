@@ -322,18 +322,18 @@ struct Globals {
     GVar *staticVars;       // Static local variable list.
     LiteralString *strings; // Literal string list.
     Env *currentEnv;
-    Obj *currentFunction;    // Function currently parsed.
-    int blockCount;          // The number of blocks appeared in program.
-    int literalStringCount;  // The number of literal strings appeared in
-                             // program.
-    int staticVarCount;      // The number of variables declared with "static."
-    int namelessEnumCount;   // The number of annoymous enums.
-    int namelessStructCount; // The number of annoymous structs.
-    int namelessUnionCount;  // The number of annoymous structs.
-    Token *token;            // Token currently watches.
-    FILE *destFile;          // The output file.
-    FilePath *ccFile;        // The binary file path infomation.
-    char *includePath;       // The include path.
+    Obj *currentFunction;     // Function currently parsed.
+    int blockCount;           // The number of blocks appeared in program.
+    int literalStringCount;   // The number of literal strings appeared in
+                              // program.
+    int staticVarCount;       // The number of variables declared with "static."
+    int anonymousEnumCount;   // The number of anonymous enums.
+    int anonymousStructCount; // The number of anonymous structs.
+    int anonymousUnionCount;  // The number of anonymous structs.
+    Token *token;             // Token currently watches.
+    FILE *destFile;           // The output file.
+    FilePath *ccFile;         // The binary file path infomation.
+    char *includePath;        // The include path.
 };
 extern Globals globals;
 

@@ -195,8 +195,8 @@ static void assureReserved(char *op) {
 
 static int atEOF(void) { return globals.token->type == TokenEOF; }
 
-static Token *buildTagNameForNamelessObject(int id) {
-    static const char prefix[] = "nameless-object-";
+static Token *buildTagNameForAnonymousObject(int id) {
+    static const char prefix[] = "anonymous-object-";
     static const int prefix_size = sizeof(prefix);
     Token *tagName = (Token *)safeAlloc(sizeof(Token));
     int suffix_len = 1;
@@ -710,8 +710,11 @@ static TypeInfo *getTypeForArithmeticOperands(TypeInfo *lhs, TypeInfo *rhs) {
     errorUnreachable();
 }
 
-static int isNamelessObject(Obj *obj) {
-    return obj->token->len >= 12 && memcmp(obj->token->str, "nameless-object-", 12) == 0;
+static int isAnonymousObject(Obj *obj) {
+    static const char prefix[] = "anonymous-object-";
+    static const size_t prefixSize = sizeof(prefix) - 1; // Don't care the last '\0'.
+    return obj->token->len >= prefixSize &&
+           memcmp(obj->token->str, prefix, prefixSize) == 0;
 }
 
 static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
@@ -776,7 +779,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (checkTypeEqual(varType, initializer->type)) {
             Obj *tmpObj = initializer->obj;
 
-            if (tmpObj->isStatic && isNamelessObject(tmpObj)) {
+            if (tmpObj->isStatic && isAnonymousObject(tmpObj)) {
                 for (GVar *var = globals.staticVars; var; var = var->next) {
                     if (matchToken(
                                 var->obj->token, tmpObj->token->str, tmpObj->token->len))
@@ -834,7 +837,7 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
         if (checkTypeEqual(varType, initializer->type)) {
             Obj *tmpObj = initializer->obj;
 
-            if (tmpObj->isStatic && isNamelessObject(tmpObj)) {
+            if (tmpObj->isStatic && isAnonymousObject(tmpObj)) {
                 for (GVar *var = globals.staticVars; var; var = var->next) {
                     if (matchToken(
                                 var->obj->token, tmpObj->token->str, tmpObj->token->len))
@@ -1421,9 +1424,9 @@ static StructOrUnion *structOrUnionDeclaration(const ObjAttr *attr, int isStruct
             }
         } else {
             if (isStruct)
-                tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
+                tagName = buildTagNameForAnonymousObject(globals.anonymousStructCount++);
             else
-                tagName = buildTagNameForNamelessObject(globals.namelessUnionCount++);
+                tagName = buildTagNameForAnonymousObject(globals.anonymousUnionCount++);
         }
         if (!s) {
             StructOrUnion **holder =
@@ -1569,7 +1572,7 @@ static Enum *enumDeclaration(const ObjAttr *attr) {
             if (e && e->hasImpl)
                 errorAt(tokenEnum, "Redefinition of enum.");
         } else {
-            tagName = buildTagNameForNamelessObject(globals.namelessEnumCount++);
+            tagName = buildTagNameForAnonymousObject(globals.anonymousEnumCount++);
         }
         if (!e) {
             e = (Enum *)safeAlloc(sizeof(Enum));
@@ -2418,7 +2421,7 @@ static Node *compoundLiteral(void) {
         obj = newObj(tokenSave, type, -1);
         obj->staticVarID = globals.staticVarCount++;
         obj->isStatic = 1;
-        obj->token = buildTagNameForNamelessObject(obj->staticVarID);
+        obj->token = buildTagNameForAnonymousObject(obj->staticVarID);
         gvar->obj = obj;
         gvar->initializer = buildGVarInitSection(type, init);
 
