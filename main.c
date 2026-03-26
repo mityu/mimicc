@@ -18,6 +18,45 @@ void *safeAlloc(size_t size) {
     return p;
 }
 
+/**
+ * Like sprintf(), but with safe and automatic allocation of a new memory.
+ * Returns the pointer to newly allocated memory with contents of formatted string.
+ */
+char *format(const char *fmt, ...) {
+    char *stack;
+    va_list ap;
+
+    va_start(ap, fmt);
+    stack = vformat(fmt, ap);
+    va_end(ap);
+
+    return stack;
+}
+
+/**
+ * Like vsprintf(), but with safe and automatic allocation of a new memory.
+ * Returns the pointer to newly allocated memory with contents of formatted string.
+ */
+char *vformat(const char *fmt, va_list ap) {
+    int n = 0;
+    char *stack = NULL;
+    va_list apCopy;
+
+    va_copy(apCopy, ap);
+
+    n = vsnprintf(NULL, 0, fmt, ap);
+    if (n < 0) {
+        va_end(ap); // Special path; finalize the given va_list before exiting program.
+        error("vsnprintf() error: returned: %d", n);
+    }
+    stack = safeAlloc(++n); // One more space for NUL at the end of string.
+    vsnprintf(stack, n, fmt, apCopy);
+
+    va_end(apCopy);
+
+    return stack;
+}
+
 // Print error message on stderr and exit.
 void error(const char *fmt, ...) {
     va_list ap;

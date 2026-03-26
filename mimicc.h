@@ -1,6 +1,7 @@
 #ifndef HEADER_MIMICC_H
 #define HEADER_MIMICC_H
 
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -377,12 +378,39 @@ typedef enum {
     AsmLabel,
 } AsmInstKind;
 
+typedef enum {
+    AsmAddressingModeRegister,
+    AsmAddressingModeImm,
+    AsmAddressingModeMemory,
+} AsmInstAddressingModeKind;
+
+typedef struct {
+    int isLabel;
+    int value;   // Valid when `isLabel` is FALSE.
+    char *label; // Valid when `isLab` is TRUE.
+} AsmInstImmValue;
+
+typedef struct {
+    int isRelative; // Specify whether addressing mode is relative or absolute.
+    Register base;  // Valid only when `isRelative` is TRUE.
+    AsmInstImmValue offset;
+} AsmInstOperandMem;
+
+typedef struct {
+    AsmInstAddressingModeKind mode;
+    union {
+        AsmInstImmValue imm;
+        Register reg;
+        AsmInstOperandMem mem;
+    } src;
+} AsmInstOperand;
+
 // TODO: Support these:
 // - Use memory address as `dst` and `src`
 // - Use immediate value as `src`
 typedef struct {
-    Register dst;
-    Register src;
+    AsmInstOperand dst;
+    AsmInstOperand src;
 } AsmInstDataMov;
 
 typedef struct AsmInst AsmInst;
@@ -392,7 +420,7 @@ struct AsmInst {
 
     char *text;   //  AsmAnyText, AsmLabel, etc.
     Register reg; // Target register of AsmPush/AsmPop.
-    struct {
+    union {
         AsmInstDataMov mov; // AsmMov
     } data;
 };
@@ -401,6 +429,8 @@ struct AsmInst {
 void *safeAlloc(size_t size);
 _Noreturn void error(const char *fmt, ...);
 _Noreturn void errorAt(Token *loc, const char *fmt, ...);
+char *vformat(const char *fmt, va_list ap);
+char *format(const char *fmt, ...);
 int dumpc(int c);
 int dumps(const char *s);
 int dumpf(const char *fmt, ...);

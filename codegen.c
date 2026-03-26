@@ -2,6 +2,8 @@
 
 _Noreturn void todo() { error("not yet implemented"); }
 
+// Get string representation of given register.  Every returned string is
+// stored in static area, so don't modify or free the returned ones.
 static const char *getRegName(const Register *r) {
     // clang-format off
     static const char *regTable[RegCount][4] = {
@@ -45,6 +47,48 @@ static const char *getRegName(const Register *r) {
     return regTable[r->kind][index];
 }
 
+// Return a string representation of given operand.  The returned string is
+// always on newly allocated memory, therefore you can/should free it after
+// using it.
+static char *stringifyOperand(const AsmInstOperand *operand) {
+    switch (operand->mode) {
+    case AsmAddressingModeRegister:
+        return format("%s", getRegName(&operand->src.reg));
+    case AsmAddressingModeImm:
+        if (operand->src.imm.isLabel) {
+            return format(".%s", operand->src.imm.label);
+        } else {
+            return format("%d", operand->src.imm.value);
+        }
+    case AsmAddressingModeMemory: {
+        char *base = NULL, *offset = NULL, *retval = NULL;
+        const AsmInstOperandMem *mem = &operand->src.mem;
+        AsmInstOperand opoffset;
+
+        opoffset.mode = AsmAddressingModeImm;
+        opoffset.src.imm = mem->offset;
+        offset = stringifyOperand(&opoffset);
+
+        if (mem->isRelative) {
+            AsmInstOperand opbase;
+
+            opbase.mode = AsmAddressingModeRegister;
+            opbase.src.reg = mem->base;
+            base = stringifyOperand(&opbase);
+
+            retval = format("%s[%s]", offset, base);
+        } else {
+            retval = format("%s", offset);
+        }
+
+        safeFree(base);
+        safeFree(offset);
+        return retval;
+    }
+    }
+    errorUnreachable();
+}
+
 static void genCodeOne(const AsmInst *inst) {
     switch (inst->kind) {
     case AsmAnyText:
@@ -59,10 +103,15 @@ static void genCodeOne(const AsmInst *inst) {
     case AsmLabel:
         todo();
         break;
-    case AsmMov:
-        dumpf("  mov %s, %s\n", getRegName(&inst->data.mov.dst),
-                getRegName(&inst->data.mov.src));
+    case AsmMov: {
+        char *src, *dst;
+        src = stringifyOperand(&inst->data.mov.src);
+        dst = stringifyOperand(&inst->data.mov.dst);
+        dumpf("  mov %s, %s\n", dst, src);
+        safeFree(src);
+        safeFree(dst);
         break;
+    }
     }
 }
 

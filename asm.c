@@ -120,10 +120,14 @@ static DumpEnv dumpEnv;
 static AsmInst *genCodeInitVarArray(const Node *n, TypeInfo *varType);
 static AsmInst *genCodeInitVarStruct(const Node *n, TypeInfo *varType);
 static AsmInst *genCodeInitVar(const Node *n, TypeInfo *varType);
-static char *vformat(const char *fmt, va_list ap);
 
 static int isEqualRegister(const Register *a, const Register *b) {
     return a->kind == b->kind && a->size == b->size;
+}
+
+static int isEqualRegisterOperand(const AsmInstOperand *a, const AsmInstOperand *b) {
+    return a->mode == AsmAddressingModeRegister && a->mode == AsmAddressingModeRegister &&
+           isEqualRegister(&a->src.reg, &b->src.reg);
 }
 
 static RegSize getRegSizeFromByteSize(int size) {
@@ -245,45 +249,6 @@ static void appendAsmInstAnyText(AsmInstList *list, const char *fmt, ...) {
 }
 
 static AsmInst *getRawAsmInstList(AsmInstList *list) { return list->head.next; }
-
-/**
- * Like sprintf(), but with safe and automatic allocation of a new memory.
- * Returns the pointer to newly allocated memory with contents of formatted string.
- */
-static char *format(const char *fmt, ...) {
-    char *stack;
-    va_list ap;
-
-    va_start(ap, fmt);
-    stack = vformat(fmt, ap);
-    va_end(ap);
-
-    return stack;
-}
-
-/**
- * Like vsprintf(), but with safe and automatic allocation of a new memory.
- * Returns the pointer to newly allocated memory with contents of formatted string.
- */
-static char *vformat(const char *fmt, va_list ap) {
-    int n = 0;
-    char *stack = NULL;
-    va_list apCopy;
-
-    va_copy(apCopy, ap);
-
-    n = vsnprintf(NULL, 0, fmt, ap);
-    if (n < 0) {
-        va_end(ap); // Special path; finalize the given va_list before exiting program.
-        error("vsnprintf() error: returned: %d", n);
-    }
-    stack = safeAlloc(++n); // One more space for NUL at the end of string.
-    vsnprintf(stack, n, fmt, apCopy);
-
-    va_end(apCopy);
-
-    return stack;
-}
 
 static int isExprNode(const Node *n) {
     // All cases in this switch uses fallthrough.
@@ -1818,7 +1783,7 @@ void optimizeAsm(AsmInst *inst) {
     for (; inst; inst = inst->next) {
         switch (inst->kind) {
         case AsmMov:
-            if (isEqualRegister(&inst->data.mov.src, &inst->data.mov.dst)) {
+            if (isEqualRegisterOperand(&inst->data.mov.src, &inst->data.mov.dst)) {
                 AsmInst *next = inst->next;
 
                 *inst = *inst->next;
@@ -1833,8 +1798,10 @@ void optimizeAsm(AsmInst *inst) {
                 AsmInst *next = inst->next;
 
                 inst->kind = AsmMov;
-                inst->data.mov.src = src;
-                inst->data.mov.dst = next->reg;
+                inst->data.mov.src.mode = AsmAddressingModeRegister;
+                inst->data.mov.src.src.reg = src;
+                inst->data.mov.dst.mode = AsmAddressingModeRegister;
+                inst->data.mov.dst.src.reg = next->reg;
                 inst->next = next->next;
 
                 freeAsmInst(next);
