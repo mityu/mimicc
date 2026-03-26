@@ -213,9 +213,9 @@ static void appendAsmInst(AsmInstList *list, AsmInst *inst) {
 /**
  * Append new AsmPush-typed instruction after `list`.
  */
-static void appendAsmInstPush(AsmInstList *list, Register *r) {
+static void appendAsmInstPush(AsmInstList *list, AsmInstOperand *operand) {
     AsmInst *inst = newAsmInst(AsmPush);
-    inst->reg = *r;
+    inst->data.push = *operand;
     appendAsmInst(list, inst);
 }
 
@@ -224,7 +224,7 @@ static void appendAsmInstPush(AsmInstList *list, Register *r) {
  */
 static void appendAsmInstPop(AsmInstList *list, Register *r) {
     AsmInst *inst = newAsmInst(AsmPop);
-    inst->reg = *r;
+    inst->data.pop = *r;
     appendAsmInst(list, inst);
 }
 
@@ -415,10 +415,17 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 
 static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {RDI, RSI, RDX, RCX, R8, R9};
 
-#define regobj(kind, size) (&(Register){(kind), (size)})
+#define regobj(kind, size) ((Register){(kind), (size)})
 #define reg64obj(kind) regobj(kind, Reg64)
-#define asmPushRax() appendAsmInstPush(&asmlist, reg64obj(RAX))
-#define asmPopRax() appendAsmInstPop(&asmlist, reg64obj(RAX))
+#define asmPushReg(pushreg)                                                              \
+    do {                                                                                 \
+        AsmInstOperand operand;                                                          \
+        operand.mode = AsmAddressingModeRegister;                                        \
+        operand.src.reg = (pushreg);                                                     \
+        appendAsmInstPush(&asmlist, &operand);                                           \
+    } while (0)
+#define asmPushRax() asmPushReg(reg64obj(RAX))
+#define asmPopRax() appendAsmInstPop(&asmlist, &reg64obj(RAX))
 #define asmPrintPosition() appendAsmInstAnyText(&asmlist, "  # %s:%d", __FILE__, __LINE__)
 
 static AsmInst *genCodeGVarInit(GVarInit *initializer) {
@@ -638,7 +645,7 @@ static AsmInst *genCodeAssign(const Node *n) {
     // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
     asmPopRax();
-    appendAsmInstPop(&asmlist, reg64obj(RDI));
+    appendAsmInstPop(&asmlist, &reg64obj(RDI));
     switch (sizeOf(n->type)) {
     case 8:
         appendAsmInstAnyText(&asmlist, "  mov [rax], rdi");
@@ -652,7 +659,7 @@ static AsmInst *genCodeAssign(const Node *n) {
     default:
         errorUnreachable();
     }
-    appendAsmInstPush(&asmlist, reg64obj(RDI));
+    asmPushReg(reg64obj(RDI));
 
     return getRawAsmInstList(&asmlist);
 }
@@ -903,7 +910,7 @@ static AsmInst *genCodeFCall(const Node *n) {
     }
     for (int i = 0; i < regargs; ++i)
         appendAsmInstPop(
-                &asmlist, regobj(argRegs[i], getRegSizeFromByteSize(ONE_WORD_BYTES)));
+                &asmlist, &regobj(argRegs[i], getRegSizeFromByteSize(ONE_WORD_BYTES)));
 
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
@@ -1003,7 +1010,7 @@ static AsmInst *genCodeFunction(const Node *n) {
     appendAsmInstAnyText(&asmlist, "%.*s:", n->obj->token->len, n->obj->token->str);
 
     // Prologue.
-    appendAsmInstPush(&asmlist, reg64obj(RBP));
+    asmPushReg(reg64obj(RBP));
     appendAsmInstAnyText(&asmlist, "  mov rbp, rsp");
     if (n->obj->func->capStackSize)
         appendAsmInstAnyText(&asmlist, "  sub rsp, %d", n->obj->func->capStackSize);
@@ -1222,9 +1229,9 @@ static AsmInst *genCodeAdd(const Node *n) {
         // Load integer to RAX and pointer to RDI in either case.
         if (isWorkLikePointer(n->lhs->type)) { // ptr + num
             asmPopRax();
-            appendAsmInstPop(&asmlist, reg64obj(RDI));
+            appendAsmInstPop(&asmlist, &reg64obj(RDI));
         } else { // num + ptr
-            appendAsmInstPop(&asmlist, reg64obj(RDI));
+            appendAsmInstPop(&asmlist, &reg64obj(RDI));
             asmPopRax();
         }
         appendAsmInstAnyText(&asmlist, "  mov rsi, %d", altOne);
@@ -1232,7 +1239,7 @@ static AsmInst *genCodeAdd(const Node *n) {
         appendAsmInstAnyText(&asmlist, "  add rax, rdi");
         asmPushRax();
     } else {
-        appendAsmInstPop(&asmlist, reg64obj(RDI));
+        appendAsmInstPop(&asmlist, &reg64obj(RDI));
         asmPopRax();
         switch (sizeOf(n->lhs->type)) {
         case 8:
@@ -1265,7 +1272,7 @@ static AsmInst *genCodeSub(const Node *n) {
     appendAsmInst(&asmlist, genAsm(n->lhs));
     appendAsmInst(&asmlist, genAsm(n->rhs));
 
-    appendAsmInstPop(&asmlist, reg64obj(RDI));
+    appendAsmInstPop(&asmlist, &reg64obj(RDI));
     asmPopRax();
     if (n->lhs->type->type == TypePointer) {
         int altOne = getAlternativeOfOneForType(n->lhs->type);
@@ -1659,7 +1666,7 @@ AsmInst *genAsm(const Node *n) {
         total = rest = sizeOf(n->type);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
-        appendAsmInstPop(&asmlist, reg64obj(RDI));
+        appendAsmInstPop(&asmlist, &reg64obj(RDI));
         asmPopRax();
         while (rest) {
             if (rest >= 8) {
@@ -1727,7 +1734,7 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genAsm(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
 
-        appendAsmInstPop(&asmlist, reg64obj(RDI));
+        appendAsmInstPop(&asmlist, &reg64obj(RDI));
         asmPopRax();
 
         // Maybe these oprands should use only 8bytes registers.
@@ -1739,7 +1746,7 @@ AsmInst *genAsm(const Node *n) {
         } else if (n->kind == NodeDivRem) {
             appendAsmInstAnyText(&asmlist, "  cqo");
             appendAsmInstAnyText(&asmlist, "  idiv rdi");
-            appendAsmInstPush(&asmlist, reg64obj(RDX));
+            asmPushReg(reg64obj(RDX));
             return getRawAsmInstList(&asmlist);
         } else if (n->kind == NodeEq) {
             appendAsmInstAnyText(&asmlist, "  cmp rax, rdi");
@@ -1794,14 +1801,14 @@ void optimizeAsm(AsmInst *inst) {
             break;
         case AsmPush:
             if (inst->next && inst->next->kind == AsmPop) {
-                Register src = inst->reg;
+                AsmInstOperand *src = &inst->data.push;
                 AsmInst *next = inst->next;
 
                 inst->kind = AsmMov;
-                inst->data.mov.src.mode = AsmAddressingModeRegister;
-                inst->data.mov.src.src.reg = src;
+                inst->data.mov.src = *src;
                 inst->data.mov.dst.mode = AsmAddressingModeRegister;
-                inst->data.mov.dst.src.reg = next->reg;
+                inst->data.mov.dst.src.reg = next->data.pop;
+
                 inst->next = next->next;
 
                 freeAsmInst(next);

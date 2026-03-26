@@ -418,10 +418,11 @@ struct AsmInst {
     AsmInst *next;
     AsmInstKind kind;
 
-    char *text;   //  AsmAnyText, AsmLabel, etc.
-    Register reg; // Target register of AsmPush/AsmPop.
+    char *text; //  AsmAnyText, AsmLabel, etc.
     union {
-        AsmInstDataMov mov; // AsmMov
+        Register pop;        // Target register of AsmPop.
+        AsmInstOperand push; // AsmPush
+        AsmInstDataMov mov;  // AsmMov
     } data;
 };
 

@@ -94,11 +94,14 @@ static void genCodeOne(const AsmInst *inst) {
     case AsmAnyText:
         dumps(inst->text);
         break;
-    case AsmPush:
-        dumpf("  push %s\n", getRegName(&inst->reg));
+    case AsmPush: {
+        char *op = stringifyOperand(&inst->data.push);
+        dumpf("  push %s\n", op);
+        safeFree(op);
         break;
+    }
     case AsmPop:
-        dumpf("  pop %s\n", getRegName(&inst->reg));
+        dumpf("  pop %s\n", getRegName(&inst->data.pop));
         break;
     case AsmLabel:
         todo();
