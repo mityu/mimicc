@@ -154,6 +154,9 @@ void printToken(Token *token) {
     case TokenStruct:
         puts("struct");
         break;
+    case TokenUnion:
+        puts("union");
+        break;
     case TokenEnum:
         puts("enum");
         break;
@@ -293,6 +296,12 @@ Token *tokenize(char *source, FilePath *file) {
         if (isToken(p, "struct")) {
             appendNewToken(TokenStruct, p, 6);
             p += 6;
+            continue;
+        }
+
+        if (isToken(p, "union")) {
+            appendNewToken(TokenUnion, p, 5);
+            p += 5;
             continue;
         }
 

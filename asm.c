@@ -302,6 +302,7 @@ static int isExprNode(const Node *n) {
     case NodeLVar:
     case NodeAssign:
     case NodeAssignStruct:
+    case NodeAssignUnion:
     case NodeFCall:
     case NodeExprList:
     case NodeGVar:
@@ -343,6 +344,7 @@ static int isRegisterStorableValue(const Node *n) {
     switch (n->type->type) {
     case TypeArray:
     case TypeStruct:
+    case TypeUnion:
     case TypeFunction:
         return 0;
     case TypeInt:
@@ -351,7 +353,6 @@ static int isRegisterStorableValue(const Node *n) {
     case TypePointer:
     case TypeEnum:
         return 1;
-    default:
     case TypeNone:
     case TypeVoid:
         errorUnreachable();
@@ -438,6 +439,7 @@ static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {RDI, RSI, RDX, RCX, R8, R9};
 #define reg64obj(kind) regobj(kind, Reg64)
 #define asmPushRax() appendAsmInstPush(&asmlist, reg64obj(RAX))
 #define asmPopRax() appendAsmInstPop(&asmlist, reg64obj(RAX))
+#define asmPrintPosition() appendAsmInstAnyText(&asmlist, "  # %s:%d", __FILE__, __LINE__)
 
 static AsmInst *genCodeGVarInit(GVarInit *initializer) {
     AsmInstList asmlist;
@@ -567,7 +569,9 @@ static AsmInst *genCodeLVal(const Node *n) {
                 &asmlist, "  lea rax, %.*s[rip]", n->token->len, n->token->str);
         asmPushRax();
     } else if (n->kind == NodeMemberAccess) {
-        Obj *m = findStructMember(n->lhs->type->structDef, n->token->str, n->token->len);
+        Struct *objdef = n->lhs->type->type == TypeStruct ? n->lhs->type->structDef
+                                                          : n->lhs->type->unionDef;
+        Obj *m = findStructMember(objdef, n->token->str, n->token->len);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
         asmPopRax();
         appendAsmInstAnyText(&asmlist, "  add rax, %d", m->offset);
@@ -1417,8 +1421,8 @@ static AsmInst *genCodeInitVarStruct(const Node *n, TypeInfo *varType) {
 
     Node *var = n->lhs;
     AsmInstList asmlist;
-
     initAsmInstList(&asmlist);
+
     if (n->rhs->type->type == TypeStruct) {
         Node initNode = *n;
         initNode.kind = NodeAssignStruct;
@@ -1447,6 +1451,39 @@ static AsmInst *genCodeInitVarStruct(const Node *n, TypeInfo *varType) {
     return getRawAsmInstList(&asmlist);
 }
 
+static AsmInst *genCodeInitVarUnion(const Node *n, TypeInfo *varType) {
+    if (varType->type != TypeUnion)
+        errorUnreachable();
+
+    Node *var = n->lhs;
+    AsmInstList asmlist;
+    initAsmInstList(&asmlist);
+
+    if (n->rhs->type->type == TypeUnion) {
+        Node initNode = *n;
+        initNode.kind = NodeAssignUnion;
+        initNode.type = n->lhs->type;
+        appendAsmInst(&asmlist, genAsm(&initNode));
+        asmPopRax();
+    } else if (var->type->unionDef->members) {
+        Node *initVal = n->rhs->body;
+        Obj *initTarget = var->type->unionDef->members;
+        Node access = {};
+        Node initNode = {};
+
+        access.kind = NodeMemberAccess;
+        access.lhs = var;
+        access.type = initTarget->type;
+        access.token = initTarget->token;
+
+        fillNodeInitVar(&initNode, var->token, &access, initVal);
+
+        appendAsmInst(&asmlist, genAsm(&initNode));
+    }
+
+    return getRawAsmInstList(&asmlist);
+}
+
 static AsmInst *genCodeInitVar(const Node *n, TypeInfo *varType) {
     AsmInstList asmlist;
     initAsmInstList(&asmlist);
@@ -1455,6 +1492,8 @@ static AsmInst *genCodeInitVar(const Node *n, TypeInfo *varType) {
         appendAsmInst(&asmlist, genCodeInitVarArray(n, varType));
     } else if (varType->type == TypeStruct) {
         appendAsmInst(&asmlist, genCodeInitVarStruct(n, varType));
+    } else if (varType->type == TypeUnion) {
+        appendAsmInst(&asmlist, genCodeInitVarUnion(n, varType));
     } else {
         // TODO: Support this: char *str = "...";
         Node copy = *n;
@@ -1605,8 +1644,8 @@ AsmInst *genAsm(const Node *n) {
         // rvalue, not a lvalue.
         appendAsmInst(&asmlist, genCodeLVal(n));
 
-        // But, array, struct, and function is an exception.  It works like a
-        // pointer even when it's being a rvalue since it cannot always be
+        // But, array, struct, and function are exceptions.  They work like
+        // pointers even when they're being rvalues since they cannot always be
         // stored on register.
         if (!isRegisterStorableValue(n))
             return getRawAsmInstList(&asmlist);
@@ -1633,7 +1672,7 @@ AsmInst *genAsm(const Node *n) {
 
     } else if (n->kind == NodeAssign) {
         appendAsmInst(&asmlist, genCodeAssign(n));
-    } else if (n->kind == NodeAssignStruct) {
+    } else if (n->kind == NodeAssignStruct || n->kind == NodeAssignUnion) {
         int total, rest;
         total = rest = sizeOf(n->type);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
@@ -1759,7 +1798,7 @@ AsmInst *genAsm(const Node *n) {
 void optimizeAsm(AsmInst *inst) {
     int modified = 0;
     AsmInst *top = inst;
-    for (; inst->next; inst = inst->next) {
+    for (; inst; inst = inst->next) {
         switch (inst->kind) {
         case AsmMov:
             if (isEqualRegister(&inst->data.mov.src, &inst->data.mov.dst)) {

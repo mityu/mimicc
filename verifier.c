@@ -140,6 +140,15 @@ void verifyType(const Node *n) {
             errorAt(n->token, "Different struct.");
 
         verifyType(n->rhs);
+    } else if (n->kind == NodeAssignUnion) {
+        if (n->lhs->type->type != TypeUnion)
+            errorUnreachable();
+        else if (n->rhs->type->type != TypeUnion)
+            errorAt(n->rhs->token, "Union required.");
+        else if (n->lhs->type->unionDef != n->rhs->type->unionDef)
+            errorAt(n->token, "Different union.");
+
+        verifyType(n->rhs);
     } else if (n->kind == NodeEq || n->kind == NodeNeq) {
         verifyType(n->lhs);
         if (!checkRelationallyComparable(n->lhs->type, n->rhs->type)) {
@@ -367,6 +376,24 @@ static void verityTypeInitVar(Node *var, Node *initializer, Token *token) {
         } else {
             errorAt(token, "Initializer-list is expected here");
         }
+    } else if (type == TypeUnion) {
+        if (initializer->type->type == TypeUnion) {
+            // Check if the unions of variable and the initial value have the same type.
+            Node assign = {};
+            fillNodeBinary(&assign, NodeAssignUnion, token, var, initializer);
+            verifyType(&assign);
+        } else if (initializer->kind == NodeInitList) {
+            Obj *members = var->type->unionDef->members;
+            Node *initval = initializer->body;
+            if (initval == NULL) {
+                if (members != NULL)
+                    errorAt(token, "Value required in this initializer-list.");
+            } else if (initval->next != NULL) {
+                errorAt(token, "Too much items in initializer-list");
+            }
+        } else {
+            errorAt(token, "Initializer-list is expected here");
+        }
     } else {
         if (initializer->kind == NodeInitList) {
             errorAt(initializer->token, "Cannot have initializer-list here.");
@@ -383,7 +410,7 @@ static void verityTypeInitVar(Node *var, Node *initializer, Token *token) {
 int checkAssignable(const TypeInfo *lhs, const TypeInfo *rhs) {
     if (isArithmeticType(lhs)) {
         return isArithmeticType(rhs);
-    } else if (lhs->type == TypeStruct) {
+    } else if (lhs->type == TypeStruct || lhs->type == TypeUnion) {
         return checkTypeEqual(lhs, rhs);
     } else if (lhs->type == TypePointer && isWorkLikePointer(rhs)) {
         const TypeInfo *lhsBase = getBaseType(lhs);
@@ -447,6 +474,8 @@ int checkTypeEqual(const TypeInfo *t1, const TypeInfo *t2) {
             return 0;
     } else if (t1->type == TypeStruct) {
         return t1->structDef == t2->structDef;
+    } else if (t1->type == TypeUnion) {
+        return t1->unionDef == t2->unionDef;
     } else if (t1->type == TypeEnum) {
         return t1->enumDef == t2->enumDef;
     }

@@ -1,6 +1,5 @@
 #include "mimicc.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 // TODO: Accept using pointer to unknown type in struct member: e.g.:
@@ -20,8 +19,8 @@ static Function *parseFuncArgDeclaration(void);
 static int alignOf(const TypeInfo *ti);
 static Node *decl(void);
 static Node *stmt(void);
-static Struct *structDeclaration(const ObjAttr *attr);
-static void structBody(Struct *s);
+static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct);
+static void structBody(Struct *s, int isStruct);
 static Enum *enumDeclaration(const ObjAttr *attr);
 static void enumBody(Enum *e);
 static Node *varDeclaration(void);
@@ -363,6 +362,17 @@ static Struct *findStruct(const char *name, int len) {
     return NULL;
 }
 
+// Look up structure and return it.  If structure didn't found, returns NULL.
+static Struct *findUnion(const char *name, int len) {
+    for (Env *env = globals.currentEnv; env; env = env->outer) {
+        for (Struct *s = env->unions; s; s = s->next) {
+            if (matchToken(s->tagName, name, len))
+                return s;
+        }
+    }
+    return NULL;
+}
+
 // Search member in struct.  Returns the member if found, otherwise NULL.
 Obj *findStructMember(const Struct *s, const char *name, int len) {
     for (Obj *m = s->members; m; m = m->next) {
@@ -451,9 +461,14 @@ static TypeInfo *parseBaseType(ObjAttr *attr) {
     if (type) {
         return newTypeInfo(type->varType);
     } else if (matchCertainTokenType(TokenStruct)) {
-        Struct *s = structDeclaration(attr);
+        Struct *s = structOrUnionDeclaration(attr, 1);
         TypeInfo *typeInfo = newTypeInfo(TypeStruct);
         typeInfo->structDef = s;
+        return typeInfo;
+    } else if (matchCertainTokenType(TokenUnion)) {
+        Struct *u = structOrUnionDeclaration(attr, 0);
+        TypeInfo *typeInfo = newTypeInfo(TypeUnion);
+        typeInfo->unionDef = u;
         return typeInfo;
     } else if (matchCertainTokenType(TokenEnum)) {
         Enum *e = enumDeclaration(attr);
@@ -634,6 +649,8 @@ int sizeOf(const TypeInfo *ti) {
         return sizeOf(ti->baseType) * ti->arraySize;
     } else if (ti->type == TypeStruct) {
         return ti->structDef->totalSize;
+    } else if (ti->type == TypeUnion) {
+        return ti->unionDef->totalSize;
     }
     errorUnreachable();
 }
@@ -650,15 +667,16 @@ static int alignOf(const TypeInfo *ti) {
         return 8;
     } else if (ti->type == TypeArray) {
         return alignOf(ti->baseType);
-    } else if (ti->type == TypeStruct) {
+    } else if (ti->type == TypeStruct || ti->type == TypeUnion) {
+        const Struct *objdef = ti->type == TypeStruct ? ti->structDef : ti->unionDef;
         int align;
 
         // Alignment of struct with no members is 1.
-        if (ti->structDef->members == NULL)
+        if (objdef->members == NULL)
             return 1;
 
         align = -1;
-        for (Obj *m = ti->structDef->members; m; m = m->next) {
+        for (Obj *m = objdef->members; m; m = m->next) {
             int a = alignOf(m->type);
             if (a > align)
                 align = a;
@@ -802,6 +820,54 @@ static GVarInit *buildGVarInitSection(TypeInfo *varType, Node *initializer) {
                     GVarInitZero, NULL, varType->structDef->totalSize - prevOffset);
 
         return head.next;
+    } else if (varType->type == TypeUnion) {
+        GVarInit head = {};
+        GVarInit *init = &head;
+
+        Obj *initTarget = NULL;
+        Node *initVal = NULL;
+        int initBytes = 0, uninitBytes = 0;
+
+        // Compound-literal is given as the initial value.  Re-use the
+        // initializer of the initial value.
+        if (checkTypeEqual(varType, initializer->type)) {
+            Obj *tmpObj = initializer->obj;
+
+            if (tmpObj->isStatic && isNamelessObject(tmpObj)) {
+                for (GVar *var = globals.staticVars; var; var = var->next) {
+                    if (matchToken(
+                                var->obj->token, tmpObj->token->str, tmpObj->token->len))
+                        return var->initializer;
+                }
+            }
+        }
+
+        if (initializer->kind != NodeInitList) {
+            errorAt(initializer->token, "Initialzier-list required");
+        } else if (initializer->body == NULL) {
+            if (varType->unionDef->members != NULL)
+                errorAt(initializer->token, "Value required in this initializer-list.");
+            else
+                return NULL;
+        } else if (initializer->body->next != NULL) {
+            errorAt(initializer->token, "Too much items in initializer-list.");
+        }
+
+        initTarget = varType->unionDef->members;
+        initVal = initializer->body;
+        initBytes = sizeOf(initTarget->type);
+        uninitBytes = varType->unionDef->totalSize - initBytes;
+
+        // Build initializer for the first member of union.
+        init->next = buildGVarInitSection(initTarget->type, initVal);
+        while (init->next)
+            init = init->next;
+
+        // Fill padding area with zero.
+        if (uninitBytes)
+            init->next = newGVarInit(GVarInitZero, NULL, uninitBytes);
+
+        return head.next;
     } else if (varType->type == TypePointer) {
         int size = sizeOf(varType);
 
@@ -901,7 +967,8 @@ static Node *decl(void) {
     baseType = parseBaseType(&attr);
     if (!baseType) {
         errorTypeExpected();
-    } else if (baseType->type == TypeStruct || baseType->type == TypeEnum) {
+    } else if (baseType->type == TypeStruct || baseType->type == TypeUnion ||
+               baseType->type == TypeEnum) {
         Token *last = globals.token->prev;
 
         if (last->len == 1 && last->str[0] == '}' && consumeReserved(";"))
@@ -1321,14 +1388,18 @@ static Node *stmt(void) {
 
 // Parse struct declaration.  Returns struct if there's a struct declaration,
 // otherwise NULL.
-static Struct *structDeclaration(const ObjAttr *attr) {
+static Struct *structOrUnionDeclaration(const ObjAttr *attr, int isStruct) {
     // TODO: Prohibit declaring new enum at function parameter.
     Token *tokenStruct = globals.token;
     Token *tagName = NULL;
     int allowUndefinedStruct = attr && attr->isTypedef;
 
-    if (!consumeCertainTokenType(TokenStruct)) {
-        return NULL;
+    if (isStruct) {
+        if (!consumeCertainTokenType(TokenStruct))
+            return NULL;
+    } else {
+        if (!consumeCertainTokenType(TokenUnion))
+            return NULL;
     }
 
     tagName = consumeIdent();
@@ -1336,45 +1407,64 @@ static Struct *structDeclaration(const ObjAttr *attr) {
     if (matchReserved("{")) {
         Struct *s = NULL;
         if (tagName) {
-            s = findStruct(tagName->str, tagName->len);
-            if (s && s->hasImpl) {
-                errorAt(tokenStruct, "Redefinition of struct.");
+            if (isStruct) {
+                s = findStruct(tagName->str, tagName->len);
+                if (s && s->hasImpl) {
+                    errorAt(tokenStruct, "Redefinition of struct.");
+                }
+            } else {
+                s = findUnion(tagName->str, tagName->len);
+                if (s && s->hasImpl) {
+                    errorAt(tokenStruct, "Redefinition of union");
+                }
             }
         } else {
-            tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
+            if (isStruct)
+                tagName = buildTagNameForNamelessObject(globals.namelessStructCount++);
+            else
+                tagName = buildTagNameForNamelessObject(globals.namelessUnionCount++);
         }
         if (!s) {
+            Struct **holder =
+                    isStruct ? &globals.currentEnv->structs : &globals.currentEnv->unions;
             s = newStruct();
 
-            // Register struct
-            s->next = globals.currentEnv->structs;
-            globals.currentEnv->structs = s;
+            // Register struct or union
+            s->next = *holder;
+            *holder = s;
         }
         s->tagName = tagName;
         s->hasImpl = 1;
-        structBody(s);
+        structBody(s, isStruct);
 
         return s;
     } else if (tagName) {
-        Struct *s = findStruct(tagName->str, tagName->len);
+        Struct *s;
+        if (isStruct)
+            s = findStruct(tagName->str, tagName->len);
+        else
+            s = findUnion(tagName->str, tagName->len);
+
         if (allowUndefinedStruct) {
             if (!s) {
+                Struct **holder = isStruct ? &globals.currentEnv->structs
+                                           : &globals.currentEnv->unions;
                 s = newStruct();
                 s->tagName = tagName;
                 s->hasImpl = 0;
-                s->next = globals.currentEnv->structs;
-                globals.currentEnv->structs = s;
+                s->next = *holder;
+                *holder = s;
             }
         } else if (!(s && s->hasImpl)) {
-            errorAt(tokenStruct, "Undefiend struct.");
+            errorAt(tokenStruct, "Undefiend %s.", isStruct ? "struct" : "union");
         }
         return s;
     } else {
-        errorAt(globals.token, "Missing struct tag name.");
+        errorAt(globals.token, "Missing %s tag name.", isStruct ? "struct" : "union");
     }
 }
 
-static void structBody(Struct *s) {
+static void structBody(Struct *s, int isStruct) {
     Obj memberHead;
     Obj *members = &memberHead;
     int structAlign = 1;
@@ -1393,6 +1483,8 @@ static void structBody(Struct *s) {
                 errorAt(tokenMember, "Member name required.");
             } else if (member->type->type == TypeStruct && member->type->structDef == s) {
                 errorAt(tokenMember, "Cannot use struct itself for member type.");
+            } else if (member->type->type == TypeUnion && member->type->unionDef == s) {
+                errorAt(tokenMember, "Cannot use union itself for member type.");
             }
 
             for (Obj *m = memberHead.next; m; m = m->next) {
@@ -1413,25 +1505,46 @@ static void structBody(Struct *s) {
     s->members = memberHead.next;
 
     s->totalSize = 0;
-    for (Obj *m = s->members; m; m = m->next) {
-        int size = sizeOf(m->type);
-        int align, padding;
-        if (size < 0)
-            errorAt(m->token, "Cannot determine size of this.");
-        align = alignOf(m->type);
-        padding = s->totalSize % align;
-        if (padding)
-            padding = align - padding;
-        m->offset = s->totalSize + padding;
-        s->totalSize += padding + size;
+    if (isStruct) {
+        for (Obj *m = s->members; m; m = m->next) {
+            int size = sizeOf(m->type);
+            int align, padding;
+            if (size < 0)
+                errorAt(m->token, "Cannot determine size of this.");
+            align = alignOf(m->type);
+            padding = s->totalSize % align;
+            if (padding)
+                padding = align - padding;
+            m->offset = s->totalSize + padding;
+            s->totalSize += padding + size;
 
-        if (align > structAlign)
-            structAlign = align;
+            if (align > structAlign)
+                structAlign = align;
+        }
+    } else {
+        for (Obj *m = s->members; m; m = m->next) {
+            int size = sizeOf(m->type);
+            int align;
+            if (size < 0)
+                errorAt(m->token, "Cannot determine size of this.");
+            m->offset = 0; // The union member offset is always 0.
+            align = alignOf(m->type);
+
+            if (size > s->totalSize)
+                s->totalSize = size;
+
+            if (align > structAlign)
+                structAlign = align;
+        }
     }
 
-    // Add padding.
-    if (s->totalSize)
-        s->totalSize = (((s->totalSize - 1) / structAlign) + 1) * structAlign;
+    // Add padding after the last member.
+    if (s->totalSize) {
+        // s->totalSize = (((s->totalSize - 1) / structAlign) + 1) * structAlign;
+        int extra = s->totalSize % structAlign;
+        if (extra)
+            s->totalSize += structAlign - extra;
+    }
 }
 
 // Parse enum declaration if found and returns parse result.  If no enum found,
@@ -1535,7 +1648,8 @@ static Node *varDeclaration(void) {
     baseType = parseBaseType(&attr);
     if (!baseType) {
         return NULL;
-    } else if (baseType->type == TypeStruct || baseType->type == TypeEnum) {
+    } else if (baseType->type == TypeStruct || baseType->type == TypeUnion ||
+               baseType->type == TypeEnum) {
         Token *last = globals.token->prev;
 
         // Do not consume ";" here; it's handled by stmt().
@@ -1872,6 +1986,8 @@ static Node *assign(void) {
     if (consumeReserved("=")) {
         if (n->type->type == TypeStruct) {
             n = newNodeBinary(NodeAssignStruct, n, assign(), n->type);
+        } else if (n->type->type == TypeUnion) {
+            n = newNodeBinary(NodeAssignUnion, n, assign(), n->type);
         } else {
             n = newNodeBinary(NodeAssign, n, assign(), n->type);
         }
@@ -2175,7 +2291,8 @@ static Node *typecast(void) {
 
         // When array type or struct type is specified, it's the start of
         // compound literal.  Skip type-casting.
-        if (obj->type->type == TypeArray || obj->type->type == TypeStruct) {
+        if (obj->type->type == TypeArray || obj->type->type == TypeStruct ||
+                obj->type->type == TypeUnion) {
             globals.token = tokenSave;
             return unary();
         }
@@ -2274,7 +2391,7 @@ static Node *compoundLiteral(void) {
         return NULL;
 
     type = parseBaseType(NULL);
-    if (!type || type->type != TypeStruct) {
+    if (!type || !(type->type == TypeStruct || type->type == TypeUnion)) {
         globals.token = tokenSave;
         return NULL;
     }
@@ -2421,19 +2538,28 @@ static Node *postfix(void) {
             Obj *member;
 
             if (globals.token->prev->str[0] == '-') {
-                if (n->type->type != TypePointer || n->type->baseType->type != TypeStruct)
-                    errorAt(n->token, "Pointer for struct required.");
-                n = newNodeBinary(NodeDeref, NULL, n, n->type->baseType);
+                TypeInfo *baseType = n->type->baseType;
+                if (n->type->type != TypePointer ||
+                        !(baseType->type == TypeStruct || baseType->type == TypeUnion))
+                    errorAt(n->token, "Pointer for struct or union required.");
+                n = newNodeBinary(NodeDeref, NULL, n, baseType);
             }
 
-            if (n->type->type != TypeStruct)
-                errorAt(n->token, "Struct required.");
+            if (n->type->type != TypeStruct && n->type->type != TypeUnion)
+                errorAt(n->token, "Struct or union required.");
 
             memberToken = expectIdent();
-            member = findStructMember(
-                    n->type->structDef, memberToken->str, memberToken->len);
-            if (!member)
-                errorAt(memberToken, "No such struct member.");
+            if (n->type->type == TypeStruct) {
+                member = findStructMember(
+                        n->type->structDef, memberToken->str, memberToken->len);
+                if (!member)
+                    errorAt(memberToken, "No such struct member.");
+            } else { // TypeUnion
+                member = findStructMember(
+                        n->type->unionDef, memberToken->str, memberToken->len);
+                if (!member)
+                    errorAt(memberToken, "No such union member.");
+            }
 
             n = newNodeBinary(NodeMemberAccess, n, NULL, member->type);
         } else {

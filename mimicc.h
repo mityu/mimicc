@@ -41,7 +41,8 @@ typedef enum {
     TypeArray,
     TypePointer,
     TypeStruct, // Struct
-    TypeEnum,   // Enum
+    TypeUnion,
+    TypeEnum, // Enum
     TypeFunction,
 } TypeKind;
 
@@ -53,6 +54,7 @@ struct TypeInfo {
     int arraySize;
     Function *funcDef; // Valid when type is TypeFunction
     Struct *structDef; // Valid when type is TypeStruct
+    Struct *unionDef;  // Valid when type is TypeUnion
     Enum *enumDef;     // Valid when type is TypeEnum
 };
 
@@ -87,6 +89,7 @@ typedef enum {
     TokenSizeof,
     TokenLiteralString,
     TokenStruct,
+    TokenUnion,
     TokenEnum,
     TokenNewLine,
     TokenSOF, // Start of file.
@@ -112,6 +115,7 @@ typedef struct Env Env;
 struct Env {
     Env *outer;
     Struct *structs;
+    Struct *unions;
     Enum *enums;
     Typedef *typedefs;
     Obj *vars;   // List of variables local to this env.
@@ -149,6 +153,7 @@ typedef enum {
     NodeLVar,          // Left hand side value (local variable)
     NodeAssign,        // {lhs} = {rhs};
     NodeAssignStruct,  // Assignment, but only for structs
+    NodeAssignUnion,   // Assignment, but only for unions
     NodeFCall,         // Function calls,
     NodeConditional,   // {expr} ? {expr} : {expr}
     NodeIf,
@@ -321,8 +326,9 @@ struct Globals {
     int literalStringCount;  // The number of literal strings appeared in
                              // program.
     int staticVarCount;      // The number of variables declared with "static."
-    int namelessEnumCount;   // The number of nameless enums.
-    int namelessStructCount; // The number of nameless structs.
+    int namelessEnumCount;   // The number of annoymous enums.
+    int namelessStructCount; // The number of annoymous structs.
+    int namelessUnionCount;  // The number of annoymous structs.
     Token *token;            // Token currently watches.
     FILE *destFile;          // The output file.
     FilePath *ccFile;        // The binary file path infomation.
