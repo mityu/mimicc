@@ -358,16 +358,16 @@ typedef enum {
 } RegKind;
 
 typedef enum {
-    Reg8,
-    Reg16,
-    Reg32,
-    Reg64,
-} RegSize;
+    OpSize8,
+    OpSize16,
+    OpSize32,
+    OpSize64,
+} OperandSize;
 
 typedef struct Register Register;
 struct Register {
     RegKind kind;
-    RegSize size;
+    OperandSize size;
 };
 
 typedef enum {
@@ -391,8 +391,9 @@ typedef struct {
 } AsmInstImmValue;
 
 typedef struct {
-    int isRelative; // Specify whether addressing mode is relative or absolute.
-    Register base;  // Valid only when `isRelative` is TRUE.
+    int isRelative;   // Specify whether addressing mode is relative or absolute.
+    OperandSize size; // How many bytes to use as this operand.
+    Register base;    // Valid only when `isRelative` is TRUE.
     AsmInstImmValue offset;
 } AsmInstOperandMem;
 

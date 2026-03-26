@@ -130,16 +130,16 @@ static int isEqualRegisterOperand(const AsmInstOperand *a, const AsmInstOperand 
            isEqualRegister(&a->src.reg, &b->src.reg);
 }
 
-static RegSize getRegSizeFromByteSize(int size) {
+static OperandSize getOperandSizeFromByteSize(int size) {
     switch (size) {
     case 1:
-        return Reg8;
+        return OpSize8;
     case 2:
-        return Reg16;
+        return OpSize16;
     case 4:
-        return Reg32;
+        return OpSize32;
     case 8:
-        return Reg64;
+        return OpSize64;
     default:
         errorUnreachable();
     }
@@ -416,7 +416,7 @@ static const char *argRegs[REG_ARGS_MAX_COUNT] = {
 static const RegKind argRegs[REG_ARGS_MAX_COUNT] = {RDI, RSI, RDX, RCX, R8, R9};
 
 #define regobj(kind, size) ((Register){(kind), (size)})
-#define reg64obj(kind) regobj(kind, Reg64)
+#define reg64obj(kind) regobj(kind, OpSize64)
 #define asmPushReg(pushreg)                                                              \
     do {                                                                                 \
         AsmInstOperand operand;                                                          \
@@ -909,8 +909,8 @@ static AsmInst *genCodeFCall(const Node *n) {
             stackAlignState += 8;
     }
     for (int i = 0; i < regargs; ++i)
-        appendAsmInstPop(
-                &asmlist, &regobj(argRegs[i], getRegSizeFromByteSize(ONE_WORD_BYTES)));
+        appendAsmInstPop(&asmlist,
+                &regobj(argRegs[i], getOperandSizeFromByteSize(ONE_WORD_BYTES)));
 
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.

@@ -28,16 +28,16 @@ static const char *getRegName(const Register *r) {
 
     int index = 0;
     switch (r->size) {
-    case Reg8:
+    case OpSize8:
         index = 3;
         break;
-    case Reg16:
+    case OpSize16:
         index = 2;
         break;
-    case Reg32:
+    case OpSize32:
         index = 1;
         break;
-    case Reg64:
+    case OpSize64:
         index = 0;
         break;
     default:
@@ -71,12 +71,31 @@ static char *stringifyOperand(const AsmInstOperand *operand) {
 
         if (mem->isRelative) {
             AsmInstOperand opbase;
+            char *size;
 
             opbase.mode = AsmAddressingModeRegister;
             opbase.src.reg = mem->base;
             base = stringifyOperand(&opbase);
 
-            retval = format("%s[%s]", offset, base);
+            size = NULL;
+            switch (mem->size) {
+            case OpSize8:
+                size = "BYTE";
+                break;
+            case OpSize16:
+                size = "WORD";
+                break;
+            case OpSize32:
+                size = "DWORD";
+                break;
+            case OpSize64:
+                size = "QWORD";
+                break;
+            }
+            if (size == NULL)
+                errorUnreachable();
+
+            retval = format("%s PTR %s[%s]", size, offset, base);
         } else {
             retval = format("%s", offset);
         }
