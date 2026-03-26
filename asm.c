@@ -126,6 +126,21 @@ static int isEqualRegister(const Register *a, const Register *b) {
     return a->kind == b->kind && a->size == b->size;
 }
 
+static RegSize getRegSizeFromByteSize(int size) {
+    switch (size) {
+    case 1:
+        return Reg8;
+    case 2:
+        return Reg16;
+    case 4:
+        return Reg32;
+    case 8:
+        return Reg64;
+    default:
+        errorUnreachable();
+    }
+}
+
 static AsmInst *newAsmInst(AsmInstKind kind) {
     static AsmInst zero = {};
     AsmInst *inst = safeAlloc(sizeof(AsmInst));
@@ -624,8 +639,9 @@ static AsmInst *genCodeDeref(const Node *n) {
         appendAsmInstAnyText(&asmlist, "  movsx rax, al");
         break;
     default:
-        appendAsmInstAnyText(&asmlist, "  lea rax, [rax]");
-        break;
+        // appendAsmInstAnyText(&asmlist, "  lea rax, [rax]");
+        // break;
+        errorUnreachable();
     }
     appendAsmInstAnyText(&asmlist, "  mov [rsp], rax");
 
@@ -657,7 +673,7 @@ static AsmInst *genCodeAssign(const Node *n) {
     // |     Rhs value       | <-- Restore from RDI.
     // +---------------------+
     asmPopRax();
-    appendAsmInstAnyText(&asmlist, "  pop rdi");
+    appendAsmInstPop(&asmlist, reg64obj(RDI));
     switch (sizeOf(n->type)) {
     case 8:
         appendAsmInstAnyText(&asmlist, "  mov [rax], rdi");
@@ -671,7 +687,7 @@ static AsmInst *genCodeAssign(const Node *n) {
     default:
         errorUnreachable();
     }
-    appendAsmInstAnyText(&asmlist, "  push rdi");
+    appendAsmInstPush(&asmlist, reg64obj(RDI));
 
     return getRawAsmInstList(&asmlist);
 }
@@ -921,7 +937,8 @@ static AsmInst *genCodeFCall(const Node *n) {
             stackAlignState += 8;
     }
     for (int i = 0; i < regargs; ++i)
-        appendAsmInstAnyText(&asmlist, "  pop %s", getReg(argRegs[i], ONE_WORD_BYTES));
+        appendAsmInstPop(
+                &asmlist, regobj(argRegs[i], getRegSizeFromByteSize(ONE_WORD_BYTES)));
 
     // Set AL to count of float arguments in variadic arguments area.  This is
     // always 0 now.
@@ -1021,7 +1038,7 @@ static AsmInst *genCodeFunction(const Node *n) {
     appendAsmInstAnyText(&asmlist, "%.*s:", n->obj->token->len, n->obj->token->str);
 
     // Prologue.
-    appendAsmInstAnyText(&asmlist, "  push rbp");
+    appendAsmInstPush(&asmlist, reg64obj(RBP));
     appendAsmInstAnyText(&asmlist, "  mov rbp, rsp");
     if (n->obj->func->capStackSize)
         appendAsmInstAnyText(&asmlist, "  sub rsp, %d", n->obj->func->capStackSize);
@@ -1240,9 +1257,9 @@ static AsmInst *genCodeAdd(const Node *n) {
         // Load integer to RAX and pointer to RDI in either case.
         if (isWorkLikePointer(n->lhs->type)) { // ptr + num
             asmPopRax();
-            appendAsmInstAnyText(&asmlist, "  pop rdi");
+            appendAsmInstPop(&asmlist, reg64obj(RDI));
         } else { // num + ptr
-            appendAsmInstAnyText(&asmlist, "  pop rdi");
+            appendAsmInstPop(&asmlist, reg64obj(RDI));
             asmPopRax();
         }
         appendAsmInstAnyText(&asmlist, "  mov rsi, %d", altOne);
@@ -1250,7 +1267,7 @@ static AsmInst *genCodeAdd(const Node *n) {
         appendAsmInstAnyText(&asmlist, "  add rax, rdi");
         asmPushRax();
     } else {
-        appendAsmInstAnyText(&asmlist, "  pop rdi");
+        appendAsmInstPop(&asmlist, reg64obj(RDI));
         asmPopRax();
         switch (sizeOf(n->lhs->type)) {
         case 8:
@@ -1283,7 +1300,7 @@ static AsmInst *genCodeSub(const Node *n) {
     appendAsmInst(&asmlist, genAsm(n->lhs));
     appendAsmInst(&asmlist, genAsm(n->rhs));
 
-    appendAsmInstAnyText(&asmlist, "  pop rdi");
+    appendAsmInstPop(&asmlist, reg64obj(RDI));
     asmPopRax();
     if (n->lhs->type->type == TypePointer) {
         int altOne = getAlternativeOfOneForType(n->lhs->type);
@@ -1677,7 +1694,7 @@ AsmInst *genAsm(const Node *n) {
         total = rest = sizeOf(n->type);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
-        appendAsmInstAnyText(&asmlist, "  pop rdi");
+        appendAsmInstPop(&asmlist, reg64obj(RDI));
         asmPopRax();
         while (rest) {
             if (rest >= 8) {
@@ -1745,7 +1762,7 @@ AsmInst *genAsm(const Node *n) {
         appendAsmInst(&asmlist, genAsm(n->lhs));
         appendAsmInst(&asmlist, genAsm(n->rhs));
 
-        appendAsmInstAnyText(&asmlist, "  pop rdi");
+        appendAsmInstPop(&asmlist, reg64obj(RDI));
         asmPopRax();
 
         // Maybe these oprands should use only 8bytes registers.
@@ -1757,7 +1774,7 @@ AsmInst *genAsm(const Node *n) {
         } else if (n->kind == NodeDivRem) {
             appendAsmInstAnyText(&asmlist, "  cqo");
             appendAsmInstAnyText(&asmlist, "  idiv rdi");
-            appendAsmInstAnyText(&asmlist, "  push rdx");
+            appendAsmInstPush(&asmlist, reg64obj(RDX));
             return getRawAsmInstList(&asmlist);
         } else if (n->kind == NodeEq) {
             appendAsmInstAnyText(&asmlist, "  cmp rax, rdi");
