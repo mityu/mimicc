@@ -673,7 +673,7 @@ static AsmInst *genCodeReturn(const Node *n) {
 
     if (n->lhs) {
         if (!isExprNode(n->lhs))
-            errorAt(n->lhs->token, "Expression doesn't left value.");
+            errorAt(n->lhs->token, "Expression doesn't leave value.");
         appendAsmInst(&asmlist, genAsm(n->lhs));
         asmPopRax();
     }
@@ -800,7 +800,7 @@ static AsmInst *genCodeFor(const Node *n) {
         appendAsmInst(&asmlist, genAsm(n->initializer));
 
         // Not always initializer statement left a value on stack.  E.g.
-        // Variable declarations won't left values on stack.
+        // Variable declarations won't leave values on stack.
         if (isExprNode(n->initializer))
             asmPopRax();
     }
