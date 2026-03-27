@@ -558,7 +558,7 @@ static AsmInst *genCodeLVal(const Node *n) {
     } else if (n->kind == NodeMemberAccess) {
         StructOrUnion *objdef = n->lhs->type->type == TypeStruct ? n->lhs->type->structDef
                                                                  : n->lhs->type->unionDef;
-        Obj *m = findStructMember(objdef, n->token->str, n->token->len);
+        Obj *m = findStructOrUnionMember(objdef, n->token->str, n->token->len);
         appendAsmInst(&asmlist, genCodeLVal(n->lhs));
         asmPopRax();
         appendAsmInstAnyText(&asmlist, "  add rax, %d", m->offset);

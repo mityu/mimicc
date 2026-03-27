@@ -373,8 +373,9 @@ static StructOrUnion *findUnion(const char *name, int len) {
     return NULL;
 }
 
-// Search member in struct.  Returns the member if found, otherwise NULL.
-Obj *findStructMember(const StructOrUnion *s, const char *name, int len) {
+// Search member in struct or union.  Returns the member if found, otherwise
+// NULL.
+Obj *findStructOrUnionMember(const StructOrUnion *s, const char *name, int len) {
     for (Obj *m = s->members; m; m = m->next) {
         if (matchToken(m->token, name, len))
             return m;
@@ -2554,12 +2555,12 @@ static Node *postfix(void) {
 
             memberToken = expectIdent();
             if (n->type->type == TypeStruct) {
-                member = findStructMember(
+                member = findStructOrUnionMember(
                         n->type->structDef, memberToken->str, memberToken->len);
                 if (!member)
                     errorAt(memberToken, "No such struct member.");
             } else { // TypeUnion
-                member = findStructMember(
+                member = findStructOrUnionMember(
                         n->type->unionDef, memberToken->str, memberToken->len);
                 if (!member)
                     errorAt(memberToken, "No such union member.");

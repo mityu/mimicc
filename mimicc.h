@@ -462,7 +462,7 @@ void preprocess(Token *token);
 // parser.c
 void program(void);
 Obj *findFunction(const char *name, int len);
-Obj *findStructMember(const StructOrUnion *s, const char *name, int len);
+Obj *findStructOrUnionMember(const StructOrUnion *s, const char *name, int len);
 GVar *findGlobalVar(char *name, int len);
 Obj *findLVar(char *name, int len);
 int sizeOf(const TypeInfo *ti);
