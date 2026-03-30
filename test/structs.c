@@ -226,6 +226,44 @@ void test_struct_assign_to_member_from_ptr(void) {
     ASSERT(13, b.a.m);
 }
 
+void test_struct_anonymous_member_access(void) {
+    struct A {
+        int n;
+        struct {
+            char text[20];
+            int x;
+        };
+    };
+
+    struct A a = {};
+    ASSERT(0, a.n);
+    ASSERT(0, a.x);
+    ASSERT(0, strcmp(a.text, ""));
+
+    a.x = 5;
+    ASSERT(0, a.x);
+}
+
+void test_anonymous_struct_init(void) {
+    struct A {
+        int n;
+        struct {
+            char text[20];
+            int x;
+        };
+    };
+    struct A a1 = { 3, {"xyzxyz", 5} };
+    struct A a2 = { 7, "abcabc", 11 };
+
+    ASSERT(3, a1.n);
+    ASSERT(0, strcmp(a1.text, "xyzxyz"));
+    ASSERT(5, a1.x);
+
+    ASSERT(7, a2.n);
+    ASSERT(0, strcmp(a2.text, "abcabc"));
+    ASSERT(11, a2.x);
+}
+
 int main(void) {
     test_decl_global_struct_var();
     test_decl_local_struct_var();
@@ -237,5 +275,7 @@ int main(void) {
     test_compare_struct_pointers();
     testUseStructImmediately();
     test_struct_assign_to_member_from_ptr();
+    test_struct_anonymous_member_access();
+    test_anonymous_struct_init();
     return 0;
 }
