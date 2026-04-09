@@ -148,7 +148,7 @@ void test_compare_union_pointers(void) {
     ASSERT(1, &x == &x);
 }
 
-void test_struct_assign_to_member_from_ptr(void) {
+void test_union_assign_to_member_from_ptr(void) {
     union A {
         int n, m;
     };
@@ -166,6 +166,39 @@ void test_struct_assign_to_member_from_ptr(void) {
     ASSERT(13, b.a.n);
 }
 
+void test_union_anonymous_member_access(void) {
+    union A {
+        int n;
+        union {
+            char text[20];
+            int x;
+        };
+    };
+
+    union A a = {};
+    ASSERT(0, a.n);
+    ASSERT(0, a.x);
+    ASSERT(0, strcmp(a.text, ""));
+
+    a.x = 5;
+    ASSERT(0, a.x);
+}
+
+void test_anonymous_struct_init(void) {
+    union A {
+        union {
+            char text[20];
+            int x;
+        };
+        int n;
+    };
+    union A a1 = { {"xyzxyz"} };
+    union A a2 = { "abcabc" };
+
+    ASSERT(0, strcmp(a1.text, "xyzxyz"));
+    ASSERT(0, strcmp(a2.text, "abcabc"));
+}
+
 int main(void) {
     test_decl_global_union_var();
     test_decl_local_union_var();
@@ -176,5 +209,6 @@ int main(void) {
     test_union_assign();
     test_compound_literal();
     test_compare_union_pointers();
-    test_struct_assign_to_member_from_ptr();
+    test_union_assign_to_member_from_ptr();
+    test_union_anonymous_member_access();
 }
