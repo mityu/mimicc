@@ -12,7 +12,7 @@ jobs:
   on-ubuntu:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: gcc --version
       # - run: make test_test
       - name: 1st-gen tests
@@ -32,7 +32,7 @@ jobs:
   on-ubuntu-nix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: cachix/install-nix-action@v31
       - name: Setup Nix's devshell
         run: nix develop .
